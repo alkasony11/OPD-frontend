@@ -1,19 +1,29 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 export default function ForgotPassword() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async e => {
     e.preventDefault();
     setMsg(''); setError('');
+    setLoading(true);
+
     try {
-      await axios.post('http://localhost:5000/api/auth/forgot-password', { email });
-      setMsg('Check your email for a password reset link.');
+      await axios.post('http://localhost:5001/api/auth/forgot-password', { email });
+      setMsg('OTP sent to your email! Redirecting to reset password page...');
+      setTimeout(() => {
+        navigate('/reset-password', { state: { email } });
+      }, 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error sending reset link');
+      setError(err.response?.data?.message || 'Error sending reset OTP');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,11 +42,15 @@ export default function ForgotPassword() {
             required
             className="w-full px-4 py-3 border border-gray-300 rounded-lg"
           />
-          <button type="submit" className="w-full bg-black text-white py-3 rounded-lg font-semibold">
-            Send Reset Link
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Sending...' : 'Send Reset OTP'}
           </button>
         </form>
       </div>
     </div>
   );
-}
+} 

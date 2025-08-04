@@ -1,38 +1,30 @@
-import { useState, useContext, useEffect } from 'react';
-import { AuthContext } from '../App';
+import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { HiUser, HiUserGroup, HiPlus, HiChevronDown, HiHeart } from 'react-icons/hi';
 
 export default function BookingPage() {
-  const { isLoggedIn } = useContext(AuthContext);
+  const { isSignedIn, user, isLoaded } = useUser();
   const [selectedPatient, setSelectedPatient] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [familyMembers, setFamilyMembers] = useState([]);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      // Get user data from localStorage
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        
-        // Create family members array from user data
-        const members = [
-          {
-            id: 1,
-            name: parsedUser.name || 'User',
-            relation: 'Self',
-            age: parsedUser.age || 'N/A',
-            gender: parsedUser.gender || 'N/A'
-          }
-        ];
-        
-        setFamilyMembers(members);
-        setSelectedPatient(`${parsedUser.name || 'User'} (Self)`);
-      }
+    if (isLoaded && isSignedIn && user) {
+      // Create family members array from user data
+      const members = [
+        {
+          id: 1,
+          name: user.fullName || user.firstName || 'User',
+          relation: 'Self',
+          age: user.publicMetadata?.age || 'N/A',
+          gender: user.publicMetadata?.gender || 'N/A'
+        }
+      ];
+      
+      setFamilyMembers(members);
+      setSelectedPatient(`${user.fullName || user.firstName || 'User'} (Self)`);
     }
-  }, [isLoggedIn]);
+  }, [isLoaded, isSignedIn, user]);
 
   const handleGetSuggestions = () => {
     if (!symptoms.trim()) {
@@ -47,7 +39,19 @@ export default function BookingPage() {
     alert('Add family member feature will be implemented here.');
   };
 
-  if (!isLoggedIn) {
+  if (!isLoaded) {
+    return (
+      <div className="py-20 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading...</h2>
+          <p className="text-gray-600">Please wait while we verify your authentication.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
     return (
       <div className="py-20 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
@@ -60,18 +64,6 @@ export default function BookingPage() {
           >
             Go to Login
           </a>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="py-20 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading...</h2>
-          <p className="text-gray-600">Please wait while we load your data.</p>
         </div>
       </div>
     );

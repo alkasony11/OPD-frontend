@@ -49,7 +49,7 @@ export default function Profile() {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/auth/profile', {
+      const response = await axios.get('http://localhost:5001/api/auth/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -84,7 +84,7 @@ export default function Profile() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put('http://localhost:5000/api/auth/profile', formData, {
+      const response = await axios.put('http://localhost:5001/api/auth/profile', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

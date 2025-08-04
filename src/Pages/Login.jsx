@@ -1,12 +1,14 @@
 import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
+import { useSignIn } from '@clerk/clerk-react';
 import axios from 'axios';
 import { AuthContext } from '../App';
 
 export default function Login() {
   const navigate = useNavigate();
   const { setIsLoggedIn, redirectPath, setRedirectPath } = useContext(AuthContext);
+  const { signIn, isLoaded } = useSignIn();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -28,7 +30,7 @@ export default function Login() {
     setError('');
     
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', formData);
+      const response = await axios.post('http://localhost:5001/api/auth/login', formData);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
@@ -38,6 +40,24 @@ export default function Login() {
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (!isLoaded) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: redirectPath || '/'
+      });
+    } catch (err) {
+      setError('Google sign-in failed. Please try again.');
       setLoading(false);
     }
   };
@@ -120,10 +140,12 @@ export default function Login() {
 
             <button
               type="button"
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              onClick={handleGoogleSignIn}
+              disabled={loading || !isLoaded}
+              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FcGoogle className="h-5 w-5 mr-3" />
-              Sign in with Google
+              {loading ? 'Signing in...' : 'Sign in with Google'}
             </button>
           </form>
           <p className="text-center text-gray-600 mt-6">

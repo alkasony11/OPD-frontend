@@ -1,6 +1,7 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { HiMenu, HiX, HiUser, HiLogout, HiCog } from 'react-icons/hi';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
 
 export default function Navbar() {
@@ -10,10 +11,17 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isLoggedIn, setIsLoggedIn } = useContext(AuthContext);
+  const { signOut } = useClerk();
+  const { user: clerkUser } = useUser();
   const profileDropdownRef = useRef(null);
 
-  // Get user data from localStorage
-  const user = isLoggedIn ? JSON.parse(localStorage.getItem('user') || '{}') : null;
+  // Get user data from localStorage or Clerk
+  const localUser = isLoggedIn ? JSON.parse(localStorage.getItem('user') || '{}') : null;
+  const user = clerkUser ? {
+    name: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
+    email: clerkUser.primaryEmailAddress?.emailAddress,
+    profileImage: clerkUser.imageUrl
+  } : localUser;
   const userName = user?.name || 'User';
 
   // Close dropdown when clicking outside
@@ -30,12 +38,28 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsLoggedIn(false);
-    setIsProfileDropdownOpen(false);
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      // Sign out from Clerk if user is signed in with Clerk
+      if (clerkUser) {
+        await signOut();
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setIsLoggedIn(false);
+      setIsProfileDropdownOpen(false);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if Clerk signout fails
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setIsLoggedIn(false);
+      setIsProfileDropdownOpen(false);
+      navigate('/login');
+    }
   };
 
   const handleProfileClick = () => {
@@ -119,9 +143,17 @@ export default function Navbar() {
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                   className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-black transition-colors duration-200"
                 >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                    {getInitials(userName)}
-                  </div>
+                  {user?.profileImage ? (
+                    <img 
+                      src={user.profileImage} 
+                      alt={userName}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {getInitials(userName)}
+                    </div>
+                  )}
                   <span className="hidden lg:block">{userName}</span>
                 </button>
 
@@ -191,9 +223,17 @@ export default function Navbar() {
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <div className="px-4 py-2">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {getInitials(userName)}
-                    </div>
+                    {user?.profileImage ? (
+                      <img 
+                        src={user.profileImage} 
+                        alt={userName}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        {getInitials(userName)}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium text-gray-900">{userName}</p>
                       <p className="text-xs text-gray-500">{user?.email}</p>

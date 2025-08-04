@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
+import { useSignUp } from '@clerk/clerk-react';
 import axios from 'axios';
 
 export default function Register() {
   const navigate = useNavigate();
+  const { signUp, isLoaded } = useSignUp();
   const [step, setStep] = useState(1); // 1: form, 2: OTP verification
   const [formData, setFormData] = useState({
     name: '',
@@ -34,7 +36,7 @@ export default function Register() {
     setSuccess('');
 
     try {
-      await axios.post('http://localhost:5000/api/auth/send-otp', {
+      await axios.post('http://localhost:5001/api/auth/send-otp', {
         email: formData.email
       });
       setSuccess('OTP sent to your email! Please check your inbox.');
@@ -52,7 +54,7 @@ export default function Register() {
     setError('');
 
     try {
-      await axios.post('http://localhost:5000/api/auth/register', {
+      await axios.post('http://localhost:5001/api/auth/register', {
         ...formData,
         otp
       });
@@ -69,13 +71,31 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      await axios.post('http://localhost:5000/api/auth/send-otp', {
+      await axios.post('http://localhost:5001/api/auth/send-otp', {
         email: formData.email
       });
       setSuccess('OTP resent successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!isLoaded) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      await signUp.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: '/'
+      });
+    } catch (err) {
+      setError('Google sign-up failed. Please try again.');
       setLoading(false);
     }
   };
@@ -199,10 +219,12 @@ export default function Register() {
 
               <button
                 type="button"
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                onClick={handleGoogleSignUp}
+                disabled={loading || !isLoaded}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FcGoogle className="h-5 w-5 mr-3" />
-                Sign up with Google
+                {loading ? 'Signing up...' : 'Sign up with Google'}
               </button>
             </form>
           </div>
