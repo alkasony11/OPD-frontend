@@ -30,30 +30,12 @@ export const useClerkAuth = () => {
           // Send user data to your backend
           const response = await axios.post('http://localhost:5001/api/auth/clerk-sync', userData);
 
-          console.log('Backend sync response:', response.data);
-
           // Store the backend token
           if (response.data.token) {
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
             setIsLoggedIn(true);
             console.log('User synced successfully');
-
-            // Check if user is admin and redirect accordingly
-            const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
-            const isAdminByRole = response.data.user.role === 'admin';
-            const isAdminByEmail = response.data.user.email === adminEmail;
-
-            console.log('Admin detection - User email:', response.data.user.email);
-            console.log('Admin detection - Admin email from env:', adminEmail);
-            console.log('Admin detection - Is admin by role:', isAdminByRole);
-            console.log('Admin detection - Is admin by email:', isAdminByEmail);
-
-            if (isAdminByRole || isAdminByEmail) {
-              console.log('Admin user detected via Google Sign-In, redirecting to admin dashboard');
-              navigate('/admin/dashboard');
-              return; // Exit early for admin users
-            }
 
             // Check if this is a new user or if profile is incomplete
             const { isNewUser, isProfileComplete } = response.data;

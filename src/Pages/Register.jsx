@@ -19,6 +19,7 @@ export default function Register() {
   });
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -85,7 +86,7 @@ export default function Register() {
   const handleGoogleSignUp = async () => {
     if (!isLoaded) return;
     
-    setLoading(true);
+    setGoogleLoading(true);
     setError('');
     
     try {
@@ -99,7 +100,7 @@ export default function Register() {
       });
     } catch (err) {
       setError('Google sign-up failed. Please try again.');
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -217,9 +218,9 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Sending OTP...' : 'Send OTP & Continue'}
+                {loading ? 'Sending OTP...' : 'Create Account'}
               </button>
 
               <div className="relative my-6">
@@ -234,11 +235,11 @@ export default function Register() {
               <button
                 type="button"
                 onClick={handleGoogleSignUp}
-                disabled={loading || !isLoaded}
+                disabled={googleLoading || !isLoaded}
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FcGoogle className="h-5 w-5 mr-3" />
-                {loading ? 'Signing up...' : 'Sign up with Google'}
+                {googleLoading ? 'Signing up...' : 'Sign up with Google'}
               </button>
             </form>
           </div>

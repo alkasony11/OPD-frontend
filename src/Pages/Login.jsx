@@ -16,6 +16,7 @@ export default function Login() {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
 
@@ -61,7 +62,7 @@ export default function Login() {
   const proceedWithGoogleSignIn = async () => {
     if (!isLoaded) return;
 
-    setLoading(true);
+    setGoogleLoading(true);
     setError('');
 
     try {
@@ -87,14 +88,14 @@ export default function Login() {
         } catch (authError) {
           console.error('Google authentication error:', authError);
           setError('Google sign-in failed. Please try again.');
-          setLoading(false);
+          setGoogleLoading(false);
         }
       }, 500);
 
     } catch (err) {
       console.error('Google sign-in error:', err);
       setError('Google sign-in failed. Please try again.');
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -171,7 +172,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
@@ -192,10 +193,10 @@ export default function Login() {
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FcGoogle className="h-5 w-5 mr-3" />
-              {loading ? 'Redirecting to Google...' : 'Continue with Google'}
+              {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
             </button>
 
-            {loading && (
+            {googleLoading && (
               <div className="mt-3 text-center">
                 <p className="text-sm text-gray-600">
                   You'll be redirected to Google to select your account
