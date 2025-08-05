@@ -1,16 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
-import { HiUser, HiUserGroup, HiPlus, HiChevronDown, HiHeart } from 'react-icons/hi';
+import { AuthContext } from '../App';
+import { HiUser, HiUserGroup, HiPlus, HiChevronDown, HiHeart, HiArrowLeft } from 'react-icons/hi';
 
 export default function BookingPage() {
+  const navigate = useNavigate();
   const { isSignedIn, user, isLoaded } = useUser();
+  const { isLoggedIn } = useContext(AuthContext);
   const [selectedPatient, setSelectedPatient] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [familyMembers, setFamilyMembers] = useState([]);
 
   useEffect(() => {
+    // Handle Clerk users
     if (isLoaded && isSignedIn && user) {
-      // Create family members array from user data
       const members = [
         {
           id: 1,
@@ -20,11 +24,31 @@ export default function BookingPage() {
           gender: user.publicMetadata?.gender || 'N/A'
         }
       ];
-      
+
       setFamilyMembers(members);
       setSelectedPatient(`${user.fullName || user.firstName || 'User'} (Self)`);
     }
-  }, [isLoaded, isSignedIn, user]);
+    // Handle regular login users
+    else if (isLoggedIn && !isSignedIn) {
+      // Get user data from localStorage for regular login users
+      const localUser = isLoggedIn ? JSON.parse(localStorage.getItem('user') || '{}') : null;
+
+      if (localUser && localUser.name) {
+        const members = [
+          {
+            id: 1,
+            name: localUser.name || 'User',
+            relation: 'Self',
+            age: localUser.age || 'N/A',
+            gender: localUser.gender || 'N/A'
+          }
+        ];
+
+        setFamilyMembers(members);
+        setSelectedPatient(`${localUser.name || 'User'} (Self)`);
+      }
+    }
+  }, [isLoaded, isSignedIn, user, isLoggedIn]);
 
   const handleGetSuggestions = () => {
     if (!symptoms.trim()) {
@@ -39,7 +63,8 @@ export default function BookingPage() {
     alert('Add family member feature will be implemented here.');
   };
 
-  if (!isLoaded) {
+  // Show loading only if Clerk is still loading and no regular login
+  if (!isLoaded && !isLoggedIn) {
     return (
       <div className="py-20 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
@@ -51,7 +76,8 @@ export default function BookingPage() {
     );
   }
 
-  if (!isSignedIn) {
+  // Check if user is authenticated through either Clerk or regular login
+  if (!isSignedIn && !isLoggedIn) {
     return (
       <div className="py-20 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
@@ -72,6 +98,17 @@ export default function BookingPage() {
   return (
     <div className="py-20 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+          >
+            <HiArrowLeft className="h-5 w-5 mr-2" />
+            Back
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">

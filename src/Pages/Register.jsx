@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useSignUp } from '@clerk/clerk-react';
 import axios from 'axios';
+import { HiArrowLeft } from 'react-icons/hi';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -58,7 +59,6 @@ export default function Register() {
         ...formData,
         otp
       });
-      alert('Registration successful! Please login.');
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
@@ -92,7 +92,10 @@ export default function Register() {
       await signUp.authenticateWithRedirect({
         strategy: 'oauth_google',
         redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: '/'
+        redirectUrlComplete: '/',
+        customOAuthParameters: {
+          prompt: 'select_account'
+        }
       });
     } catch (err) {
       setError('Google sign-up failed. Please try again.');
@@ -104,6 +107,17 @@ export default function Register() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
         <div className="w-full max-w-md">
+          {/* Back Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              <HiArrowLeft className="h-5 w-5 mr-2" />
+              Back
+            </button>
+          </div>
+
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">
             Create Account
           </h2>

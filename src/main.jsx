@@ -14,10 +14,23 @@ if (!PUBLISHABLE_KEY) {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <ClerkProvider
+      publishableKey={PUBLISHABLE_KEY}
+      appearance={{
+        variables: {
+          colorPrimary: '#3b82f6'
+        }
+      }}
+      // Configure OAuth to always show account selection
+      options={{
+        allowedRedirectOrigins: [window.location.origin],
+        // This might help with forcing fresh authentication
+        sessionTokenTemplate: 'default'
+      }}
+    >
       <BrowserRouter>
         <App />
       </BrowserRouter>
     </ClerkProvider>
   </React.StrictMode>
-); 
+);

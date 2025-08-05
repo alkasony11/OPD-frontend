@@ -1,20 +1,23 @@
 import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
-import { useSignIn } from '@clerk/clerk-react';
+import { useSignIn, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import { AuthContext } from '../App';
+import { HiArrowLeft } from 'react-icons/hi';
 
 export default function Login() {
   const navigate = useNavigate();
   const { setIsLoggedIn, redirectPath, setRedirectPath } = useContext(AuthContext);
   const { signIn, isLoaded } = useSignIn();
+  const { signOut } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,8 +37,15 @@ export default function Login() {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
-      alert('Login successful!');
-      navigate(redirectPath || '/patient');
+
+      // Check if user is admin and redirect accordingly
+      if (response.data.user.role === 'admin') {
+        alert('Welcome Admin!');
+        navigate('/admin/dashboard');
+      } else {
+        alert('Login successful!');
+        navigate(redirectPath || '/');
+      }
       setRedirectPath('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
@@ -44,19 +54,45 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
+    proceedWithGoogleSignIn();
+  };
+
+  const proceedWithGoogleSignIn = async () => {
     if (!isLoaded) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
-      await signIn.authenticateWithRedirect({
-        strategy: 'oauth_google',
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: redirectPath || '/'
-      });
+      // First, ensure any existing Clerk session is cleared
+      try {
+        await signOut();
+      } catch (signOutError) {
+        console.log('No existing session to clear');
+      }
+
+      // Add a small delay and then initiate Google sign-in
+      setTimeout(async () => {
+        try {
+          // Use the authenticateWithRedirect method
+          await signIn.authenticateWithRedirect({
+            strategy: 'oauth_google',
+            redirectUrl: `${window.location.origin}/sso-callback`,
+            redirectUrlComplete: redirectPath || '/',
+            customOAuthParameters: {
+              prompt: 'select_account'
+            }
+          });
+        } catch (authError) {
+          console.error('Google authentication error:', authError);
+          setError('Google sign-in failed. Please try again.');
+          setLoading(false);
+        }
+      }, 500);
+
     } catch (err) {
+      console.error('Google sign-in error:', err);
       setError('Google sign-in failed. Please try again.');
       setLoading(false);
     }
@@ -65,6 +101,17 @@ export default function Login() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
       <div className="w-full max-w-md">
+        {/* Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+          >
+            <HiArrowLeft className="h-5 w-5 mr-2" />
+            Back
+          </button>
+        </div>
+
         <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">
           Sign In
         </h2>
@@ -145,8 +192,16 @@ export default function Login() {
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FcGoogle className="h-5 w-5 mr-3" />
-              {loading ? 'Signing in...' : 'Sign in with Google'}
+              {loading ? 'Redirecting to Google...' : 'Continue with Google'}
             </button>
+
+            {loading && (
+              <div className="mt-3 text-center">
+                <p className="text-sm text-gray-600">
+                  You'll be redirected to Google to select your account
+                </p>
+              </div>
+            )}
           </form>
           <p className="text-center text-gray-600 mt-6">
             Don't have an account?{' '}
@@ -158,4 +213,4 @@ export default function Login() {
       </div>
     </div>
   );
-} 
+}

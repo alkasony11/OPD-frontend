@@ -1,15 +1,19 @@
 import { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../App';
 import axios from 'axios';
+import Swal from 'sweetalert2';
+import { HiArrowLeft } from 'react-icons/hi';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoggedIn } = useContext(AuthContext);
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,6 +30,12 @@ export default function Profile() {
       return;
     }
 
+    // Check for welcome message from navigation state
+    if (location.state?.message) {
+      setWelcomeMessage(location.state.message);
+      setIsEditing(true); // Auto-enable editing for new users
+    }
+
     // Get user data from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
@@ -35,7 +45,7 @@ export default function Profile() {
         name: parsedUser.name || '',
         email: parsedUser.email || '',
         phone: parsedUser.phone || '',
-        dob: parsedUser.dob || '',
+        dob: parsedUser.dob ? new Date(parsedUser.dob).toISOString().split('T')[0] : '',
         gender: parsedUser.gender || '',
         address: parsedUser.address || '',
         emergencyContact: parsedUser.emergencyContact || ''
@@ -44,7 +54,7 @@ export default function Profile() {
 
     // Fetch complete user data from backend
     fetchUserData();
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, location.state]);
 
   const fetchUserData = async () => {
     try {
@@ -88,13 +98,24 @@ export default function Profile() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Update localStorage with new data
-      const updatedUser = { ...user, ...formData };
+      // Update localStorage with the response data from server
+      const updatedUser = response.data;
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-      
+
+      // Dispatch a custom event to notify other components (like Navbar) of the update
+      window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: updatedUser }));
+
       setIsEditing(false);
-      alert('Profile updated successfully!');
+
+      // Show success alert with SweetAlert2
+      Swal.fire({
+        title: 'Success!',
+        text: 'Profile updated successfully!',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#10B981'
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -125,6 +146,42 @@ export default function Profile() {
     <div className="py-20 bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-md p-8">
+          {welcomeMessage && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-700">{welcomeMessage}</p>
+                </div>
+                <div className="ml-auto">
+                  <button
+                    onClick={() => setWelcomeMessage('')}
+                    className="text-blue-400 hover:text-blue-600"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Back Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              <HiArrowLeft className="h-5 w-5 mr-2" />
+              Back
+            </button>
+          </div>
+
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">
               User Profile
