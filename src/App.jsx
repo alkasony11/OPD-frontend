@@ -1,16 +1,17 @@
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "./Components/Patients/Navbar";
 import Footer from "./Components/Patients/Footer";
-import LandingPage from "./Pages/LandingPage";
+import LandingPage from "./Pages/Patient/LandingPage";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import { createContext, useEffect, useState } from "react";
-import BookingPage from "./Pages/BookingPage";
-import Profile from "./Pages/Profile";
+import BookingPage from "./Pages/Patient/BookingPage";
+import Profile from "./Pages/Patient/Profile";
 import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
-import AdminDashboard from './Pages/AdminDashboard';
+import AdminDashboard from './Pages/Admin/AdminDashboard';
+import DoctorDashboard from './Pages/Doctor/doctordash';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
 
@@ -24,7 +25,7 @@ function AppContent() {
   useClerkAuth();
 
   // Routes where navbar and footer should be hidden
-  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
+  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/doctor/dashboard'];
   const shouldHideNavbarFooter = hideNavbarFooterRoutes.includes(location.pathname);
 
   return (
@@ -41,6 +42,7 @@ function AppContent() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
         </Routes>
       </main>
       {!shouldHideNavbarFooter && <Footer />}

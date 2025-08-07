@@ -1,0 +1,30 @@
+src/
+├── App.jsx ✅
+├── main.jsx ✅
+├── Components/
+│   ├── Admin/
+│   │   ├── UserManagement.jsx ✅
+│   │   └── AppointmentManagement.jsx ✅
+│   └── Patients/
+│       ├── Navbar.jsx ✅
+│       ├── Footer.jsx ✅
+│       ├── HeroSection.jsx ✅
+│       ├── AboutSection.jsx ✅
+│       ├── ServicesSection.jsx ✅
+│       └── ContactSection.jsx ✅
+├── Pages/
+│   ├── Admin/
+│   │   └── AdminDashboard.jsx ✅
+│   ├── Patient/
+│   │   ├── LandingPage.jsx ✅
+│   │   ├── BookingPage.jsx ✅
+│   │   └── Profile.jsx ✅
+│   ├── Login.jsx ✅
+│   ├── Register.jsx ✅
+│   ├── ForgotPassword.jsx ✅
+│   ├── ResetPassword.jsx ✅
+│   └── SSOCallback.jsx ✅
+├── hooks/
+│   └── useClerkAuth.js ✅
+└── utils/
+    └── auth.js ✅

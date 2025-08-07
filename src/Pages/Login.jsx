@@ -16,7 +16,8 @@ export default function Login() {
     password: ''
   });
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const [googleLoading, setGoogleLoading] = useState(false); 
   const [error, setError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
 
@@ -39,10 +40,13 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
 
-      // Check if user is admin and redirect accordingly
+      // Check user role and redirect accordingly
       if (response.data.user.role === 'admin') {
         alert('Welcome Admin!');
         navigate('/admin/dashboard');
+      } else if (response.data.user.role === 'doctor') {
+        alert('Welcome Doctor!');
+        navigate('/doctor/dashboard');
       } else {
         alert('Login successful!');
         navigate(redirectPath || '/');
@@ -172,7 +176,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
@@ -193,7 +197,7 @@ export default function Login() {
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FcGoogle className="h-5 w-5 mr-3" />
-              {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+                {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
             </button>
 
             {googleLoading && (

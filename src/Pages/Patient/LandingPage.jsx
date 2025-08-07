@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import HeroSection from "../Components/Patients/HeroSection";
-import AboutSection from "../Components/Patients/AboutSection";
-import ServicesSection from "../Components/Patients/ServicesSection";
-import ContactSection from "../Components/Patients/ContactSection";
+import HeroSection from "../../Components/Patients/HeroSection";
+import AboutSection from "../../Components/Patients/AboutSection";
+import ServicesSection from "../../Components/Patients/ServicesSection";
+import ContactSection from "../../Components/Patients/ContactSection";
 
 export default function LandingPage() {
   const location = useLocation();

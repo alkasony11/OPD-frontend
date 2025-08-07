@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext } from '../../App';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { HiArrowLeft } from 'react-icons/hi';
