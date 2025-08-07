@@ -38,24 +38,52 @@ export const useClerkAuth = () => {
             console.log('User synced successfully');
 
             // Check if this is a new user or if profile is incomplete
-            const { isNewUser, isProfileComplete } = response.data;
+            const { isNewUser, isProfileComplete, user: userData } = response.data;
+            const userRole = userData.role;
 
-            // Only redirect if we're not already on the profile page and user needs to complete profile
-            if ((isNewUser || !isProfileComplete) && location.pathname !== '/profile') {
-              console.log('Redirecting new/incomplete user to profile page');
-              navigate('/profile', {
-                state: {
-                  message: isNewUser
-                    ? 'Welcome! Please complete your profile to get started.'
-                    : 'Please complete your profile information.'
-                }
-              });
-            }
+            // Handle role-based redirection with delay to ensure state is updated
+            setTimeout(() => {
+              if (userRole === 'admin') {
+                console.log('Admin user detected, redirecting to admin dashboard');
+                navigate('/admin/dashboard');
+              } else if (userRole === 'doctor') {
+                console.log('Doctor user detected, redirecting to doctor dashboard');
+                navigate('/doctor/dashboard');
+              } else if ((isNewUser || !isProfileComplete) && location.pathname !== '/profile') {
+                console.log('Redirecting new/incomplete user to profile page');
+                navigate('/profile', {
+                  state: {
+                    message: isNewUser
+                      ? 'Welcome! Please complete your profile to get started.'
+                      : 'Please complete your profile information.'
+                  }
+                });
+              } else if (userRole === 'patient' && location.pathname !== '/') {
+                // Redirect patient users to home page if they're not already there
+                console.log('Patient user detected, redirecting to home page');
+                navigate('/');
+              }
+            }, 100); // Small delay to ensure state is properly updated
           }
         } catch (error) {
           console.error('Error syncing with backend:', error.response?.data || error.message);
-          // Don't prevent login if backend sync fails
-          setIsLoggedIn(true);
+
+          // Check if it's a network error or server error
+          if (error.response?.status >= 500) {
+            console.log('Server error during sync, allowing login with Clerk data only');
+            setIsLoggedIn(true);
+          } else if (error.response?.status === 401) {
+            console.log('Authentication error during sync, signing out');
+            try {
+              await signOut();
+            } catch (signOutError) {
+              console.error('Error signing out:', signOutError);
+            }
+            setIsLoggedIn(false);
+          } else {
+            console.log('Other error during sync, allowing login');
+            setIsLoggedIn(true);
+          }
         }
       } else if (userLoaded && !isSignedIn) {
         // Only clear localStorage if the user was previously authenticated with Clerk

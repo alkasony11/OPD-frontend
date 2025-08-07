@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useSignUp } from '@clerk/clerk-react';
+import { AuthContext } from '../App';
 import axios from 'axios';
 import { HiArrowLeft } from 'react-icons/hi';
 
 export default function Register() {
   const navigate = useNavigate();
   const { signUp, isLoaded } = useSignUp();
+  const { setIsLoggedIn } = useContext(AuthContext);
   const [step, setStep] = useState(1); // 1: form, 2: OTP verification
   const [formData, setFormData] = useState({
     name: '',
@@ -56,11 +58,21 @@ export default function Register() {
     setError('');
 
     try {
-      await axios.post('http://localhost:5001/api/auth/register', {
+      const response = await axios.post('http://localhost:5001/api/auth/register', {
         ...formData,
         otp
       });
-      navigate('/login');
+
+      // Auto-login after successful registration
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setIsLoggedIn(true);
+        alert('Registration successful! Welcome!');
+        navigate('/');
+      } else {
+        navigate('/login');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {

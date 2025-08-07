@@ -40,17 +40,19 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
 
-      // Check user role and redirect accordingly
-      if (response.data.user.role === 'admin') {
-        alert('Welcome Admin!');
-        navigate('/admin/dashboard');
-      } else if (response.data.user.role === 'doctor') {
-        alert('Welcome Doctor!');
-        navigate('/doctor/dashboard');
-      } else {
-        alert('Login successful!');
-        navigate(redirectPath || '/');
-      }
+      // Use the redirectTo from backend response
+      const redirectUrl = response.data.redirectTo || '/';
+      
+      // Show role-specific welcome message
+      const roleMessages = {
+        admin: 'Welcome Admin!',
+        doctor: 'Welcome Doctor!',
+        receptionist: 'Welcome!',
+        patient: 'Login successful!'
+      };
+      
+      alert(roleMessages[response.data.user.role] || 'Login successful!');
+      navigate(redirectUrl);
       setRedirectPath('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');

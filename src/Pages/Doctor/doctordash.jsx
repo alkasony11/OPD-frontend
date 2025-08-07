@@ -96,6 +96,24 @@ export default function DoctorDashboard() {
     );
   }
 
+  // Check if user has doctor role
+  const userData = localStorage.getItem('user');
+  if (userData) {
+    try {
+      const parsedUser = JSON.parse(userData);
+      if (parsedUser.role !== 'doctor') {
+        console.log('User is not a doctor, redirecting to home');
+        alert('Access denied. Doctor privileges required.');
+        navigate('/');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      navigate('/login');
+      return null;
+    }
+  }
+
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: HomeIcon },
     { id: 'patient-queue', label: 'Patient Queue', icon: UsersIcon },

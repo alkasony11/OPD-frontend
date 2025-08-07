@@ -46,18 +46,36 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Check if user is logged in and is admin
     const userData = localStorage.getItem('user');
-    if (!userData) {
+    const token = localStorage.getItem('token');
+
+    if (!userData || !token) {
+      console.log('No user data or token found, redirecting to login');
       navigate('/login');
       return;
     }
 
-    const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== 'admin') {
-      navigate('/');
-      return;
-    }
+    try {
+      const parsedUser = JSON.parse(userData);
+      console.log('Admin dashboard - User role:', parsedUser.role);
+      console.log('Admin dashboard - User email:', parsedUser.email);
+      console.log('Admin dashboard - Admin email from env:', import.meta.env.VITE_ADMIN_EMAIL);
 
-    setUser(parsedUser);
+      // Check both role field and admin email
+      const isAdmin = parsedUser.role === 'admin' || parsedUser.email === import.meta.env.VITE_ADMIN_EMAIL;
+
+      if (!isAdmin) {
+        console.log('User is not admin, redirecting to home');
+        alert('Access denied. Admin privileges required.');
+        navigate('/');
+        return;
+      }
+
+      setUser(parsedUser);
+      console.log('Admin access granted');
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      navigate('/login');
+    }
   }, [navigate]);
 
   useEffect(() => {
