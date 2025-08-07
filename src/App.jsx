@@ -12,9 +12,11 @@ import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
 import DoctorManagement from './Pages/Admin/DoctorManagement';
+import PatientManagement from './Pages/Admin/PatientManagement';
 import DoctorDashboard from './Pages/Doctor/doctordash';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
+import { ProtectedRoute, GuestRoute } from './Components/ProtectedRoute';
 
 export const AuthContext = createContext();
 
@@ -26,7 +28,7 @@ function AppContent() {
   useClerkAuth();
 
   // Routes where navbar and footer should be hidden
-  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/admin/doctors', '/doctor/dashboard'];
+  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/admin/doctors', '/admin/patients', '/doctor/dashboard'];
   const shouldHideNavbarFooter = hideNavbarFooterRoutes.includes(location.pathname);
 
   return (
@@ -35,16 +37,17 @@ function AppContent() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+          <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/sso-callback" element={<SSOCallback />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/doctors" element={<DoctorManagement />} />
-          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/doctors" element={<ProtectedRoute requiredRole="admin"><DoctorManagement /></ProtectedRoute>} />
+          <Route path="/admin/patients" element={<ProtectedRoute requiredRole="admin"><PatientManagement /></ProtectedRoute>} />
+          <Route path="/doctor/dashboard" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
         </Routes>
       </main>
       {!shouldHideNavbarFooter && <Footer />}

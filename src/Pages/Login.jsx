@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
@@ -20,6 +20,39 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false); 
   const [error, setError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+
+  // Check if user is already logged in and redirect them
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        setIsLoggedIn(true);
+
+        // Redirect based on user role
+        switch (user.role) {
+          case 'admin':
+            navigate('/admin/dashboard', { replace: true });
+            break;
+          case 'doctor':
+            navigate('/doctor/dashboard', { replace: true });
+            break;
+          case 'receptionist':
+            navigate('/', { replace: true }); // No specific receptionist dashboard yet
+            break;
+          default:
+            navigate('/', { replace: true });
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, [navigate, setIsLoggedIn]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HiHome,
@@ -21,10 +21,24 @@ import { AuthContext } from '../../App';
 
 export default function AdminSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { setIsLoggedIn } = useContext(AuthContext);
   const { signOut } = useClerk();
+
+  useEffect(() => {
+    // Get logged admin details from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setAdminUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, []);
 
   const menuItems = [
     { name: 'Dashboard', icon: HiHome, path: '/admin/dashboard' },
@@ -121,8 +135,12 @@ export default function AdminSidebar() {
               <HiUser className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">Admin</p>
-              <p className="text-xs text-gray-400 truncate">System Administrator</p>
+              <p className="text-sm font-medium text-white truncate">
+                {adminUser?.name || 'Admin'}
+              </p>
+              <p className="text-xs text-gray-400 truncate">
+                {adminUser?.email || 'System Administrator'}
+              </p>
             </div>
           </div>
         )}
