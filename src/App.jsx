@@ -11,6 +11,7 @@ import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
+import DoctorManagement from './Pages/Admin/DoctorManagement';
 import DoctorDashboard from './Pages/Doctor/doctordash';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
@@ -25,7 +26,7 @@ function AppContent() {
   useClerkAuth();
 
   // Routes where navbar and footer should be hidden
-  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/doctor/dashboard'];
+  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/admin/doctors', '/doctor/dashboard'];
   const shouldHideNavbarFooter = hideNavbarFooterRoutes.includes(location.pathname);
 
   return (
@@ -42,6 +43,7 @@ function AppContent() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/doctors" element={<DoctorManagement />} />
           <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
         </Routes>
       </main>

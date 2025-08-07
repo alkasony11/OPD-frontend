@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
 
 // Import new sidebar and components
-import DoctorSidebar from '../../Components/Doctor/Sidebar';
-import AppointmentList from '../../Components/Doctor/AppointmentList';
-import PatientList from '../../Components/Doctor/PatientList';
-export default function DoctorDashboard() {
+import ReceptionistSidebar from '../../Components/Receptionist/Sidebar';
+import AppointmentScheduler from '../../Components/Receptionist/AppointmentScheduler';
+import PatientRegistration from '../../Components/Receptionist/PatientRegistration';
+
+export default function ReceptionistDashboard() {
   const navigate = useNavigate();
   useClerkAuth(); // Ensures Clerk user data is synced to localStorage
 
   useEffect(() => {
-    // Check if user is logged in and is doctor
+    // Check if user is logged in and is receptionist
     const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 
@@ -23,15 +24,15 @@ export default function DoctorDashboard() {
 
     try {
       const parsedUser = JSON.parse(userData);
-      console.log('Doctor dashboard - User role:', parsedUser.role);
+      console.log('Receptionist dashboard - User role:', parsedUser.role);
 
-      if (parsedUser.role !== 'doctor') {
-        console.log('User is not doctor, redirecting to home');
+      if (parsedUser.role !== 'receptionist') {
+        console.log('User is not receptionist, redirecting to home');
         navigate('/');
         return;
       }
 
-      console.log('Doctor access granted');
+      console.log('Receptionist access granted');
     } catch (error) {
       console.error('Error parsing user data:', error);
       navigate('/login');
@@ -41,14 +42,14 @@ export default function DoctorDashboard() {
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <DoctorSidebar />
-
+      <ReceptionistSidebar />
+      
       {/* Main Content */}
       <div className="flex-1 ml-64 overflow-hidden">
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <AppointmentList />
-            <PatientList />
+            <AppointmentScheduler />
+            <PatientRegistration />
           </div>
         </div>
       </div>

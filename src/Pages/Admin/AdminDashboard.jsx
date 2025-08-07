@@ -1,47 +1,17 @@
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  HiUsers,
-  HiCalendar,
-  HiChartBar,
-  HiCog,
-  HiLogout,
-  HiHome,
-  HiUserGroup,
-  HiClipboardList,
-  HiTrendingUp,
-  HiBell,
-  HiUser,
-  HiOfficeBuilding,
-  HiDocumentText,
-  HiLightningBolt,
-  HiKey,
-  HiShieldCheck
-} from 'react-icons/hi';
-import axios from 'axios';
-import UserManagement from '../../Components/Admin/UserManagement';
-import AppointmentManagement from '../../Components/Admin/AppointmentManagement';
-import { useUser } from '@clerk/clerk-react';
 import { useClerkAuth } from '../../hooks/useClerkAuth';
-import { AuthContext } from '../../App';
+
+// Import new sidebar and components
+import AdminSidebar from '../../Components/Admin/Sidebar';
+import DashboardStats from '../../Components/Admin/DashboardStats';
+import UserManagement from '../../Components/Admin/UserManagement';
 import DoctorManagement from '../../Components/Admin/DoctorManagement';
+import AppointmentManagement from '../../Components/Admin/AppointmentManagement';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [user, setUser] = useState(null);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const profileDropdownRef = useRef(null);
-  const { isLoggedIn } = useContext(AuthContext);
-  const { user: clerkUser } = useUser();
   useClerkAuth(); // Ensures Clerk user data is synced to localStorage
-  // Get user data - prioritize localStorage (updated profile) over Clerk data
-  const localUser = isLoggedIn ? JSON.parse(localStorage.getItem('user') || '{}') : null;
-  const mergedUser = localUser && localUser.name ? localUser : (clerkUser ? {
-    name: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
-    email: clerkUser.primaryEmailAddress?.emailAddress,
-    profileImage: clerkUser.imageUrl
-  } : null);
 
   useEffect(() => {
     // Check if user is logged in and is admin
@@ -70,7 +40,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      setUser(parsedUser);
       console.log('Admin access granted');
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -78,318 +47,149 @@ export default function AdminDashboard() {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    // Close dropdown when clicking outside
-    const handleClickOutside = (event) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
-        setIsProfileDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: HiTrendingUp },
-    { id: 'patients', label: 'Patients', icon: HiUsers },
-    { id: 'doctors', label: 'Doctors', icon: HiUser },
-    { id: 'departments', label: 'Departments', icon: HiOfficeBuilding },
-    { id: 'appointments', label: 'Appointments', icon: HiCalendar },
-    { id: 'system-logs', label: 'System Logs', icon: HiDocumentText },
-    { id: 'settings', label: 'Settings', icon: HiCog },
-  ];
-
-  const adminName = mergedUser?.name || 'Admin';
-  const adminProfileImage = mergedUser?.profileImage || '';
-
-  if (!mergedUser) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg flex flex-col border-r border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-black">MedAdmin</h1>
-        </div>
-        
-        <nav className="mt-6">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center px-6 py-3 text-left transition-colors duration-200 ${
-                  activeTab === item.id 
-                    ? 'bg-black text-white' 
-                    : 'text-black hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="h-5 w-5 mr-3" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-        {/* Removed Admin Tools section */}
-        {/* Logout Section */}
-        <div className="mt-auto pt-6 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center px-6 py-3 text-left text-black hover:bg-gray-100 transition-colors duration-200"
-          >
-            <HiLogout className="h-5 w-5 mr-3" />
-            Logout
-          </button>
-        </div>
-      </div>
+      <AdminSidebar />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white shadow-sm px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div></div>
-            <div className="flex items-center space-x-4">
-              <button className="p-2 text-black hover:text-gray-600">
-                <HiBell className="h-6 w-6" />
-              </button>
-              {/* Admin Profile Dropdown */}
-              <div className="relative" ref={profileDropdownRef}>
-                <button
-                  onClick={() => setIsProfileDropdownOpen((prev) => !prev)}
-                  className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-black transition-colors duration-200"
-                >
-                  {adminProfileImage ? (
-                    <img
-                      src={adminProfileImage}
-                      alt={adminName}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
-                      <HiUser className="h-5 w-5 text-white" />
-                    </div>
-                  )}
-                  <span className="hidden sm:block">{adminName}</span>
-                </button>
-                {isProfileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200 min-w-[180px] w-48">
-                    <button
-                      onClick={() => {
-                        setActiveTab('manage-account');
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-                    >
-                      <HiCog className="mr-3 h-4 w-4" />
-                      Manage Account
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsProfileDropdownOpen(false);
-                        handleLogout();
-                      }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-                    >
-                      <HiLogout className="mr-3 h-4 w-4" />
-                      Logout
-                    </button>
-                  </div>
-                )}
+      <div className="flex-1 ml-64 overflow-hidden">
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-gray-600">Manage your hospital system efficiently</p>
+          </div>
+
+          {/* Stats Cards */}
+          <DashboardStats />
+
+          {/* Management Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+            {/* Patient Management */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Patient Management</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
+              <p className="text-gray-600 text-sm mb-4">View, search, and manage all registered patients</p>
+              <button
+                onClick={() => navigate('/admin/patients')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                View Patients
+              </button>
+            </div>
+
+            {/* Doctor Management */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Doctor Management</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">Add, edit, and manage doctor profiles and availability</p>
+              <button
+                onClick={() => navigate('/admin/doctors')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Manage Doctors
+              </button>
+            </div>
+
+            {/* System Logs */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">System Logs</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 001 1h6a1 1 0 001-1V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">Monitor system activities, overrides, and cancellations</p>
+              <button
+                onClick={() => navigate('/admin/logs')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                View Logs
+              </button>
             </div>
           </div>
-        </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'dashboard' && <DashboardContent />}
-          {activeTab === 'patients' && <UserManagement />}
-          {activeTab === 'doctors' && <DoctorManagement />}
-          {activeTab === 'departments' && <DepartmentsContent />}
-          {activeTab === 'appointments' && <AppointmentManagement />}
-          {activeTab === 'system-logs' && <SystemLogsContent />}
-          {activeTab === 'settings' && <SettingsContent />}
-          {activeTab === 'manage-account' && <ManageAccountContent />}
-          {activeTab === 'admin-profile' && <AdminProfileContent />}
-          {activeTab === 'security' && <SecurityContent />}
-        </main>
-      </div>
-    </div>
-  );
-}
-
-// Dashboard Content Component
-function DashboardContent() {
-  const [stats, setStats] = useState([
-    { label: 'Total Patients', value: '2,847', icon: HiUsers, color: 'bg-blue-500' },
-    { label: 'Active Doctors', value: '156', icon: HiUser, color: 'bg-green-500' },
-    { label: 'Today\'s Appointments', value: '89', icon: HiCalendar, color: 'bg-purple-500' },
-    { label: 'System Alerts', value: '12', icon: HiBell, color: 'bg-orange-500' },
-  ]);
-
-  const managementModules = [
-    {
-      title: 'Patient Management',
-      description: 'View, search, and manage all registered patients.',
-      icon: HiUsers,
-      buttonText: 'View Patients',
-      action: () => console.log('Navigate to Patient Management')
-    },
-    {
-      title: 'Doctor Management',
-      description: 'Add, edit, and manage doctor profiles and availability.',
-      icon: HiUser,
-      buttonText: 'Manage Doctors',
-      action: () => console.log('Navigate to Doctor Management')
-    },
-    {
-      title: 'System Logs',
-      description: 'Monitor system activities, overrides, and cancellations.',
-      icon: HiDocumentText,
-      buttonText: 'View Logs',
-      action: () => console.log('Navigate to System Logs')
-    },
-    {
-      title: 'Smart Priority',
-      description: 'Enable or disable smart priority features.',
-      icon: HiLightningBolt,
-      buttonText: 'Configure Priority',
-      action: () => console.log('Navigate to Smart Priority')
-    },
-    {
-      title: 'Department Management',
-      description: 'Add doctors to departments and manage assignments.',
-      icon: HiOfficeBuilding,
-      buttonText: 'Manage Departments',
-      action: () => console.log('Navigate to Department Management')
-    },
-    {
-      title: 'Reports & Analytics',
-      description: 'Generate reports and view system analytics.',
-      icon: HiChartBar,
-      buttonText: 'View Reports',
-      action: () => console.log('Navigate to Reports & Analytics')
-    }
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center">
-                <div className="bg-black p-3 rounded-lg">
-                  <Icon className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-black">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-black">{stat.value}</p>
+          {/* Additional Management Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Smart Priority */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Smart Priority</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Management Modules */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {managementModules.map((module, index) => {
-          const Icon = module.icon;
-          return (
-            <div key={index} className="bg-white rounded-lg shadow p-6 border border-gray-200">
-              <div className="flex items-center mb-4">
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <Icon className="h-6 w-6 text-black" />
-                </div>
-                <h3 className="ml-3 text-lg font-semibold text-black">{module.title}</h3>
-              </div>
-              <p className="text-sm text-black mb-4">{module.description}</p>
+              <p className="text-gray-600 text-sm mb-4">Enable or disable smart priority features</p>
               <button
-                onClick={module.action}
-                className="w-full bg-black text-white py-2 px-4 rounded-lg hover:bg-gray-800 transition-colors duration-200"
+                onClick={() => navigate('/admin/priority')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
               >
-                {module.buttonText}
+                Configure Priority
               </button>
             </div>
-          );
-        })}
+
+            {/* Department Management */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Department Management</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                    <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">Add doctors to departments and manage assignments</p>
+              <button
+                onClick={() => navigate('/admin/departments')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Manage Departments
+              </button>
+            </div>
+
+            {/* Reports & Analytics */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Reports & Analytics</h3>
+                <div className="text-gray-400">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">Generate reports and view system analytics</p>
+              <button
+                onClick={() => navigate('/admin/reports')}
+                className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                View Reports
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
-// Placeholder components for other tabs
-function DepartmentsContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">Department Management</h3>
-      <p className="text-black">Department management functionality will be implemented here.</p>
-    </div>
-  );
-}
-
-function SystemLogsContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">System Logs</h3>
-      <p className="text-black">System logs and monitoring functionality will be implemented here.</p>
-    </div>
-  );
-}
-
-function SettingsContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">System Settings</h3>
-      <p className="text-black">System settings and configuration will be implemented here.</p>
-    </div>
-  );
-}
-
-function ManageAccountContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">Manage Account</h3>
-      <p className="text-black">Account management functionality will be implemented here.</p>
-    </div>
-  );
-}
-
-function AdminProfileContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">Admin Profile</h3>
-      <p className="text-black">Admin profile management functionality will be implemented here.</p>
-    </div>
-  );
-}
-
-function SecurityContent() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-      <h3 className="text-lg font-semibold text-black mb-4">Security Settings</h3>
-      <p className="text-black">Security and authentication settings will be implemented here.</p>
-    </div>
-  );
-}
-
 
