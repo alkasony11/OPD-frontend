@@ -5,14 +5,13 @@ import LandingPage from "./Pages/Patient/LandingPage";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import { createContext, useEffect, useState } from "react";
-import BookingPage from "./Pages/Patient/BookingPage";
+import NewBookingPage from "./Pages/Patient/NewBookingPage";
 import Profile from "./Pages/Patient/Profile";
 import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
-import DoctorManagement from './Pages/Admin/DoctorManagement';
-import PatientManagement from './Pages/Admin/PatientManagement';
+
 import DoctorDashboard from './Pages/Doctor/doctordash';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
@@ -28,7 +27,12 @@ function AppContent() {
   useClerkAuth();
 
   // Routes where navbar and footer should be hidden
-  const hideNavbarFooterRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/admin/dashboard', '/admin/doctors', '/admin/patients', '/doctor/dashboard'];
+  const hideNavbarFooterRoutes = [
+    '/login', '/register', '/forgot-password', '/reset-password',
+    '/admin/dashboard', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments',
+    '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
+    '/doctor/schedule', '/doctor/records', '/doctor/reports', '/doctor/settings'
+  ];
   const shouldHideNavbarFooter = hideNavbarFooterRoutes.includes(location.pathname);
 
   return (
@@ -39,15 +43,23 @@ function AppContent() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
-          <Route path="/booking" element={<BookingPage />} />
+          <Route path="/booking" element={<NewBookingPage />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
           <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/doctors" element={<ProtectedRoute requiredRole="admin"><DoctorManagement /></ProtectedRoute>} />
-          <Route path="/admin/patients" element={<ProtectedRoute requiredRole="admin"><PatientManagement /></ProtectedRoute>} />
+          <Route path="/admin/doctors" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/doctor-schedules" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patients" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/departments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/doctor/dashboard" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/appointments" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/patients" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/schedule" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/records" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/reports" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/settings" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
         </Routes>
       </main>
       {!shouldHideNavbarFooter && <Footer />}

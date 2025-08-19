@@ -64,3 +64,45 @@ button {
   background: #94a3b8;
 }
 
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Form validation styles */
+.form-field-valid {
+  @apply border-green-500 focus:ring-green-200 focus:border-green-500;
+}
+
+.form-field-invalid {
+  @apply border-red-500 focus:ring-red-200 focus:border-red-500;
+}
+
+.form-field-default {
+  @apply border-gray-300 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Password strength indicator */
+.password-strength-weak {
+  @apply bg-red-500;
+}
+
+.password-strength-medium {
+  @apply bg-yellow-500;
+}
+
+.password-strength-strong {
+  @apply bg-green-500;
+}
+

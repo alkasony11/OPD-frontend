@@ -5,24 +5,35 @@ import { useSignUp } from '@clerk/clerk-react';
 import { AuthContext } from '../App';
 import axios from 'axios';
 import { HiArrowLeft } from 'react-icons/hi';
+import { useRegistrationValidation } from '../hooks/useFormValidation';
+import { ValidatedInput, PasswordInput, ValidatedSelect, PhoneInput, OTPInput } from '../Components/FormComponents';
 
 export default function Register() {
   const navigate = useNavigate();
   const { signUp, isLoaded } = useSignUp();
   const { setIsLoggedIn } = useContext(AuthContext);
   const [step, setStep] = useState(1); // 1: form, 2: OTP verification
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    dob: '',
-    gender: '',
-    password: ''
-  });
+  
+  // Use the validation hook
+  const {
+    values: formData,
+    errors,
+    touched,
+    isValid,
+    handleChange,
+    handleBlur,
+    handleFocus,
+    validateAllFields,
+    setFieldError,
+    clearFieldError,
+    validateForm
+  } = useRegistrationValidation();
+
   const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [success, setSuccess] = useState('');
 
   // Check if user is already logged in and redirect them
@@ -57,19 +68,20 @@ export default function Register() {
     }
   }, [navigate, setIsLoggedIn]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleSendOTP = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    
+    // Clear previous errors
+    setServerError('');
     setSuccess('');
+    
+    // Validate all fields before sending OTP
+    const validation = validateAllFields();
+    if (!validation.isValid) {
+      return;
+    }
+    
+    setLoading(true);
 
     try {
       await axios.post('http://localhost:5001/api/auth/send-otp', {
@@ -78,7 +90,14 @@ export default function Register() {
       setSuccess('OTP sent to your email! Please check your inbox.');
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
+      const errorMessage = err.response?.data?.message || 'Failed to send OTP';
+      
+      // Handle specific field errors
+      if (errorMessage.toLowerCase().includes('email') || errorMessage.toLowerCase().includes('exists')) {
+        setFieldError('email', errorMessage);
+      } else {
+        setServerError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -86,8 +105,28 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setServerError('');
+    setOtpError('');
+    
+    // Validate OTP
+    if (!otp) {
+      setOtpError('OTP is required');
+      return;
+    }
+    
+    if (otp.length !== 6) {
+      setOtpError('OTP must be 6 digits');
+      return;
+    }
+    
+    if (!/^\d{6}$/.test(otp)) {
+      setOtpError('OTP must contain only numbers');
+      return;
+    }
+    
     setLoading(true);
-    setError('');
 
     try {
       const response = await axios.post('http://localhost:5001/api/auth/register', {
@@ -106,7 +145,14 @@ export default function Register() {
         navigate('/login');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
+      const errorMessage = err.response?.data?.message || 'Registration failed';
+      
+      // Handle specific OTP errors
+      if (errorMessage.toLowerCase().includes('otp')) {
+        setOtpError(errorMessage);
+      } else {
+        setServerError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -114,14 +160,16 @@ export default function Register() {
 
   const handleResendOTP = async () => {
     setLoading(true);
-    setError('');
+    setServerError('');
+    setOtpError('');
+    
     try {
       await axios.post('http://localhost:5001/api/auth/send-otp', {
         email: formData.email
       });
       setSuccess('OTP resent successfully!');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to resend OTP');
+      setServerError(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
       setLoading(false);
     }
@@ -167,102 +215,107 @@ export default function Register() {
             Create Account
           </h2>
           <div className="bg-white rounded-xl shadow-md p-8">
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                {error}
+            {serverError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+                {serverError}
               </div>
             )}
             <form className="space-y-6" onSubmit={handleSendOTP}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your full name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth *
-                </label>
-                <input
-                  type="date"
-                  name="dob"
-                  value={formData.dob}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender *
-                </label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Create a strong password"
-                />
-              </div>
+              <ValidatedInput
+                label="Full Name"
+                name="name"
+                type="text"
+                value={formData.name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.name}
+                touched={touched.name}
+                required
+                placeholder="Enter your full name"
+                autoComplete="name"
+              />
+
+              <PhoneInput
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.phone}
+                touched={touched.phone}
+                required
+              />
+
+              <ValidatedInput
+                label="Email Address"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.email}
+                touched={touched.email}
+                required
+                placeholder="Enter your email"
+                autoComplete="email"
+              />
+
+              <ValidatedInput
+                label="Date of Birth"
+                name="dob"
+                type="date"
+                value={formData.dob}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.dob}
+                touched={touched.dob}
+                required
+              />
+
+              <ValidatedSelect
+                label="Gender"
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.gender}
+                touched={touched.gender}
+                required
+                options={[
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                  { value: 'other', label: 'Other' }
+                ]}
+                placeholder="Select Gender"
+              />
+
+              <PasswordInput
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.password}
+                touched={touched.password}
+                required
+                placeholder="Create a strong password"
+                showStrength={true}
+                strength={validateForm().passwordStrength}
+                autoComplete="new-password"
+              />
+
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || !isValid}
+                className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isValid && !loading
+                    ? 'bg-black text-white hover:bg-gray-600'
+                    : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                }`}
               >
                 {loading ? 'Sending OTP...' : 'Create Account'}
               </button>
@@ -306,13 +359,13 @@ export default function Register() {
           Verify Your Email
         </h2>
         <div className="bg-white rounded-xl shadow-md p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              {error}
+          {serverError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+              {serverError}
             </div>
           )}
           {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg animate-fadeIn">
               {success}
             </div>
           )}
@@ -328,25 +381,44 @@ export default function Register() {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter OTP *
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Enter OTP <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                required
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setOtp(value);
+                  if (otpError) setOtpError('');
+                }}
                 maxLength={6}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
+                className={`w-full px-4 py-3 border rounded-lg text-center text-2xl tracking-widest transition-all duration-200 ${
+                  otpError 
+                    ? 'border-red-500 focus:ring-2 focus:ring-red-200 focus:border-red-500' 
+                    : otp.length === 6
+                      ? 'border-green-500 focus:ring-2 focus:ring-green-200 focus:border-green-500'
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                }`}
                 placeholder="000000"
+                autoComplete="one-time-code"
               />
+              {otpError && (
+                <div className="flex items-center space-x-1 text-red-600 text-sm animate-fadeIn">
+                  <span>{otpError}</span>
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                otp.length === 6 && !loading
+                  ? 'bg-black text-white hover:bg-gray-600'
+                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              }`}
             >
               {loading ? 'Verifying...' : 'Complete Registration'}
             </button>

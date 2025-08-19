@@ -5,20 +5,32 @@ import { useSignIn, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import { AuthContext } from '../App';
 import { HiArrowLeft } from 'react-icons/hi';
+import { useLoginValidation } from '../hooks/useFormValidation';
+import { ValidatedInput, PasswordInput } from '../Components/FormComponents';
 
 export default function Login() {
   const navigate = useNavigate();
   const { setIsLoggedIn, redirectPath, setRedirectPath } = useContext(AuthContext);
   const { signIn, isLoaded } = useSignIn();
   const { signOut } = useAuth();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [loading, setLoading] = useState(false);
+  
+  // Use the validation hook
+  const {
+    values: formData,
+    errors,
+    touched,
+    isValid,
+    handleChange,
+    handleBlur,
+    handleFocus,
+    validateAllFields,
+    setFieldError,
+    clearFieldError
+  } = useLoginValidation();
 
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false); 
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
 
   // Check if user is already logged in and redirect them
@@ -54,18 +66,21 @@ export default function Login() {
     }
   }, [navigate, setIsLoggedIn]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear any previous server errors
+    setServerError('');
+    clearFieldError('email');
+    clearFieldError('password');
+    
+    // Validate all fields before submission
+    const validation = validateAllFields();
+    if (!validation.isValid) {
+      return;
+    }
+    
     setLoading(true);
-    setError('');
     
     try {
       const response = await axios.post('http://localhost:5001/api/auth/login', formData);
@@ -88,7 +103,16 @@ export default function Login() {
       navigate(redirectUrl);
       setRedirectPath('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      const errorMessage = err.response?.data?.message || 'Login failed';
+      
+      // Handle specific field errors
+      if (errorMessage.toLowerCase().includes('email')) {
+        setFieldError('email', errorMessage);
+      } else if (errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials')) {
+        setFieldError('password', 'Invalid email or password');
+      } else {
+        setServerError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -156,40 +180,40 @@ export default function Login() {
           Sign In
         </h2>
         <div className="bg-white rounded-xl shadow-md p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              {error}
+          {serverError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+              {serverError}
             </div>
           )}
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your email"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your password"
-              />
-            </div>
+            <ValidatedInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onFocus={handleFocus}
+              error={errors.email}
+              touched={touched.email}
+              required
+              placeholder="Enter your email"
+              autoComplete="email"
+            />
+            
+            <PasswordInput
+              label="Password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onFocus={handleFocus}
+              error={errors.password}
+              touched={touched.password}
+              required
+              placeholder="Enter your password"
+              autoComplete="current-password"
+            />
             
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -210,8 +234,12 @@ export default function Login() {
             
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !isValid}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                isValid && !loading
+                  ? 'bg-black text-white hover:bg-gray-600'
+                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              }`}
             >
               {loading ? 'Signing In...' : 'Sign In'}
             </button>

@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
-import { HiCalendar, HiClock, HiUser, HiPhone, HiMail } from 'react-icons/hi';
+import { HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, HiPencil, HiEye, HiClipboardList } from 'react-icons/hi';
+import axios from 'axios';
+import PatientDetailsModal from './PatientDetailsModal';
+import PrescriptionModal from './PrescriptionModal';
 
 export default function AppointmentList() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('today'); // today, upcoming, all
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -13,56 +23,21 @@ export default function AppointmentList() {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockAppointments = [
-        {
-          id: 1,
-          patientName: 'John Doe',
-          patientEmail: 'john@example.com',
-          patientPhone: '+1-555-0123',
-          date: '2024-01-15',
-          time: '10:00 AM',
-          type: 'Consultation',
-          status: 'confirmed',
-          notes: 'Regular checkup'
-        },
-        {
-          id: 2,
-          patientName: 'Jane Smith',
-          patientEmail: 'jane@example.com',
-          patientPhone: '+1-555-0124',
-          date: '2024-01-15',
-          time: '11:30 AM',
-          type: 'Follow-up',
-          status: 'pending',
-          notes: 'Follow-up for previous treatment'
-        },
-        {
-          id: 3,
-          patientName: 'Mike Johnson',
-          patientEmail: 'mike@example.com',
-          patientPhone: '+1-555-0125',
-          date: '2024-01-16',
-          time: '2:00 PM',
-          type: 'Emergency',
-          status: 'confirmed',
-          notes: 'Urgent consultation needed'
-        }
-      ];
+      const token = localStorage.getItem('token');
 
-      // Filter appointments based on selected filter
-      let filteredAppointments = mockAppointments;
-      const today = new Date().toISOString().split('T')[0];
-
-      if (filter === 'today') {
-        filteredAppointments = mockAppointments.filter(apt => apt.date === today);
-      } else if (filter === 'upcoming') {
-        filteredAppointments = mockAppointments.filter(apt => apt.date >= today);
+      if (!token) {
+        console.error('No token found');
+        return;
       }
 
-      setAppointments(filteredAppointments);
+      const response = await axios.get(`http://localhost:5001/api/doctor/appointments?filter=${filter}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setAppointments(response.data.appointments || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
@@ -70,12 +45,16 @@ export default function AppointmentList() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
+      case 'booked':
         return 'bg-yellow-100 text-yellow-800';
+      case 'in_queue':
+        return 'bg-blue-100 text-blue-800';
+      case 'consulted':
+        return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'missed':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -83,15 +62,101 @@ export default function AppointmentList() {
 
   const getTypeColor = (type) => {
     switch (type) {
-      case 'Emergency':
+      case 'emergency':
         return 'bg-red-100 text-red-800';
-      case 'Follow-up':
+      case 'follow-up':
         return 'bg-blue-100 text-blue-800';
-      case 'Consultation':
+      case 'consultation':
         return 'bg-purple-100 text-purple-800';
+      case 'routine-checkup':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Update appointment status
+  const updateAppointmentStatus = async (appointmentId, newStatus) => {
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem('token');
+
+      await axios.patch(
+        `http://localhost:5001/api/doctor/appointments/${appointmentId}/status`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Refresh appointments
+      await fetchAppointments();
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      alert('Failed to update appointment status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Open notes modal
+  const openNotesModal = (appointment) => {
+    setSelectedAppointment(appointment);
+    setNotes(appointment.doctorNotes || '');
+    setDiagnosis(appointment.diagnosis || '');
+    setShowNotesModal(true);
+  };
+
+  // Open patient details modal
+  const openPatientModal = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowPatientModal(true);
+  };
+
+  // Open prescription modal
+  const openPrescriptionModal = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowPrescriptionModal(true);
+  };
+
+  // Handle prescription added
+  const handlePrescriptionAdded = (updatedAppointment) => {
+    // Update the appointment in the local state
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt._id === updatedAppointment._id ? updatedAppointment : apt
+      )
+    );
+  };
+
+  // Save notes and diagnosis
+  const saveNotes = async () => {
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem('token');
+
+      await axios.patch(
+        `http://localhost:5001/api/doctor/appointments/${selectedAppointment._id}/notes`,
+        { doctorNotes: notes, diagnosis },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setShowNotesModal(false);
+      await fetchAppointments();
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      alert('Failed to save notes');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (loading) {
@@ -154,7 +219,7 @@ export default function AppointmentList() {
         ) : (
           <div className="space-y-4">
             {appointments.map((appointment) => (
-              <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div key={appointment._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -165,11 +230,11 @@ export default function AppointmentList() {
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <HiCalendar className="h-4 w-4" />
-                          <span>{appointment.date}</span>
+                          <span>{formatDate(appointment.appointmentDate)}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <HiClock className="h-4 w-4" />
-                          <span>{appointment.time}</span>
+                          <span>{appointment.appointmentTime}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <HiPhone className="h-4 w-4" />
@@ -179,24 +244,178 @@ export default function AppointmentList() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(appointment.type)}`}>
-                      {appointment.type}
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(appointment.appointmentType)}`}>
+                      {appointment.appointmentType}
                     </span>
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
                       {appointment.status}
                     </span>
                   </div>
                 </div>
-                {appointment.notes && (
+
+                {/* Symptoms */}
+                {appointment.symptoms && (
                   <div className="mt-3 text-sm text-gray-600">
-                    <strong>Notes:</strong> {appointment.notes}
+                    <strong>Symptoms:</strong> {appointment.symptoms}
                   </div>
                 )}
+
+                {/* Doctor Notes */}
+                {appointment.doctorNotes && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    <strong>Notes:</strong> {appointment.doctorNotes}
+                  </div>
+                )}
+
+                {/* Diagnosis */}
+                {appointment.diagnosis && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    <strong>Diagnosis:</strong> {appointment.diagnosis}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="mt-4 flex items-center space-x-2">
+                  {appointment.status === 'booked' && (
+                    <button
+                      onClick={() => updateAppointmentStatus(appointment._id, 'in_queue')}
+                      disabled={updating}
+                      className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <HiClock className="h-3 w-3" />
+                      <span>Start Queue</span>
+                    </button>
+                  )}
+
+                  {appointment.status === 'in_queue' && (
+                    <button
+                      onClick={() => updateAppointmentStatus(appointment._id, 'consulted')}
+                      disabled={updating}
+                      className="flex items-center space-x-1 px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <HiCheck className="h-3 w-3" />
+                      <span>Complete</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => openPatientModal(appointment)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700"
+                  >
+                    <HiEye className="h-3 w-3" />
+                    <span>Details</span>
+                  </button>
+
+                  <button
+                    onClick={() => openNotesModal(appointment)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
+                  >
+                    <HiPencil className="h-3 w-3" />
+                    <span>Notes</span>
+                  </button>
+
+                  <button
+                    onClick={() => openPrescriptionModal(appointment)}
+                    className="flex items-center space-x-1 px-3 py-1 bg-teal-600 text-white text-xs rounded-md hover:bg-teal-700"
+                  >
+                    <HiClipboardList className="h-3 w-3" />
+                    <span>Prescription</span>
+                  </button>
+
+                  {(appointment.status === 'booked' || appointment.status === 'in_queue') && (
+                    <button
+                      onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
+                      disabled={updating}
+                      className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <HiX className="h-3 w-3" />
+                      <span>Cancel</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Notes Modal */}
+      {showNotesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Add Notes - {selectedAppointment?.patientName}
+              </h3>
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Diagnosis
+                </label>
+                <input
+                  type="text"
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter diagnosis..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Doctor Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your notes..."
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveNotes}
+                disabled={updating}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {updating ? 'Saving...' : 'Save Notes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patient Details Modal */}
+      <PatientDetailsModal
+        appointment={selectedAppointment}
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+      />
+
+      {/* Prescription Modal */}
+      <PrescriptionModal
+        appointment={selectedAppointment}
+        isOpen={showPrescriptionModal}
+        onClose={() => setShowPrescriptionModal(false)}
+        onPrescriptionAdded={handlePrescriptionAdded}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiUser, HiPhone, HiMail, HiEye, HiDocumentText } from 'react-icons/hi';
+import axios from 'axios';
 
 export default function PatientList() {
   const [patients, setPatients] = useState([]);
@@ -13,44 +14,18 @@ export default function PatientList() {
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockPatients = [
-        {
-          id: 1,
-          name: 'John Doe',
-          email: 'john@example.com',
-          phone: '+1-555-0123',
-          age: 35,
-          gender: 'Male',
-          lastVisit: '2024-01-10',
-          condition: 'Hypertension',
-          status: 'Active'
-        },
-        {
-          id: 2,
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          phone: '+1-555-0124',
-          age: 28,
-          gender: 'Female',
-          lastVisit: '2024-01-08',
-          condition: 'Diabetes',
-          status: 'Active'
-        },
-        {
-          id: 3,
-          name: 'Mike Johnson',
-          email: 'mike@example.com',
-          phone: '+1-555-0125',
-          age: 42,
-          gender: 'Male',
-          lastVisit: '2024-01-05',
-          condition: 'Asthma',
-          status: 'Follow-up Required'
-        }
-      ];
+      const token = localStorage.getItem('token');
 
-      setPatients(mockPatients);
+      if (!token) {
+        console.error('No token found');
+        return;
+      }
+
+      const response = await axios.get('http://localhost:5001/api/doctor/patients', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setPatients(response.data.patients || []);
     } catch (error) {
       console.error('Error fetching patients:', error);
     } finally {

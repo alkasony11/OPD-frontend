@@ -14,7 +14,8 @@ import {
   HiShieldCheck,
   HiStar,
   HiOfficeBuilding,
-  HiDocumentReport
+  HiDocumentReport,
+  HiCalendar
 } from 'react-icons/hi';
 import { useClerk } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
@@ -44,6 +45,7 @@ export default function AdminSidebar() {
     { name: 'Dashboard', icon: HiHome, path: '/admin/dashboard' },
     { name: 'Patient Management', icon: HiUsers, path: '/admin/patients' },
     { name: 'Doctor Management', icon: HiUserGroup, path: '/admin/doctors' },
+    { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules' },
     { name: 'System Logs', icon: HiClipboardList, path: '/admin/logs' },
     { name: 'Smart Priority', icon: HiStar, path: '/admin/priority' },
     { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments' },
@@ -53,17 +55,17 @@ export default function AdminSidebar() {
   const handleLogout = async () => {
     try {
       await signOut();
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setIsLoggedIn(false);
-      navigate('/login');
     } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if Clerk fails
+      console.error('Clerk logout error:', error);
+    } finally {
+      // Always clear localStorage and redirect
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.clear(); // Clear everything to ensure fresh start
       setIsLoggedIn(false);
-      navigate('/login');
+      navigate('/login', { replace: true });
+      // Force page reload to clear any cached data
+      window.location.reload();
     }
   };
 

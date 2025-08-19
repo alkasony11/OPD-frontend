@@ -1,18 +1,19 @@
 import { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  HiHome, 
-  HiCalendar, 
-  HiUsers, 
-  HiClipboardList, 
-  HiCog, 
+import {
+  HiHome,
+  HiCalendar,
+  HiUsers,
+  HiClipboardList,
+  HiCog,
   HiLogout,
   HiMenu,
   HiX,
   HiUser,
   HiClock,
   HiChartBar,
-  HiDocumentText
+  HiDocumentText,
+  HiSearch
 } from 'react-icons/hi';
 import { useClerk } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
