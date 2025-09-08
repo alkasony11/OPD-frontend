@@ -21,50 +21,6 @@ export default function AppointmentManagement() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAppointments(response.data);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-      // Mock data for demonstration
-      setAppointments([
-        {
-          _id: '1',
-          patientName: 'John Doe',
-          patientEmail: 'john@example.com',
-          patientPhone: '+1234567890',
-          doctorName: 'Dr. Smith',
-          department: 'Cardiology',
-          appointmentDate: '2024-01-25',
-          appointmentTime: '10:00',
-          status: 'pending',
-          symptoms: 'Chest pain and shortness of breath',
-          createdAt: '2024-01-20T09:30:00Z'
-        },
-        {
-          _id: '2',
-          patientName: 'Jane Wilson',
-          patientEmail: 'jane@example.com',
-          patientPhone: '+1234567891',
-          doctorName: 'Dr. Johnson',
-          department: 'Dermatology',
-          appointmentDate: '2024-01-24',
-          appointmentTime: '14:30',
-          status: 'confirmed',
-          symptoms: 'Skin rash and itching',
-          createdAt: '2024-01-19T11:15:00Z'
-        },
-        {
-          _id: '3',
-          patientName: 'Mike Brown',
-          patientEmail: 'mike@example.com',
-          patientPhone: '+1234567892',
-          doctorName: 'Dr. Davis',
-          department: 'Orthopedics',
-          appointmentDate: '2024-01-23',
-          appointmentTime: '09:00',
-          status: 'completed',
-          symptoms: 'Knee pain after sports injury',
-          createdAt: '2024-01-18T16:45:00Z'
-        }
-      ]);
     } finally {
       setLoading(false);
     }

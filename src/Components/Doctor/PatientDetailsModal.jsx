@@ -26,26 +26,8 @@ export default function PatientDetailsModal({ appointment, isOpen, onClose }) {
       
       setPatientDetails(response.data);
       
-      // Mock previous appointments for now - you can implement this API later
-      const mockPreviousAppointments = [
-        {
-          _id: 'prev1',
-          appointmentDate: '2024-01-10',
-          appointmentTime: '2:00 PM',
-          diagnosis: 'Common cold',
-          doctorNotes: 'Patient recovered well from previous symptoms',
-          status: 'completed'
-        },
-        {
-          _id: 'prev2',
-          appointmentDate: '2024-01-05',
-          appointmentTime: '10:30 AM',
-          diagnosis: 'Routine checkup',
-          doctorNotes: 'All vitals normal, recommended regular exercise',
-          status: 'completed'
-        }
-      ];
-      setPreviousAppointments(mockPreviousAppointments);
+      // TODO: Replace with real previous appointments API when available
+      setPreviousAppointments([]);
       
     } catch (error) {
       console.error('Error fetching patient details:', error);

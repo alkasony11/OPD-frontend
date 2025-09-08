@@ -28,33 +28,6 @@ export default function AppointmentScheduler() {
 
       const data = await response.json();
       setAppointments(data.appointments || []);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-      // Fallback to mock data if API fails
-      const mockAppointments = [
-        {
-          _id: 1,
-          patientName: 'John Doe',
-          doctorName: 'Dr. Smith',
-          timeSlot: '09:00',
-          status: 'confirmed'
-        },
-        {
-          _id: 2,
-          patientName: 'Jane Smith',
-          doctorName: 'Dr. Johnson',
-          timeSlot: '10:30',
-          status: 'pending'
-        },
-        {
-          _id: 3,
-          patientName: 'Mike Wilson',
-          doctorName: 'Dr. Brown',
-          timeSlot: '14:00',
-          status: 'confirmed'
-        }
-      ];
-      setAppointments(mockAppointments);
     } finally {
       setLoading(false);
     }
