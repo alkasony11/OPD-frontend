@@ -242,8 +242,8 @@ export default function NewBookingPage() {
 
       setBookingData(prev => ({
         ...prev,
-        tokenNumber: response.data.tokenNumber,
-        estimatedWaitTime: response.data.estimatedWaitTime
+        tokenNumber: response.data?.appointment?.tokenNumber,
+        estimatedWaitTime: response.data?.appointment?.estimatedWaitTime
       }));
 
       setCurrentStep(7);

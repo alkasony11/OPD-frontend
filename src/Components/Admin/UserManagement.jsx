@@ -189,10 +189,13 @@ export default function UserManagement() {
               No users found. Click "Add User" to create the first user.
             </li>
           ) : (
-            users.map((user) => (
+            users.map((user, index) => (
               <li key={user._id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
+                    <div className="w-8 text-sm text-gray-500">
+                      {index + 1}.
+                    </div>
                     <div className="flex-shrink-0 h-10 w-10">
                       <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                         <span className="text-sm font-medium text-gray-700">
@@ -393,6 +396,170 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      {/* View User Modal */}
+      {showViewModal && viewingUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">View User</h3>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-gray-700">
+              <div>
+                <span className="font-medium">Name: </span>{viewingUser.name || '-'}
+              </div>
+              <div>
+                <span className="font-medium">Email: </span>{viewingUser.email || '-'}
+              </div>
+              <div>
+                <span className="font-medium">Phone: </span>{viewingUser.phone || '-'}
+              </div>
+              <div>
+                <span className="font-medium">Role: </span>{viewingUser.role || '-'}
+              </div>
+              <div>
+                <span className="font-medium">Verified: </span>{viewingUser.isVerified ? 'Yes' : 'No'}
+              </div>
+              <div>
+                <span className="font-medium">Created: </span>{formatDate(viewingUser.createdAt)}
+              </div>
+              <div>
+                <span className="font-medium">Updated: </span>{formatDate(viewingUser.updatedAt)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Edit User</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+
+            <EditUserForm
+              user={editingUser}
+              onCancel={() => setShowEditModal(false)}
+              onSave={async (payload) => {
+                try {
+                  const token = localStorage.getItem('token');
+                  const response = await axios.put(`http://localhost:5001/api/admin/users/${editingUser._id}`, payload, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  const updated = response.data;
+                  setUsers(prev => prev.map(u => u._id === updated._id ? updated : u));
+                  setShowEditModal(false);
+                } catch (error) {
+                  console.error('Error updating user:', error);
+                  alert('Error updating user: ' + (error.response?.data?.message || 'Unknown error'));
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function EditUserForm({ user, onCancel, onSave }) {
+  const [form, setForm] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    isVerified: !!user.isVerified
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await onSave({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        isVerified: form.isVerified
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Name</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Phone</label>
+          <input
+            type="tel"
+            value={form.phone}
+            onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex items-center">
+          <input
+            id="isVerified"
+            type="checkbox"
+            checked={form.isVerified}
+            onChange={(e) => setForm(prev => ({ ...prev, isVerified: e.target.checked }))}
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+          />
+          <label htmlFor="isVerified" className="ml-2 block text-sm text-gray-700">Verified</label>
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-3 mt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {submitting ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </form>
   );
 }

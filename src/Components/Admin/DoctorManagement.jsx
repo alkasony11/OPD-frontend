@@ -254,6 +254,7 @@ export default function DoctorManagement() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
@@ -267,13 +268,16 @@ export default function DoctorManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {doctors.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                     No doctors found. Click "Add Doctor" to create the first doctor.
                   </td>
                 </tr>
               ) : (
-                doctors.map((doctor) => (
+                doctors.map((doctor, index) => (
                   <tr key={doctor._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {index + 1}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {doctor.name}
                     </td>

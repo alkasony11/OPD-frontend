@@ -461,6 +461,9 @@ export default function DoctorScheduleManagement() {
                         />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        S.No
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Date
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -484,7 +487,7 @@ export default function DoctorScheduleManagement() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {schedules.map((schedule) => {
+                    {schedules.map((schedule, index) => {
                       const scheduleDate = new Date(schedule.date);
                       const dayName = scheduleDate.toLocaleDateString('en-US', { weekday: 'short' });
                       const isToday = scheduleDate.toDateString() === new Date().toDateString();
@@ -499,6 +502,9 @@ export default function DoctorScheduleManagement() {
                               onChange={(e) => handleScheduleSelect(schedule.id, e.target.checked)}
                               className="rounded border-gray-300"
                             />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {index + 1}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col">
