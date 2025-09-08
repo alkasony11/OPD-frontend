@@ -145,6 +145,13 @@ export default function NewBookingPage() {
       };
       
       setFamilyMembers([selfMember, ...members]);
+
+      // Ensure default selection reflects the logged-in user visibly
+      setBookingData(prev => ({
+        ...prev,
+        familyMemberId: 'self',
+        familyMemberName: userName
+      }));
     } catch (error) {
       console.error('Error fetching family members:', error);
     }
@@ -466,8 +473,13 @@ function PatientSelection({
             <div className="flex items-center space-x-3">
               <UserCircleIcon className="h-8 w-8 text-gray-600" />
               <div>
-                <h3 className="font-semibold text-gray-900">{member.name}</h3>
-                <p className="text-sm text-gray-600">{member.relation}</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900">{member.name}</h3>
+                  {member.relation === 'self' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-black text-white">You</span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 capitalize">{member.relation}</p>
                 <p className="text-sm text-gray-500">{member.age} years, {member.gender}</p>
               </div>
               {selectedMemberId === member.id && (
