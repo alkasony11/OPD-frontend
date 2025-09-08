@@ -294,6 +294,19 @@ export const validateRegistrationForm = (formData) => {
   return { isValid, errors, passwordStrength: passwordValidation.strength };
 };
 
+// Async availability checker for email/phone
+export const checkAvailability = async ({ email, phone }) => {
+  const params = new URLSearchParams();
+  if (email) params.append('email', email);
+  if (phone) params.append('phone', phone);
+
+  const response = await fetch(`http://localhost:5001/api/auth/availability?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error('Failed to check availability');
+  }
+  return response.json();
+};
+
 /**
  * Get password strength color
  * @param {string} strength - Password strength

@@ -126,7 +126,7 @@ export default function Login() {
     if (!isLoaded) return;
 
     setGoogleLoading(true);
-    setError('');
+    setServerError('');
 
     try {
       // First, ensure any existing Clerk session is cleared
@@ -150,14 +150,14 @@ export default function Login() {
           });
         } catch (authError) {
           console.error('Google authentication error:', authError);
-          setError('Google sign-in failed. Please try again.');
+          setServerError('Google sign-in failed. Please try again.');
           setGoogleLoading(false);
         }
       }, 500);
 
     } catch (err) {
       console.error('Google sign-in error:', err);
-      setError('Google sign-in failed. Please try again.');
+      setServerError('Google sign-in failed. Please try again.');
       setGoogleLoading(false);
     }
   };

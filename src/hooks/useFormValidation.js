@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { checkAvailability } from '../utils/validation';
 
 /**
  * Custom hook for real-time form validation
@@ -19,6 +20,8 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
   const [touched, setTouched] = useState({});
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState(false);
+  const availabilityAbortRef = useRef(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   // Debounced validation
   const [validationTimeout, setValidationTimeout] = useState(null);
@@ -87,10 +90,25 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
       [name]: true
     }));
 
+    // On first interaction, mark all fields as touched to reveal missing required fields
+    if (!hasInteracted) {
+      setHasInteracted(true);
+      setTouched(prev => {
+        const allTouched = Object.keys({ ...values, [name]: fieldValue }).reduce((acc, key) => {
+          acc[key] = true;
+          return acc;
+        }, {});
+        return allTouched;
+      });
+      const fullValidation = validateForm();
+      setErrors(fullValidation.errors);
+      setIsValid(fullValidation.isValid);
+    }
+
     if (validateOnChange) {
       debouncedValidation(name, fieldValue);
     }
-  }, [validateOnChange, debouncedValidation]);
+  }, [validateOnChange, debouncedValidation, hasInteracted, validateForm, values]);
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target;
@@ -99,6 +117,17 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
       ...prev,
       [name]: true
     }));
+
+    if (!hasInteracted) {
+      setHasInteracted(true);
+      setTouched(prev => {
+        const allTouched = Object.keys(values).reduce((acc, key) => {
+          acc[key] = true;
+          return acc;
+        }, {});
+        return allTouched;
+      });
+    }
 
     if (validateOnBlur) {
       setIsValidating(true);
@@ -114,7 +143,7 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
       setIsValid(formValidation.isValid);
       setIsValidating(false);
     }
-  }, [validateOnBlur, validateField, validateForm]);
+  }, [validateOnBlur, validateField, validateForm, hasInteracted, values]);
 
   const handleFocus = useCallback((e) => {
     const { name } = e.target;
@@ -285,29 +314,72 @@ export const useRegistrationValidation = (initialValues = {
       isValid = false;
     }
 
-    // Email validation
+    // Email validation (strict)
     if (!formData.email) {
       errors.email = 'Email is required';
       isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-      isValid = false;
-    } else if (formData.email.length > 254) {
-      errors.email = 'Email is too long';
-      isValid = false;
+    } else {
+      const email = (formData.email || '').trim().toLowerCase();
+      const hasSpace = /\s/.test(email);
+      const parts = email.split('@');
+      const validParts = parts.length === 2 && parts[0] && parts[1];
+      const local = validParts ? parts[0] : '';
+      const domain = validParts ? parts[1] : '';
+
+      const tooLong = email.length > 254 || local.length > 64;
+      const hasConsecutiveDots = /\.\./.test(local) || /\.\./.test(domain);
+      const localStartsOrEndsWithDot = local.startsWith('.') || local.endsWith('.');
+      const invalidDomainLabel = domain
+        .split('.')
+        .some(label => !label || label.length > 63 || label.startsWith('-') || label.endsWith('-'));
+      const tld = domain.includes('.') ? domain.split('.').pop() : '';
+      const invalidTldShape = !tld || tld.length < 2 || tld.length > 24 || /[^a-z]/.test(tld);
+      // Restrict to commonly used/public TLDs for signup
+      const allowedTlds = ['com','net','org','edu','gov','mil','info','io','co','in','ai','app','dev'];
+      const invalidTld = invalidTldShape || !allowedTlds.includes(tld);
+
+      const basicRegex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/i;
+      // Additional strict local-part rule: must start with a letter
+      const localStartsWithLetter = /^[a-z][a-z0-9._%+\-]*$/i.test(local);
+
+      if (hasSpace || !validParts || !basicRegex.test(email)) {
+        errors.email = 'Please enter a valid email address';
+        isValid = false;
+      } else if (tooLong) {
+        errors.email = 'Email is too long';
+        isValid = false;
+      } else if (hasConsecutiveDots || localStartsOrEndsWithDot) {
+        errors.email = 'Email cannot contain consecutive dots or end with dot';
+        isValid = false;
+      } else if (!localStartsWithLetter) {
+        errors.email = 'Email must start with a letter';
+        isValid = false;
+      } else if (invalidDomainLabel || invalidTld) {
+        errors.email = 'Please enter a valid domain (e.g. example.com)';
+        isValid = false;
+      }
     }
 
-    // Phone validation
+    // Phone validation (strict - India)
     if (!formData.phone) {
       errors.phone = 'Phone number is required';
       isValid = false;
     } else {
-      const cleanPhone = formData.phone.replace(/\D/g, '');
-      if (cleanPhone.length < 10) {
-        errors.phone = 'Phone number must be at least 10 digits';
+      // Normalize to 10-digit Indian mobile number
+      let digits = formData.phone.replace(/\D/g, '');
+      if (digits.startsWith('0')) digits = digits.replace(/^0+/, '');
+      if (digits.startsWith('91') && digits.length === 12) digits = digits.slice(2);
+      if (digits.length !== 10) {
+        errors.phone = 'Enter a 10-digit Indian mobile number';
         isValid = false;
-      } else if (!/^(\+91|91)?[6-9]\d{9}$/.test(cleanPhone)) {
-        errors.phone = 'Please enter a valid Indian phone number';
+      } else if (!/^[6-9]\d{9}$/.test(digits)) {
+        errors.phone = 'Number must start with 6-9 and be 10 digits';
+        isValid = false;
+      } else if (/^(\d)\1{9}$/.test(digits)) {
+        errors.phone = 'Phone number cannot be all same digits';
+        isValid = false;
+      } else if (digits === '1234567890' || digits === '0123456789' || digits === '0987654321') {
+        errors.phone = 'Enter a real phone number';
         isValid = false;
       }
     }
@@ -411,9 +483,48 @@ export const useRegistrationValidation = (initialValues = {
     return { isValid, errors, passwordStrength };
   }, []);
 
-  return useFormValidation(initialValues, validationRules, {
+  const base = useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
     debounceMs: 500
   });
+
+  // Async availability checks for email and phone
+  useEffect(() => {
+    const run = async () => {
+      const email = base.values.email?.trim();
+      const rawPhone = base.values.phone?.trim() || '';
+      // Normalize phone for availability (10-digit)
+      let phone = rawPhone.replace(/\D/g, '');
+      if (phone.startsWith('0')) phone = phone.replace(/^0+/, '');
+      if (phone.startsWith('91') && phone.length === 12) phone = phone.slice(2);
+      if (phone && phone.length !== 10) {
+        // Do not call availability if not a valid 10-digit
+        phone = '';
+      }
+
+      // Only check when fields are syntactically valid and touched
+      const shouldCheckEmail = !!email && !base.errors.email && base.touched.email;
+      const shouldCheckPhone = !!phone && !base.errors.phone && base.touched.phone;
+
+      if (!shouldCheckEmail && !shouldCheckPhone) return;
+
+      try {
+        const result = await checkAvailability({ email: shouldCheckEmail ? email : undefined, phone: shouldCheckPhone ? phone : undefined });
+        if (shouldCheckEmail && result.email && result.email.available === false) {
+          base.setFieldError('email', 'Email is already registered');
+        }
+        if (shouldCheckPhone && result.phone && result.phone.available === false) {
+          base.setFieldError('phone', 'Phone is already registered');
+        }
+      } catch (err) {
+        // Silently ignore network errors for availability
+      }
+    };
+
+    const t = setTimeout(run, 400);
+    return () => clearTimeout(t);
+  }, [base.values.email, base.values.phone, base.errors.email, base.errors.phone, base.touched.email, base.touched.phone]);
+
+  return base;
 };
