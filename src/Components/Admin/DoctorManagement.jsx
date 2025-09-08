@@ -18,6 +18,7 @@ export default function DoctorManagement() {
     name: '',
     email: '',
     phone: '',
+    role: 'doctor',
     department: '',
     specialization: '',
     experience_years: '',
@@ -77,11 +78,11 @@ export default function DoctorManagement() {
       const token = localStorage.getItem('token');
       
       // Structure the data properly for the backend
-      const doctorData = {
+      const userData = {
         name: doctorForm.name.trim(),
         email: doctorForm.email.trim().toLowerCase(),
         phone: doctorForm.phone.trim(),
-        role: 'doctor',
+        role: doctorForm.role,
         department: doctorForm.department,
         specialization: doctorForm.specialization.trim(),
         experience_years: parseInt(doctorForm.experience_years) || 0,
@@ -90,7 +91,7 @@ export default function DoctorManagement() {
         bio: doctorForm.bio.trim()
       };
 
-      const response = await axios.post('http://localhost:5001/api/admin/users', doctorData, {
+      const response = await axios.post('http://localhost:5001/api/admin/users', userData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -100,7 +101,9 @@ export default function DoctorManagement() {
       resetForm();
       
       // Show success message
-      setSuccessMessage(`Doctor ${doctorForm.name} added successfully! Login credentials have been sent to ${doctorForm.email}. Initial schedules have been created for the next 30 days.`);
+      const roleText = doctorForm.role === 'doctor' ? 'Doctor' : 'Receptionist';
+      const scheduleText = doctorForm.role === 'doctor' ? ' Initial schedules have been created for the next 30 days.' : '';
+      setSuccessMessage(`${roleText} ${doctorForm.name} added successfully! Login credentials have been sent to ${doctorForm.email}.${scheduleText}`);
       setTimeout(() => setSuccessMessage(''), 10000); // Clear message after 10 seconds
       
     } catch (error) {
@@ -190,6 +193,7 @@ export default function DoctorManagement() {
       name: '',
       email: '',
       phone: '',
+      role: 'doctor',
       department: '',
       specialization: '',
       experience_years: '',
@@ -329,7 +333,7 @@ export default function DoctorManagement() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Add New Doctor</h3>
+              <h3 className="text-lg font-bold text-gray-900">Add New User</h3>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="text-gray-400 hover:text-gray-600"

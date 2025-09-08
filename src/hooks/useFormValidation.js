@@ -81,10 +81,16 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
       [name]: fieldValue
     }));
 
-    if (validateOnChange && touched[name]) {
+    // Mark field as touched on first change for dynamic validation UX
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+
+    if (validateOnChange) {
       debouncedValidation(name, fieldValue);
     }
-  }, [validateOnChange, touched, debouncedValidation]);
+  }, [validateOnChange, debouncedValidation]);
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target;
@@ -252,21 +258,29 @@ export const useRegistrationValidation = (initialValues = {
   phone: '',
   dob: '',
   gender: '',
-  password: ''
+  password: '',
+  confirmPassword: '',
+  termsAccepted: false
 }) => {
   const validationRules = useCallback((formData) => {
     const errors = {};
     let isValid = true;
     let passwordStrength = 'none';
 
+    // Normalize name spaces (no multiple spaces) before validation
+    const normalizedName = (formData.name || '').replace(/\s{2,}/g, ' ').trim();
+
     // Name validation
-    if (!formData.name) {
+    if (!normalizedName) {
       errors.name = 'Name is required';
       isValid = false;
-    } else if (formData.name.trim().length < 2) {
+    } else if (normalizedName.length < 2) {
       errors.name = 'Name must be at least 2 characters long';
       isValid = false;
-    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.name.trim())) {
+    } else if (normalizedName.length > 50) {
+      errors.name = 'Name is too long (max 50 characters)';
+      isValid = false;
+    } else if (!/^[a-zA-Z\s'-]+$/.test(normalizedName)) {
       errors.name = 'Name can only contain letters, spaces, hyphens, and apostrophes';
       isValid = false;
     }
@@ -277,6 +291,9 @@ export const useRegistrationValidation = (initialValues = {
       isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Please enter a valid email address';
+      isValid = false;
+    } else if (formData.email.length > 254) {
+      errors.email = 'Email is too long';
       isValid = false;
     }
 
@@ -340,6 +357,12 @@ export const useRegistrationValidation = (initialValues = {
       const hasLowerCase = /[a-z]/.test(formData.password);
       const hasNumbers = /\d/.test(formData.password);
       const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+      const hasWhitespace = /\s/.test(formData.password);
+      // Avoid including name or email local-part in password
+      const emailLocalPart = (formData.email || '').split('@')[0] || '';
+      const normalizedPassword = formData.password.toLowerCase();
+      const normalizedName = (formData.name || '').toLowerCase();
+      const normalizedEmailLocal = emailLocalPart.toLowerCase();
       
       let strengthScore = 0;
       if (hasUpperCase) strengthScore++;
@@ -358,7 +381,31 @@ export const useRegistrationValidation = (initialValues = {
       } else if (passwordStrength === 'weak') {
         errors.password = 'Password is too weak. Add special characters or make it longer';
         isValid = false;
+      } else if (hasWhitespace) {
+        errors.password = 'Password cannot contain spaces';
+        isValid = false;
+      } else if (
+        (normalizedName && normalizedName.length >= 3 && normalizedPassword.includes(normalizedName)) ||
+        (normalizedEmailLocal && normalizedEmailLocal.length >= 3 && normalizedPassword.includes(normalizedEmailLocal))
+      ) {
+        errors.password = 'Password should not contain your name or email';
+        isValid = false;
       }
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password';
+      isValid = false;
+    } else if (formData.password && formData.confirmPassword !== formData.password) {
+      errors.confirmPassword = 'Passwords do not match';
+      isValid = false;
+    }
+
+    // Terms acceptance validation
+    if (!formData.termsAccepted) {
+      errors.termsAccepted = 'You must accept the Terms and Privacy Policy';
+      isValid = false;
     }
 
     return { isValid, errors, passwordStrength };

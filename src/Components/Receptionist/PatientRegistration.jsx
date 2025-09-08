@@ -31,13 +31,35 @@ export default function PatientRegistration() {
     setLoading(true);
 
     try {
-      // Mock API call - replace with actual registration endpoint
-      console.log('Registering patient:', formData);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert('Patient registered successfully!');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5001/api/receptionist/patients', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          dob: formData.dateOfBirth,
+          gender: formData.gender,
+          address: formData.address,
+          emergencyContact: formData.emergencyContact,
+          emergencyPhone: formData.emergencyPhone,
+          medicalHistory: formData.medicalHistory,
+          allergies: formData.allergies,
+          currentMedications: formData.currentMedications
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
+
+      const data = await response.json();
+      alert(`Patient registered successfully! Patient ID: ${data.patient._id}`);
       
       // Reset form
       setFormData({
@@ -56,7 +78,7 @@ export default function PatientRegistration() {
       });
     } catch (error) {
       console.error('Registration error:', error);
-      alert('Registration failed. Please try again.');
+      alert(`Registration failed: ${error.message}`);
     } finally {
       setLoading(false);
     }

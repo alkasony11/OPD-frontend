@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { 
   BuildingOffice2Icon,
   UserCircleIcon,
@@ -194,8 +195,11 @@ function DoctorCard({ doctor, onSelect, disabled = false }) {
   );
 }
 
-// Enhanced Date Selection Component
+// Enhanced Date Selection Component with Calendar View
 export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -210,49 +214,216 @@ export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
       <div className="text-center py-8">
         <CalendarDaysIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">No available dates</h3>
-        <p className="text-gray-600">The selected doctor has no available dates in the next 30 days.</p>
+        <p className="text-gray-600">The selected doctor has no available dates in the next month.</p>
       </div>
     );
   }
+
+  // Create a map of available dates for quick lookup
+  const availableDatesMap = {};
+  dates.forEach(dateObj => {
+    availableDatesMap[dateObj.date] = dateObj;
+  });
+
+  // Calendar generation logic - only show scheduled dates
+  const generateCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    const calendar = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const isCurrentMonth = date.getMonth() === month;
+      const isToday = date.getTime() === today.getTime();
+      const isPast = date < today;
+      const isAvailable = availableDatesMap[dateStr];
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      
+      // Only show dates that have scheduled availability
+      if (isAvailable) {
+        calendar.push({
+          date,
+          dateStr,
+          isCurrentMonth,
+          isToday,
+          isPast,
+          isAvailable,
+          isWeekend,
+          availableSlots: isAvailable?.availableSlots || 0
+        });
+      } else if (isCurrentMonth) {
+        // Show current month dates as "no schedule" placeholders
+        calendar.push({
+          date,
+          dateStr,
+          isCurrentMonth,
+          isToday,
+          isPast,
+          isAvailable: false,
+          isWeekend,
+          availableSlots: 0,
+          isEmpty: true
+        });
+      } else {
+        // Don't show dates from other months that don't have schedules
+        calendar.push({
+          date,
+          dateStr,
+          isCurrentMonth,
+          isToday,
+          isPast,
+          isAvailable: false,
+          isWeekend,
+          availableSlots: 0,
+          isEmpty: true,
+          hide: true
+        });
+      }
+    }
+    
+    return calendar;
+  };
+
+  const calendar = generateCalendar();
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const navigateMonth = (direction) => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(currentMonth.getMonth() + direction);
+    
+    // Don't allow navigation beyond 1 month from today
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + 1);
+    
+    if (newMonth <= maxDate) {
+      setCurrentMonth(newMonth);
+    }
+  };
+
+  const handleDateClick = (day) => {
+    if (day.isAvailable && !day.isPast) {
+      setSelectedDate(day.dateStr);
+      onSelect(day.dateStr);
+    }
+  };
+
+  const getDateStatusColor = (day) => {
+    if (day.isPast) return 'bg-gray-100 text-gray-400 cursor-not-allowed';
+    if (!day.isCurrentMonth) return 'bg-gray-50 text-gray-300';
+    if (day.isEmpty) return 'bg-white text-gray-300 cursor-not-allowed';
+    if (day.isToday) return 'bg-blue-100 text-blue-800 border-2 border-blue-500';
+    if (day.isAvailable) {
+      if (day.availableSlots > 5) return 'bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer';
+      if (day.availableSlots > 0) return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer';
+    }
+    return 'bg-red-100 text-red-400 cursor-not-allowed';
+  };
 
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Date</h2>
       <p className="text-gray-600 mb-6">Doctor: {selectedDoctor}</p>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {dates.map((dateObj) => {
-          const date = new Date(dateObj.date);
-          const isToday = dateObj.isToday;
-          const isTomorrow = !isToday && new Date(dateObj.date).getDate() === new Date().getDate() + 1;
-          
-          return (
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigateMonth(-1)}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        <h3 className="text-lg font-semibold text-gray-900">
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </h3>
+        
+        <button
+          onClick={() => navigateMonth(1)}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 bg-gray-50">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="p-3 text-center text-sm font-medium text-gray-700 border-r border-gray-200 last:border-r-0">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar Days */}
+        <div className="grid grid-cols-7">
+          {calendar.map((day, index) => (
             <div
-              key={dateObj.date}
-              onClick={() => onSelect(dateObj.date)}
-              className="p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-black hover:shadow-md transition-all duration-200 text-center group"
+              key={index}
+              onClick={() => !day.hide && handleDateClick(day)}
+              className={`p-3 text-center text-sm border-r border-b border-gray-200 last:border-r-0 transition-colors ${day.hide ? 'bg-gray-50' : getDateStatusColor(day)}`}
+              title={day.hide ? '' : day.isAvailable ? `${day.availableSlots} slots available` : day.isEmpty ? 'No schedule' : 'Not available'}
             >
-              <div className="font-semibold text-gray-900 group-hover:text-black">
-                {date.toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric' 
-                })}
+              <div className={`font-medium ${day.hide ? 'text-gray-300' : ''}`}>
+                {day.hide ? '' : day.date.getDate()}
               </div>
-              <div className="text-sm text-gray-600 mt-1">{dateObj.dayName}</div>
-              {isToday && (
-                <div className="text-xs text-blue-600 font-medium mt-1">Today</div>
+              {!day.hide && day.isAvailable && day.availableSlots > 0 && (
+                <div className="text-xs mt-1">
+                  {day.availableSlots} slots
+                </div>
               )}
-              {isTomorrow && (
-                <div className="text-xs text-green-600 font-medium mt-1">Tomorrow</div>
-              )}
-              {dateObj.availableSlots && (
-                <div className="text-xs text-gray-500 mt-1">
-                  {dateObj.availableSlots} slots available
+              {!day.hide && day.isEmpty && day.isCurrentMonth && (
+                <div className="text-xs mt-1 text-gray-400">
+                  No schedule
                 </div>
               )}
             </div>
-          );
-        })}
+          ))}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 flex flex-wrap gap-4 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+          <span>Available (5+ slots)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></div>
+          <span>Few slots left</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-red-100 border border-red-300 rounded"></div>
+          <span>Fully booked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-white border border-gray-300 rounded"></div>
+          <span>No schedule</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
+          <span>Past dates</span>
+        </div>
       </div>
     </div>
   );

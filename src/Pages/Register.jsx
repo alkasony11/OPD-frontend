@@ -26,8 +26,27 @@ export default function Register() {
     validateAllFields,
     setFieldError,
     clearFieldError,
-    validateForm
+    validateForm,
+    setFieldValue
   } = useRegistrationValidation();
+  // Sanitize name: collapse multiple spaces on change; trim on blur
+  const handleNameChange = (e) => {
+    const sanitized = e.target.value.replace(/\s{2,}/g, ' ');
+    setFieldValue('name', sanitized);
+  };
+
+  const handleNameBlur = (e) => {
+    const trimmed = (e.target.value || '').trim();
+    setFieldValue('name', trimmed);
+    handleBlur({
+      ...e,
+      target: {
+        ...e.target,
+        value: trimmed
+      }
+    });
+  };
+
 
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -86,6 +105,8 @@ export default function Register() {
     try {
       await axios.post('http://localhost:5001/api/auth/send-otp', {
         email: formData.email
+
+        
       });
       setSuccess('OTP sent to your email! Please check your inbox.');
       setStep(2);
@@ -179,7 +200,7 @@ export default function Register() {
     if (!isLoaded) return;
     
     setGoogleLoading(true);
-    setError('');
+    setServerError('');
     
     try {
       await signUp.authenticateWithRedirect({
@@ -191,7 +212,7 @@ export default function Register() {
         }
       });
     } catch (err) {
-      setError('Google sign-up failed. Please try again.');
+      setServerError('Google sign-up failed. Please try again.');
       setGoogleLoading(false);
     }
   };
@@ -226,8 +247,8 @@ export default function Register() {
                 name="name"
                 type="text"
                 value={formData.name}
-                onChange={handleChange}
-                onBlur={handleBlur}
+                onChange={handleNameChange}
+                onBlur={handleNameBlur}
                 onFocus={handleFocus}
                 error={errors.name}
                 touched={touched.name}
@@ -305,8 +326,61 @@ export default function Register() {
                 placeholder="Create a strong password"
                 showStrength={true}
                 strength={validateForm().passwordStrength}
+                requirements={[
+                  { label: '8+ characters', met: (formData.password || '').length >= 8 },
+                  { label: 'Uppercase letter', met: /[A-Z]/.test(formData.password || '') },
+                  { label: 'Lowercase letter', met: /[a-z]/.test(formData.password || '') },
+                  { label: 'Number', met: /\d/.test(formData.password || '') },
+                  { label: 'Special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password || '') },
+                  { label: 'No spaces', met: !/\s/.test(formData.password || '') }
+                ]}
                 autoComplete="new-password"
               />
+
+              {/* Confirm Password */}
+              <PasswordInput
+                label="Confirm Password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onFocus={handleFocus}
+                error={errors.confirmPassword}
+                touched={touched.confirmPassword}
+                required
+                placeholder="Re-enter your password"
+                showStrength={false}
+                autoComplete="new-password"
+              />
+
+              {/* Terms and Conditions */}
+              <div className="space-y-2">
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="termsAccepted"
+                      name="termsAccepted"
+                      type="checkbox"
+                      checked={formData.termsAccepted}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      onFocus={handleFocus}
+                      className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${
+                        touched.termsAccepted && errors.termsAccepted ? 'border-red-500 focus:ring-red-200' : ''
+                      }`}
+                    />
+                  </div>
+                  <label htmlFor="termsAccepted" className="ml-3 text-sm text-gray-700">
+                    I agree to the <a className="text-blue-600 hover:text-blue-700" href="#" target="_blank" rel="noreferrer">Terms</a> and <a className="text-blue-600 hover:text-blue-700" href="#" target="_blank" rel="noreferrer">Privacy Policy</a>
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                </div>
+                {touched.termsAccepted && errors.termsAccepted && (
+                  <div className="flex items-center space-x-1 text-red-600 text-sm animate-fadeIn">
+                    <span>{errors.termsAccepted}</span>
+                  </div>
+                )}
+              </div>
 
               <button
                 type="submit"

@@ -14,40 +14,47 @@ export default function AppointmentScheduler() {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5001/api/receptionist/appointments/today`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments');
+      }
+
+      const data = await response.json();
+      setAppointments(data.appointments || []);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      // Fallback to mock data if API fails
       const mockAppointments = [
         {
-          id: 1,
+          _id: 1,
           patientName: 'John Doe',
           doctorName: 'Dr. Smith',
-          time: '09:00',
-          duration: 30,
-          type: 'Consultation',
+          timeSlot: '09:00',
           status: 'confirmed'
         },
         {
-          id: 2,
+          _id: 2,
           patientName: 'Jane Smith',
           doctorName: 'Dr. Johnson',
-          time: '10:30',
-          duration: 45,
-          type: 'Follow-up',
+          timeSlot: '10:30',
           status: 'pending'
         },
         {
-          id: 3,
+          _id: 3,
           patientName: 'Mike Wilson',
           doctorName: 'Dr. Brown',
-          time: '14:00',
-          duration: 30,
-          type: 'Check-up',
+          timeSlot: '14:00',
           status: 'confirmed'
         }
       ];
-
       setAppointments(mockAppointments);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
     } finally {
       setLoading(false);
     }
@@ -73,7 +80,7 @@ export default function AppointmentScheduler() {
   };
 
   const isSlotBooked = (time) => {
-    return appointments.some(apt => apt.time === time);
+    return appointments.some(apt => apt.timeSlot === time);
   };
 
   if (loading) {
@@ -119,7 +126,7 @@ export default function AppointmentScheduler() {
       <div className="p-6">
         <div className="grid grid-cols-4 gap-4">
           {timeSlots.map((time) => {
-            const appointment = appointments.find(apt => apt.time === time);
+            const appointment = appointments.find(apt => apt.timeSlot === time);
             const isBooked = isSlotBooked(time);
 
             return (
@@ -138,7 +145,7 @@ export default function AppointmentScheduler() {
                   </div>
                   {isBooked && (
                     <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-50">
-                      {appointment.duration}min
+                      {appointment.tokenNumber}
                     </span>
                   )}
                 </div>
@@ -150,7 +157,7 @@ export default function AppointmentScheduler() {
                       <span className="text-sm font-medium">{appointment.patientName}</span>
                     </div>
                     <div className="text-xs text-gray-600">{appointment.doctorName}</div>
-                    <div className="text-xs text-gray-600">{appointment.type}</div>
+                    <div className="text-xs text-gray-600 capitalize">{appointment.status}</div>
                   </div>
                 ) : (
                   <div className="text-sm text-gray-500">Available</div>

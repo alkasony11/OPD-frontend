@@ -102,6 +102,25 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
+              {/* User Management */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">User Management</h3>
+                  <div className="text-gray-400">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">Add doctors and receptionists, manage user accounts</p>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Manage Users
+                </button>
+              </div>
+
               {/* Department Management */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -123,6 +142,8 @@ export default function AdminDashboard() {
             </div>
           </>
         );
+      case '/admin/users':
+        return <UserManagement />;
       case '/admin/doctors':
         return <DoctorManagement />;
       case '/admin/doctor-schedules':
@@ -131,6 +152,42 @@ export default function AdminDashboard() {
         return <PatientManagement />;
       case '/admin/departments':
         return <DepartmentManagement />;
+      case '/admin/appointments':
+        return (
+          <div className="text-center py-12">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coming Soon</h3>
+              <p className="text-yellow-700">Appointment Management feature is under development.</p>
+            </div>
+          </div>
+        );
+      case '/admin/reports':
+        return (
+          <div className="text-center py-12">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coming Soon</h3>
+              <p className="text-yellow-700">Reports & Analytics feature is under development.</p>
+            </div>
+          </div>
+        );
+      case '/admin/logs':
+        return (
+          <div className="text-center py-12">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coming Soon</h3>
+              <p className="text-yellow-700">System Logs feature is under development.</p>
+            </div>
+          </div>
+        );
+      case '/admin/priority':
+        return (
+          <div className="text-center py-12">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-md mx-auto">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coming Soon</h3>
+              <p className="text-yellow-700">Smart Priority feature is under development.</p>
+            </div>
+          </div>
+        );
       default:
         return (
           <>
@@ -148,10 +205,15 @@ export default function AdminDashboard() {
     const path = location.pathname;
     switch (path) {
       case '/admin/dashboard': return 'Admin Dashboard';
+      case '/admin/users': return 'User Management';
       case '/admin/doctors': return 'Doctor Management';
       case '/admin/doctor-schedules': return 'Doctor Schedule Management';
       case '/admin/patients': return 'Patient Management';
       case '/admin/departments': return 'Department Management';
+      case '/admin/appointments': return 'Appointment Management (Coming Soon)';
+      case '/admin/reports': return 'Reports & Analytics (Coming Soon)';
+      case '/admin/logs': return 'System Logs (Coming Soon)';
+      case '/admin/priority': return 'Smart Priority (Coming Soon)';
       default: return 'Admin Dashboard';
     }
   };

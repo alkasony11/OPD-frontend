@@ -41,16 +41,25 @@ export default function AdminSidebar() {
     }
   }, []);
 
-  const menuItems = [
-    { name: 'Dashboard', icon: HiHome, path: '/admin/dashboard' },
-    { name: 'Patient Management', icon: HiUsers, path: '/admin/patients' },
-    { name: 'Doctor Management', icon: HiUserGroup, path: '/admin/doctors' },
-    { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules' },
-    { name: 'System Logs', icon: HiClipboardList, path: '/admin/logs' },
-    { name: 'Smart Priority', icon: HiStar, path: '/admin/priority' },
-    { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments' },
-    { name: 'Reports & Analytics', icon: HiDocumentReport, path: '/admin/reports' },
+  // Working functionalities (fully implemented)
+  const workingFeatures = [
+    { name: 'Dashboard', icon: HiHome, path: '/admin/dashboard', status: 'working' },
+    { name: 'User Management', icon: HiUser, path: '/admin/users', status: 'working' },
+    { name: 'Doctor Management', icon: HiUserGroup, path: '/admin/doctors', status: 'working' },
+    { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules', status: 'working' },
+    { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
+    { name: 'Patient Management', icon: HiUsers, path: '/admin/patients', status: 'working' },
   ];
+
+  // Partially implemented or planned features
+  const plannedFeatures = [
+    { name: 'Appointment Management', icon: HiClipboardList, path: '/admin/appointments', status: 'planned' },
+    { name: 'Reports & Analytics', icon: HiDocumentReport, path: '/admin/reports', status: 'planned' },
+    { name: 'System Logs', icon: HiClipboardList, path: '/admin/logs', status: 'planned' },
+    { name: 'Smart Priority', icon: HiStar, path: '/admin/priority', status: 'planned' },
+  ];
+
+  const menuItems = [...workingFeatures, ...plannedFeatures];
 
   const handleLogout = async () => {
     try {
@@ -95,13 +104,6 @@ export default function AdminSidebar() {
 
       {/* Navigation Menu */}
       <nav className="mt-6 flex-1 overflow-y-auto">
-        {!isCollapsed && (
-          <div className="px-6 mb-4">
-            <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
-              MAIN MENU
-            </p>
-          </div>
-        )}
         <ul className="space-y-2 px-3">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -112,15 +114,27 @@ export default function AdminSidebar() {
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
                     isActive(item.path)
                       ? 'bg-gray-700 text-white shadow-lg border-l-4 border-white'
-                      : 'text-white hover:bg-gray-700 hover:text-white hover:shadow-md'
+                      : item.status === 'working'
+                      ? 'text-white hover:bg-gray-700 hover:text-white hover:shadow-md'
+                      : 'text-gray-400 hover:bg-gray-700 hover:text-gray-300 hover:shadow-md cursor-not-allowed'
                   }`}
-                  title={isCollapsed ? item.name : ''}
+                  title={isCollapsed ? (item.status === 'working' ? item.name : `${item.name} (Coming Soon)`) : ''}
+                  onClick={item.status === 'planned' ? (e) => {
+                    e.preventDefault();
+                    alert(`${item.name} is coming soon!`);
+                  } : undefined}
                 >
                   <Icon className={`h-5 w-5 flex-shrink-0 ${
-                    isActive(item.path) ? 'text-white' : 'text-white group-hover:text-gray-200'
+                    isActive(item.path) 
+                      ? 'text-white' 
+                      : item.status === 'working'
+                      ? 'text-white group-hover:text-gray-200'
+                      : 'text-gray-400 group-hover:text-gray-300'
                   }`} />
                   {!isCollapsed && (
-                    <span className="text-sm font-medium truncate text-white">{item.name}</span>
+                    <span className={`text-sm font-medium truncate ${
+                      item.status === 'working' ? 'text-white' : 'text-gray-400'
+                    }`}>{item.name}</span>
                   )}
                 </Link>
               </li>

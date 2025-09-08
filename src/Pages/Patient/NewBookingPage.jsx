@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
+import { getCurrentUser } from '../../utils/auth';
 import axios from 'axios';
 import {
   ArrowLeftIcon,
@@ -131,10 +132,13 @@ export default function NewBookingPage() {
       });
       const members = response.data.familyMembers || [];
       
-      // Add self as first option
+      // Add self as first option - get name from stored user data
+      const currentUser = getCurrentUser();
+      const userName = currentUser?.name || user?.firstName + ' ' + user?.lastName || 'You';
+      
       const selfMember = {
         id: 'self',
-        name: user?.firstName + ' ' + user?.lastName || 'You',
+        name: userName,
         relation: 'self',
         age: 'Adult',
         gender: 'N/A'

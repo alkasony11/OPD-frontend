@@ -96,6 +96,7 @@ export const PasswordInput = ({
   placeholder = 'Enter your password',
   showStrength = false,
   strength = 'none',
+  requirements = [],
   className = '',
   disabled = false,
   ...props
@@ -194,6 +195,21 @@ export const PasswordInput = ({
               className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor(strength)} ${getStrengthWidth(strength)}`}
             />
           </div>
+          {/* Dynamic requirements checklist */}
+          {Array.isArray(requirements) && requirements.length > 0 && (
+            <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              {requirements.map((req) => (
+                <li key={req.label} className={`flex items-center ${req.met ? 'text-green-600' : 'text-gray-600'}`}>
+                  {req.met ? (
+                    <HiCheckCircle className="h-4 w-4 mr-1" />
+                  ) : (
+                    <HiExclamationCircle className="h-4 w-4 mr-1 text-gray-400" />
+                  )}
+                  <span>{req.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       
@@ -330,10 +346,10 @@ export const PhoneInput = ({
   const handlePhoneChange = (e) => {
     const formatted = formatPhoneNumber(e.target.value);
     onChange({
-      ...e,
       target: {
-        ...e.target,
-        value: formatted
+        name,
+        value: formatted,
+        type: 'text'
       }
     });
   };
@@ -380,10 +396,10 @@ export const OTPInput = ({
   const handleOTPChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     onChange({
-      ...e,
       target: {
-        ...e.target,
-        value
+        name,
+        value,
+        type: 'text'
       }
     });
   };

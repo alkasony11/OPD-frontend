@@ -104,8 +104,14 @@ export default function Navbar() {
     { name: "Contact", path: "#contact" },
   ];
 
-  // Use the same nav links for all users (no booking link in navbar)
-  const allNavLinks = navLinks;
+  // Additional links for logged-in patients
+  const patientLinks = [
+    { name: "Book Appointment", path: "/booking" },
+    { name: "My Appointments", path: "/appointments" },
+  ];
+
+  // Combine nav links with patient-specific links for logged-in users
+  const allNavLinks = isLoggedIn ? [...navLinks, ...patientLinks] : navLinks;
 
   // Calculate dropdown width based on content
   const getDropdownWidth = () => {
