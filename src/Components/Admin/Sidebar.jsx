@@ -49,6 +49,7 @@ export default function AdminSidebar() {
     { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules', status: 'working' },
     { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
     { name: 'Patient Management', icon: HiUsers, path: '/admin/patients', status: 'working' },
+    { name: 'Leave Requests', icon: HiClipboardList, path: '/admin/leave-requests', status: 'working' },
   ];
 
   // Partially implemented or planned features

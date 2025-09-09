@@ -13,7 +13,8 @@ import {
   HiClock,
   HiChartBar,
   HiDocumentText,
-  HiSearch
+  HiSearch,
+  HiExclamation
 } from 'react-icons/hi';
 import { useClerk } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
@@ -30,9 +31,10 @@ export default function DoctorSidebar() {
     { name: 'Appointments', icon: HiCalendar, path: '/doctor/appointments' },
     { name: 'Patients', icon: HiUsers, path: '/doctor/patients' },
     { name: 'Schedule', icon: HiClock, path: '/doctor/schedule' },
+    { name: 'Leave Requests', icon: HiExclamation, path: '/doctor/leave-requests' },
     { name: 'Medical Records', icon: HiDocumentText, path: '/doctor/records' },
     { name: 'Reports', icon: HiChartBar, path: '/doctor/reports' },
-    { name: 'Profile Settings', icon: HiCog, path: '/doctor/settings' },
+    { name: 'Settings', icon: HiCog, path: '/doctor/settings' },
   ];
 
   const handleLogout = async () => {
@@ -52,7 +54,9 @@ export default function DoctorSidebar() {
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
 
   // Get user data from localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');

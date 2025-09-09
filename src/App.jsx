@@ -13,7 +13,14 @@ import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
 import ReceptionistDashboard from './Pages/Receptionist/ReceptionistDashboard';
-import DoctorDashboard from './Pages/Doctor/doctordash';
+import DoctorDashboard from './Pages/Doctor/DoctorDashboard';
+import DoctorAppointmentsPage from './Pages/Doctor/DoctorAppointmentsPage';
+import DoctorPatientsPage from './Pages/Doctor/DoctorPatientsPage';
+import DoctorSchedulePage from './Pages/Doctor/DoctorSchedulePage';
+import DoctorLeaveRequestsPage from './Pages/Doctor/DoctorLeaveRequestsPage';
+import DoctorRecordsPage from './Pages/Doctor/DoctorRecordsPage';
+import DoctorReportsPage from './Pages/Doctor/DoctorReportsPage';
+import DoctorSettingsPage from './Pages/Doctor/DoctorSettingsPage';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
 import { ProtectedRoute, GuestRoute } from './Components/ProtectedRoute';
@@ -30,9 +37,9 @@ function AppContent() {
   // Routes where navbar and footer should be hidden
   const hideNavbarFooterRoutes = [
     '/login', '/register', '/forgot-password', '/reset-password',
-    '/admin/dashboard', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments',
+    '/admin/dashboard', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments', '/admin/leave-requests',
     '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
-    '/doctor/schedule', '/doctor/records', '/doctor/reports', '/doctor/settings',
+    '/doctor/schedule', '/doctor/leave-requests', '/doctor/records', '/doctor/reports', '/doctor/settings',
     '/receptionist/dashboard', '/receptionist/appointments', '/receptionist/patients',
     '/receptionist/queue', '/receptionist/billing', '/receptionist/reports', '/receptionist/settings'
   ];
@@ -58,13 +65,15 @@ function AppContent() {
           <Route path="/admin/doctor-schedules" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/patients" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/departments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/leave-requests" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/doctor/dashboard" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/appointments" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/patients" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/schedule" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/records" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/reports" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/settings" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
+          <Route path="/doctor/appointments" element={<ProtectedRoute requiredRole="doctor"><DoctorAppointmentsPage /></ProtectedRoute>} />
+          <Route path="/doctor/patients" element={<ProtectedRoute requiredRole="doctor"><DoctorPatientsPage /></ProtectedRoute>} />
+          <Route path="/doctor/schedule" element={<ProtectedRoute requiredRole="doctor"><DoctorSchedulePage /></ProtectedRoute>} />
+          <Route path="/doctor/leave-requests" element={<ProtectedRoute requiredRole="doctor"><DoctorLeaveRequestsPage /></ProtectedRoute>} />
+          <Route path="/doctor/records" element={<ProtectedRoute requiredRole="doctor"><DoctorRecordsPage /></ProtectedRoute>} />
+          <Route path="/doctor/reports" element={<ProtectedRoute requiredRole="doctor"><DoctorReportsPage /></ProtectedRoute>} />
+          <Route path="/doctor/settings" element={<ProtectedRoute requiredRole="doctor"><DoctorSettingsPage /></ProtectedRoute>} />
           <Route path="/receptionist/dashboard" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistDashboard /></ProtectedRoute>} />
           <Route path="/receptionist/appointments" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistDashboard /></ProtectedRoute>} />
           <Route path="/receptionist/patients" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistDashboard /></ProtectedRoute>} />

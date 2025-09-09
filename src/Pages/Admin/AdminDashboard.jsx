@@ -11,6 +11,7 @@ import AppointmentManagement from '../../Components/Admin/AppointmentManagement'
 import DepartmentManagement from '../../Components/Admin/DepartmentManagement';
 import PatientManagement from '../../Components/Admin/PatientManagement';
 import DoctorScheduleManagement from '../../Components/Admin/DoctorScheduleManagement';
+import LeaveRequests from '../../Components/Admin/LeaveRequests';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -152,6 +153,8 @@ export default function AdminDashboard() {
         return <PatientManagement />;
       case '/admin/departments':
         return <DepartmentManagement />;
+      case '/admin/leave-requests':
+        return <LeaveRequests />;
       case '/admin/appointments':
         return (
           <div className="text-center py-12">
