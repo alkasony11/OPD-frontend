@@ -32,13 +32,15 @@ export default function NewBookingPage() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [bookingError, setBookingError] = useState('');
   
   // Data states
   const [departments, setDepartments] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [availableSessions, setAvailableSessions] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
+  const [symptomAnalysis, setSymptomAnalysis] = useState(null);
 
   // Booking form data
   const [bookingData, setBookingData] = useState({
@@ -51,6 +53,7 @@ export default function NewBookingPage() {
     symptoms: '',
     familyMemberId: 'self',
     familyMemberName: '',
+    familyMemberPatientId: '',
     paymentMethod: 'card'
   });
 
@@ -65,9 +68,11 @@ export default function NewBookingPage() {
   });
 
   useEffect(() => {
+    if (token) {
     fetchDepartments();
     fetchFamilyMembers();
-  }, []);
+    }
+  }, [token]);
 
   const fetchDepartments = async () => {
     try {
@@ -97,29 +102,44 @@ export default function NewBookingPage() {
     }
   };
 
-  const fetchAvailableDates = async (doctorId) => {
+  const fetchDepartmentAvailableDates = async (departmentId) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5001/api/patient/doctors/${doctorId}/available-dates`, {
+      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-dates`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAvailableDates(response.data.availableDates || []);
+      setAvailableDates(res.data.availableDates || []);
     } catch (error) {
-      console.error('Error fetching available dates:', error);
+      console.error('Error fetching department available dates:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAvailableSlots = async (doctorId, date) => {
+  const fetchDepartmentAvailableSessions = async (departmentId, date) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5001/api/patient/doctors/${doctorId}/availability/${date}`, {
+      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/availability/${date}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAvailableSlots(response.data.slots || []);
+      setAvailableSessions(res.data.sessions || []);
     } catch (error) {
-      console.error('Error fetching available slots:', error);
+      console.error('Error fetching department available sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAvailableDoctorsForSlot = async (departmentId, date, time) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { date, time }
+      });
+      setDoctors(res.data.doctors || []);
+    } catch (error) {
+      console.error('Error fetching available doctors for slot:', error);
     } finally {
       setLoading(false);
     }
@@ -127,6 +147,10 @@ export default function NewBookingPage() {
 
   const fetchFamilyMembers = async () => {
     try {
+      if (!token) {
+        console.warn('No token available for fetching family members');
+        return;
+      }
       const response = await axios.get('http://localhost:5001/api/patient/family-members', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -138,6 +162,7 @@ export default function NewBookingPage() {
       
       const selfMember = {
         id: 'self',
+        patientId: currentUser?.patientId || 'P001',
         name: userName,
         relation: 'self',
         age: 'Adult',
@@ -150,11 +175,47 @@ export default function NewBookingPage() {
       setBookingData(prev => ({
         ...prev,
         familyMemberId: 'self',
-        familyMemberName: userName
+        familyMemberName: userName,
+        familyMemberPatientId: selfMember.patientId
       }));
     } catch (error) {
       console.error('Error fetching family members:', error);
     }
+  };
+
+  const analyzeSymptoms = async (symptoms) => {
+    try {
+      setLoading(true);
+      const response = await axios.post('http://localhost:5001/api/patient/analyze-symptoms', {
+        symptoms
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setSymptomAnalysis(response.data.analysis);
+      return response.data.analysis;
+    } catch (error) {
+      console.error('Error analyzing symptoms:', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePatientSelect = (member) => {
+    setBookingData(prev => ({
+      ...prev,
+      familyMemberId: member.id,
+      familyMemberName: member.name,
+      familyMemberPatientId: member.patientId
+    }));
+    setCurrentStep(2);
+  };
+
+  const handleSymptomsSubmit = async (symptoms) => {
+    setBookingData(prev => ({ ...prev, symptoms }));
+    // Optional analysis; do not force step change
+    await analyzeSymptoms(symptoms);
   };
 
   const handleDepartmentSelect = (department) => {
@@ -163,8 +224,8 @@ export default function NewBookingPage() {
       departmentId: department.id,
       departmentName: department.name
     }));
-    fetchDoctors(department.id);
-    setCurrentStep(2);
+    fetchDepartmentAvailableDates(department.id);
+    setCurrentStep(3);
   };
 
   const handleDoctorSelect = (doctor) => {
@@ -173,47 +234,103 @@ export default function NewBookingPage() {
       doctorId: doctor.id,
       doctorName: doctor.name
     }));
-    fetchAvailableDates(doctor.id);
-    setCurrentStep(3);
+    setCurrentStep(6);
   };
 
-  const handleDateSelect = (date) => {
+  const handleDateSelect = async (date) => {
     setBookingData(prev => ({
       ...prev,
       appointmentDate: date
     }));
-    fetchAvailableSlots(bookingData.doctorId, date);
+    // Check active appointment in same department immediately
+    try {
+      const params = new URLSearchParams({
+        departmentId: bookingData.departmentId,
+        familyMemberId: bookingData.familyMemberId
+      });
+      const res = await axios.get(`http://localhost:5001/api/patient/appointments/active-department-check?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data?.conflict) {
+        setBookingError(res.data.message);
+        return; // Do not proceed to slots
+      } else {
+        setBookingError('');
+      }
+    } catch (e) {
+      // Silent fail; don't block flow if check fails
+    }
+    fetchDepartmentAvailableSessions(bookingData.departmentId, date);
     setCurrentStep(4);
   };
 
-  const handleTimeSelect = (time) => {
+  const handleSessionSelect = async (session) => {
     setBookingData(prev => ({
       ...prev,
-      appointmentTime: time
+      selectedSession: session,
+      appointmentTime: session.startTime // Store session start time
     }));
+    
+    // Set doctors from the selected session
+    setDoctors(session.availableDoctors);
     setCurrentStep(5);
   };
 
-  const handleSymptomsSubmit = () => {
-    setCurrentStep(6);
+  const handleAutoAssign = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`http://localhost:5001/api/patient/departments/${bookingData.departmentId}/auto-assign`, {
+        date: bookingData.appointmentDate,
+        sessionId: bookingData.selectedSession.id,
+        familyMemberId: bookingData.familyMemberId
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const { assignedDoctor, reason } = response.data;
+      
+      setBookingData(prev => ({
+        ...prev,
+        doctorId: assignedDoctor.id,
+        doctorName: assignedDoctor.name,
+        autoAssigned: true,
+        autoAssignReason: reason
+      }));
+
+      setCurrentStep(6); // Skip doctor selection, go to payment
+    } catch (error) {
+      console.error('Auto-assign error:', error);
+      setBookingError(error.response?.data?.message || 'Auto-assignment failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFamilyMemberSelect = (member) => {
     setBookingData(prev => ({
       ...prev,
       familyMemberId: member.id,
-      familyMemberName: member.name
+      familyMemberName: member.name,
+      familyMemberPatientId: member.patientId
     }));
   };
 
   const handleAddFamilyMember = async () => {
     try {
+      console.log('Adding family member:', newMember);
+      console.log('Using token:', token ? 'Token present' : 'No token');
+      
       const response = await axios.post('http://localhost:5001/api/patient/family-members', newMember, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       const addedMember = response.data.familyMember;
-      setFamilyMembers(prev => [...prev, addedMember]);
+      // Ensure the added member has all required fields
+      const memberWithDefaults = {
+        ...addedMember,
+        patientId: addedMember.patientId || 'FM0000'
+      };
+      setFamilyMembers(prev => [...prev, memberWithDefaults]);
       setNewMember({ name: '', age: '', gender: 'male', relation: 'spouse', phone: '' });
       setShowAddMember(false);
       alert('Family member added successfully!');
@@ -226,6 +343,7 @@ export default function NewBookingPage() {
   const handleBookAppointment = async () => {
     try {
       setLoading(true);
+      setBookingError('');
       const appointmentData = {
         doctorId: bookingData.doctorId,
         departmentId: bookingData.departmentId,
@@ -247,16 +365,23 @@ export default function NewBookingPage() {
       }));
 
       setCurrentStep(7);
-      alert('Appointment booked successfully!');
     } catch (error) {
       console.error('Error booking appointment:', error);
-      alert('Error booking appointment: ' + (error.response?.data?.message || 'Unknown error'));
+      setBookingError(error.response?.data?.message || 'Unable to book appointment');
     } finally {
       setLoading(false);
     }
   };
 
   const handlePrevStep = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+      return;
+    }
+    if (currentStep === 5.5) {
+      setCurrentStep(5);
+      return;
+    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
@@ -264,12 +389,13 @@ export default function NewBookingPage() {
 
   const getStepTitle = () => {
     const titles = {
-      1: 'Select Department',
-      2: 'Choose Doctor',
+      1: 'Select Patient',
+      2: 'Symptoms and Department',
       3: 'Pick Date',
-      4: 'Select Time',
-      5: 'Describe Symptoms',
-      6: 'Select Patient',
+      4: 'Select Session',
+      5: 'Choose Doctor Selection',
+      5.5: 'Select Doctor',
+      6: 'Payment',
       7: 'Booking Confirmed'
     };
     return titles[currentStep];
@@ -285,7 +411,7 @@ export default function NewBookingPage() {
               <h1 className="text-2xl font-bold text-gray-900">Book New Appointment</h1>
               <p className="text-gray-600 mt-1">{getStepTitle()}</p>
             </div>
-            {currentStep > 1 && currentStep < 7 && (
+            {currentStep > 1 && currentStep < 8 && (
               <button
                 onClick={handlePrevStep}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
@@ -325,73 +451,183 @@ export default function NewBookingPage() {
 
         {/* Step Content */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          {/* Step 1: Select Department */}
+          {/* Step 1: Select Patient */}
           {currentStep === 1 && (
-            <DepartmentSelection
-              departments={departments}
-              onSelect={handleDepartmentSelect}
+            <PatientSelection
+              familyMembers={familyMembers}
+              selectedMemberId={bookingData.familyMemberId}
+              onSelect={handlePatientSelect}
+              showAddMember={showAddMember}
+              setShowAddMember={setShowAddMember}
+              newMember={newMember}
+              setNewMember={setNewMember}
+              onAddMember={handleAddFamilyMember}
               loading={loading}
             />
           )}
 
-          {/* Step 2: Select Doctor */}
+          {/* Step 2: Symptoms (optional) + Choose Department */}
           {currentStep === 2 && (
-            <DoctorSelection
-              doctors={doctors}
-              selectedDepartment={bookingData.departmentName}
-              onSelect={handleDoctorSelect}
+            <>
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-blue-800 text-sm">
+                  Unsure which department to choose? Provide a brief description of symptoms below and we’ll recommend the most suitable department. You can also skip this and pick a department directly.
+                </p>
+              </div>
+              <div className="mb-6">
+            <SymptomsInput
+              symptoms={bookingData.symptoms}
+              onChange={(symptoms) => setBookingData(prev => ({ ...prev, symptoms }))}
+              onNext={handleSymptomsSubmit}
+            />
+              </div>
+            <DepartmentSuggestion
+              analysis={symptomAnalysis}
+              departments={departments}
+              onSelect={handleDepartmentSelect}
               loading={loading}
             />
+            </>
           )}
 
           {/* Step 3: Select Date */}
           {currentStep === 3 && (
             <DateSelection
               dates={availableDates}
-              selectedDoctor={bookingData.doctorName}
+              selectedDoctor={bookingData.departmentName}
               onSelect={handleDateSelect}
               loading={loading}
             />
           )}
 
-          {/* Step 4: Select Time */}
+          {/* Step 4: Select Session */}
           {currentStep === 4 && (
-            <TimeSelection
-              slots={availableSlots}
-              selectedDate={bookingData.appointmentDate}
-              onSelect={handleTimeSelect}
-              loading={loading}
-            />
+            <>
+              {!!bookingError && (
+                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+                  {bookingError}
+                </div>
+              )}
+              <TimeSelection
+                sessions={availableSessions}
+                selectedDate={bookingData.appointmentDate}
+                onSelect={handleSessionSelect}
+                loading={loading}
+              />
+            </>
           )}
 
-          {/* Step 5: Enter Symptoms */}
+          {/* Step 5: Doctor Selection Choice */}
           {currentStep === 5 && (
-            <SymptomsInput
-              symptoms={bookingData.symptoms}
-              onChange={(symptoms) => setBookingData(prev => ({ ...prev, symptoms }))}
-              onNext={handleSymptomsSubmit}
-            />
+            <>
+              {!!bookingError && (
+                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+                  {bookingError}
+                </div>
+              )}
+              <DoctorSelectionChoice
+                session={bookingData.selectedSession}
+                onManualSelect={() => setCurrentStep(5.5)}
+                onAutoAssign={handleAutoAssign}
+                loading={loading}
+              />
+            </>
           )}
 
-          {/* Step 6: Select Patient */}
+          {/* Step 5.5: Manual Doctor Selection */}
+          {currentStep === 5.5 && (
+            <>
+              {!!bookingError && (
+                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+                  {bookingError}
+                </div>
+              )}
+              
+              {/* Session Info Header */}
+              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{bookingData.selectedSession?.name}</h3>
+                    <p className="text-gray-600">{bookingData.selectedSession?.displayTime}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-blue-600">{bookingData.selectedSession?.doctorCount}</div>
+                    <div className="text-sm text-gray-500">doctors available</div>
+                  </div>
+                </div>
+              </div>
+              
+              <DoctorSelection
+                doctors={doctors}
+                selectedDepartment={bookingData.departmentName}
+                onSelect={async (doctor) => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const params = new URLSearchParams({
+                      date: bookingData.appointmentDate,
+                      doctorId: doctor.id,
+                      familyMemberId: bookingData.familyMemberId
+                    });
+                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (res.data?.conflict) {
+                      setBookingError(res.data.message || 'You already have an appointment with this doctor on this date');
+                      return; // block selecting same doctor for same date
+                    }
+                    setBookingError('');
+                    handleDoctorSelect(doctor);
+                    setCurrentStep(6);
+                  } catch (e) {
+                    // If the check fails, be conservative and block selection
+                    setBookingError('Unable to verify availability. Please try again.');
+                  }
+                }}
+                onAutoAssign={async (doctor) => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const params = new URLSearchParams({
+                      date: bookingData.appointmentDate,
+                      doctorId: doctor.id,
+                      familyMemberId: bookingData.familyMemberId
+                    });
+                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (res.data?.conflict) {
+                      setBookingError(res.data.message || 'You already have an appointment with this doctor on this date');
+                      return; // block selecting same doctor for same date
+                    }
+                    setBookingError('');
+                    handleDoctorSelect(doctor);
+                    setCurrentStep(6);
+                  } catch (e) {
+                    // If the check fails, be conservative and block selection
+                    setBookingError('Unable to verify availability. Please try again.');
+                  }
+                }}
+                loading={loading}
+              />
+            </>
+          )}
+
+          {/* Inline conflict warning (if any) shown above payment too) */}
+          {!!bookingError && currentStep !== 7 && (
+            <div className="mt-4 mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+              {bookingError}
+            </div>
+          )}
+
+          {/* Step 6: Payment */}
           {currentStep === 6 && (
-            <PatientSelection
-              familyMembers={familyMembers}
-              selectedMemberId={bookingData.familyMemberId}
-              onSelect={handleFamilyMemberSelect}
-              showAddMember={showAddMember}
-              setShowAddMember={setShowAddMember}
-              newMember={newMember}
-              setNewMember={setNewMember}
-              onAddMember={handleAddFamilyMember}
-              onNext={() => handleBookAppointment()}
-              loading={loading}
+            <PaymentStep
+              bookingData={bookingData}
+              onPaid={handleBookAppointment}
+              setBookingData={setBookingData}
+              bookingError={bookingError}
+              onClearError={() => setBookingError('')}
             />
           )}
 
-          {/* Step 7: Confirmation */}
+          {/* Step 7: Booking Confirmed */}
           {currentStep === 7 && (
-            <BookingConfirmation
+            <BookingSuccess
               bookingData={bookingData}
               onNewBooking={() => {
                 setCurrentStep(1);
@@ -405,8 +641,10 @@ export default function NewBookingPage() {
                   symptoms: '',
                   familyMemberId: 'self',
                   familyMemberName: '',
+                  familyMemberPatientId: '',
                   paymentMethod: 'card'
                 });
+                setSymptomAnalysis(null);
               }}
             />
           )}
@@ -430,8 +668,8 @@ function SymptomsInput({ symptoms, onChange, onNext }) {
       />
       <div className="flex justify-end mt-6">
         <button
-          onClick={onNext}
-          disabled={!symptoms.trim()}
+          onClick={() => onNext(typeof symptoms === 'string' ? symptoms : String(symptoms || ''))}
+          disabled={!String(symptoms || '').trim()}
           className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
@@ -451,7 +689,6 @@ function PatientSelection({
   newMember, 
   setNewMember, 
   onAddMember, 
-  onNext, 
   loading 
 }) {
   return (
@@ -481,6 +718,9 @@ function PatientSelection({
                 </div>
                 <p className="text-sm text-gray-600 capitalize">{member.relation}</p>
                 <p className="text-sm text-gray-500">{member.age} years, {member.gender}</p>
+                {member.patientId && (
+                  <p className="text-xs text-blue-600 font-medium">Patient ID: {member.patientId}</p>
+                )}
               </div>
               {selectedMemberId === member.id && (
                 <CheckCircleIcon className="h-6 w-6 text-black ml-auto" />
@@ -573,15 +813,397 @@ function PatientSelection({
         )}
       </div>
 
-      <div className="flex justify-end mt-8">
+    </div>
+  );
+}
+
+// Department Suggestion Component
+function DepartmentSuggestion({ analysis, departments, onSelect, loading }) {
+  if (!analysis) {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Choose Department</h2>
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <p className="text-blue-800 text-sm">
+            If you're unsure which department to pick, describe your symptoms above to get smart recommendations.
+          </p>
+        </div>
+        {/* Browse All Departments */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {departments.map((dept) => (
+            <div
+              key={dept.id}
+              onClick={() => onSelect(dept)}
+              className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-gray-400 hover:shadow-sm transition-all"
+            >
+              <h4 className="font-medium text-gray-900 text-sm">{dept.name}</h4>
+              <p className="text-xs text-gray-600 mt-1">{dept.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Department</h2>
+      
+      {/* Analysis Results */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="font-semibold text-blue-900 mb-2">Symptom Analysis</h3>
+        <p className="text-blue-800 text-sm mb-2">{analysis.reasoning}</p>
+        <div className="flex items-center space-x-4 text-sm">
+          <span className="text-blue-700">Confidence: {Math.round(analysis.confidence * 100)}%</span>
+          {analysis.matchedSymptoms.length > 0 && (
+            <span className="text-blue-700">Matched: {analysis.matchedSymptoms.join(', ')}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Primary Department */}
+      {analysis.primaryDepartment && (
+        <div className="mb-6">
+          <h3 className="font-medium text-gray-900 mb-3">Recommended Department</h3>
+          <div
+            onClick={() => onSelect(analysis.primaryDepartment)}
+            className="p-4 border-2 border-green-500 bg-green-50 rounded-xl cursor-pointer hover:bg-green-100 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-green-900">{analysis.primaryDepartment.name}</h4>
+                <p className="text-sm text-green-700">{analysis.primaryDepartment.description}</p>
+              </div>
+              <div className="text-green-600">
+                <span className="text-xs bg-green-200 px-2 py-1 rounded-full">Recommended</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Related Departments */}
+      {analysis.relatedDepartments && analysis.relatedDepartments.length > 0 && (
+        <div>
+          <h3 className="font-medium text-gray-900 mb-3">Alternative Departments</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analysis.relatedDepartments.map((dept) => (
+              <div
+                key={dept.id}
+                onClick={() => onSelect(dept)}
+                className="p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 hover:shadow-md transition-all"
+              >
+                <h4 className="font-semibold text-gray-900">{dept.name}</h4>
+                <p className="text-sm text-gray-600">{dept.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Browse All Departments */}
+      <div className="mt-8 pt-6 border-t">
+        <h3 className="font-medium text-gray-900 mb-3">Browse All Departments</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {departments.map((dept) => (
+            <div
+              key={dept.id}
+              onClick={() => onSelect(dept)}
+              className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-gray-400 hover:shadow-sm transition-all"
+            >
+              <h4 className="font-medium text-gray-900 text-sm">{dept.name}</h4>
+              <p className="text-xs text-gray-600 mt-1">{dept.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Pre-Booking Confirmation Component
+function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Confirm Booking</h2>
+      
+      <div className="bg-gray-50 rounded-lg p-6 mb-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Appointment Details</h3>
+        <div className="space-y-3">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Patient:</span>
+            <span className="font-medium">{bookingData.familyMemberName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Doctor:</span>
+            <span className="font-medium">{bookingData.doctorName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Department:</span>
+            <span className="font-medium">{bookingData.departmentName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Date:</span>
+            <span className="font-medium">{new Date(bookingData.appointmentDate).toLocaleDateString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Time:</span>
+            <span className="font-medium">{bookingData.appointmentTime}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Symptoms:</span>
+            <span className="font-medium text-right max-w-xs">{bookingData.symptoms}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
         <button
-          onClick={onNext}
+          onClick={onConfirm}
           disabled={loading}
           className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Booking...' : 'Book Appointment'}
+          {loading ? 'Booking...' : 'Confirm Booking'}
         </button>
       </div>
     </div>
   );
+}
+
+// Booking Success Component
+function BookingSuccess({ bookingData, onNewBooking }) {
+  return (
+    <div className="text-center">
+      <div className="mb-6">
+        <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Appointment Booked Successfully!</h2>
+        <p className="text-gray-600">Your appointment has been confirmed.</p>
+      </div>
+
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+        <h3 className="font-semibold text-green-900 mb-4">Booking Details</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-green-700">Token Number:</span>
+            <span className="font-medium text-green-900">{bookingData.tokenNumber}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-green-700">Patient:</span>
+            <span className="font-medium text-green-900">{bookingData.familyMemberName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-green-700">Doctor:</span>
+            <span className="font-medium text-green-900">{bookingData.doctorName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-green-700">Date & Time:</span>
+            <span className="font-medium text-green-900">
+              {new Date(bookingData.appointmentDate).toLocaleDateString()} at {bookingData.appointmentTime}
+            </span>
+          </div>
+          {bookingData.estimatedWaitTime && (
+            <div className="flex justify-between">
+              <span className="text-green-700">Estimated Wait:</span>
+              <span className="font-medium text-green-900">{bookingData.estimatedWaitTime} minutes</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={onNewBooking}
+          className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+        >
+          Book Another Appointment
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Payment Step Component
+function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClearError }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [keyId, setKeyId] = useState('');
+
+  useEffect(() => {
+    // Razorpay temporarily disabled: mark as configured to enable button
+    setKeyId('disabled');
+  }, []);
+
+  const openRazorpay = async () => {
+    setLoading(true);
+    try {
+      // Temporary flow: skip payment and move to next step
+      onPaid();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ensure fee in bookingData
+  useEffect(() => {
+    // try to set fee from selected doctor in current doctors list if missing
+    // no-op if already set
+  }, [bookingData]);
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment</h2>
+      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between"><span className="text-gray-600">Doctor</span><span className="font-medium">{bookingData.doctorName}</span></div>
+          <div className="flex justify-between"><span className="text-gray-600">Department</span><span className="font-medium">{bookingData.departmentName}</span></div>
+          <div className="flex justify-between"><span className="text-gray-600">Date & Time</span><span className="font-medium">{new Date(bookingData.appointmentDate).toLocaleDateString()} @ {bookingData.appointmentTime}</span></div>
+          <div className="flex justify-between"><span className="text-gray-600">Consultation Fee</span><span className="font-medium">₹{bookingData.fee || bookingData.doctorFee || 500}</span></div>
+          <div className="flex justify-between"><span className="text-gray-600">Taxes</span><span className="font-medium">₹0</span></div>
+          <div className="flex justify-between text-base"><span className="font-semibold">Total</span><span className="font-semibold">₹{bookingData.fee || bookingData.doctorFee || 500}</span></div>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-sm text-gray-700">
+        <div className="font-semibold mb-1">Refund policy</div>
+        <div>Full refund up to 2 hours before the appointment; no refund after.</div>
+      </div>
+
+      {(error || bookingError) && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded flex items-start justify-between">
+          <span>{bookingError || error}</span>
+          {bookingError && (
+            <button onClick={onClearError} className="ml-4 text-red-700 underline text-sm">Dismiss</button>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={openRazorpay}
+          disabled={loading}
+          className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Processing...' : 'Confirm Payment'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Doctor Selection Choice Component
+function DoctorSelectionChoice({ session, onManualSelect, onAutoAssign, loading }) {
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">Choose Doctor Selection</h2>
+      
+      {/* Session Info */}
+      <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{session.name}</h3>
+            <p className="text-gray-600">{session.displayTime}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-blue-600">{session.doctorCount}</div>
+            <div className="text-sm text-gray-500">doctors available</div>
+          </div>
+        </div>
+        
+        {/* Available Doctors List */}
+        <div className="mt-4">
+          <div className="text-sm text-gray-600 mb-2">Available doctors in this session:</div>
+          <div className="flex flex-wrap gap-2">
+            {session.availableDoctors.map((doctor) => (
+              <span
+                key={doctor.id}
+                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+              >
+                Dr. {doctor.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        <p className="text-blue-800 text-sm">
+          You can either choose a specific doctor or let us assign the best available doctor for you.
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Auto-Assign Option */}
+        <div
+          onClick={onAutoAssign}
+          className="p-6 border-2 border-green-200 bg-green-50 rounded-xl cursor-pointer hover:border-green-500 hover:shadow-lg transition-all duration-200 group"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-green-900 group-hover:text-green-700 transition-colors">
+                Auto-Assign Doctor
+              </h3>
+              <p className="text-green-700 text-sm">Let us choose the best doctor for you</p>
+            </div>
+            <div className="text-green-600">
+              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="space-y-2 text-sm text-green-700">
+            <div>✓ Fastest assignment</div>
+            <div>✓ Load balancing</div>
+            <div>✓ Shortest wait time</div>
+          </div>
+        </div>
+
+        {/* Manual Selection Option */}
+        <div
+          onClick={onManualSelect}
+          className="p-6 border-2 border-blue-200 bg-blue-50 rounded-xl cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all duration-200 group"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900 group-hover:text-blue-700 transition-colors">
+                Choose Doctor Manually
+              </h3>
+              <p className="text-blue-700 text-sm">Select from available doctors</p>
+            </div>
+            <div className="text-blue-600">
+              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="space-y-2 text-sm text-blue-700">
+            <div>✓ Choose specific doctor</div>
+            <div>✓ See doctor details</div>
+            <div>✓ Compare availability</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Session Info */}
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 className="font-medium text-gray-900 mb-2">Session Details</h4>
+        <div className="text-sm text-gray-600">
+          <div><strong>Session:</strong> {session.name}</div>
+          <div><strong>Time:</strong> {session.displayTime}</div>
+          <div><strong>Available Doctors:</strong> {session.doctorCount}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function loadRazorpayScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
 }

@@ -27,7 +27,20 @@ export default function DoctorScheduleManagement() {
     slotDuration: 30,
     maxPatientsPerSlot: 1,
     leaveReason: '',
-    notes: ''
+    notes: '',
+    // Session-based scheduling
+    morningSession: {
+      available: true,
+      start_time: '09:00',
+      end_time: '13:00',
+      maxPatients: 10
+    },
+    afternoonSession: {
+      available: true,
+      start_time: '14:00',
+      end_time: '18:00',
+      maxPatients: 10
+    }
   });
 
   const [bulkForm, setBulkForm] = useState({
@@ -248,7 +261,20 @@ export default function DoctorScheduleManagement() {
       slotDuration: 30,
       maxPatientsPerSlot: 1,
       leaveReason: '',
-      notes: ''
+      notes: '',
+      // Session-based scheduling
+      morningSession: {
+        available: true,
+        start_time: '09:00',
+        end_time: '13:00',
+        maxPatients: 10
+      },
+      afternoonSession: {
+        available: true,
+        start_time: '14:00',
+        end_time: '18:00',
+        maxPatients: 10
+      }
     });
   };
 
@@ -268,7 +294,20 @@ export default function DoctorScheduleManagement() {
           end_time: '14:00'
         },
         slotDuration: 30,
-        maxPatientsPerSlot: 1
+        maxPatientsPerSlot: 1,
+        // Session-based scheduling
+        morningSession: {
+          available: true,
+          start_time: '09:00',
+          end_time: '13:00',
+          maxPatients: 10
+        },
+        afternoonSession: {
+          available: true,
+          start_time: '14:00',
+          end_time: '18:00',
+          maxPatients: 10
+        }
       }
     });
   };
@@ -291,7 +330,20 @@ export default function DoctorScheduleManagement() {
       slotDuration: schedule.slotDuration,
       maxPatientsPerSlot: schedule.maxPatientsPerSlot,
       leaveReason: schedule.leaveReason || '',
-      notes: schedule.notes || ''
+      notes: schedule.notes || '',
+      // Session-based scheduling
+      morningSession: schedule.morning_session || {
+        available: true,
+        start_time: '09:00',
+        end_time: '13:00',
+        maxPatients: 10
+      },
+      afternoonSession: schedule.afternoon_session || {
+        available: true,
+        start_time: '14:00',
+        end_time: '18:00',
+        maxPatients: 10
+      }
     });
     setShowAddModal(true);
   };
@@ -428,14 +480,11 @@ export default function DoctorScheduleManagement() {
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              {/* Table Header with Stats */}
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+              {/* Table Header */}
+              <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">Schedule Overview</h4>
-                    <p className="text-sm text-gray-500">
-                      {schedules.length} total schedules • {schedules.filter(s => s.isAvailable).length} available • {schedules.filter(s => !s.isAvailable).length} unavailable
-                    </p>
+                  <div className="text-sm text-gray-500">
+                    {schedules.length} schedules
                   </div>
                   <div className="text-sm text-gray-500">
                     {selectedSchedules.length > 0 && (
@@ -461,7 +510,7 @@ export default function DoctorScheduleManagement() {
                         />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        S.No
+                        #
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Date
@@ -473,13 +522,13 @@ export default function DoctorScheduleManagement() {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Working Hours
+                        Morning
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Break Time
+                        Afternoon
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Slots
+                        Capacity
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -539,22 +588,28 @@ export default function DoctorScheduleManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col">
-                              <span>{schedule.workingHours.start_time} - {schedule.workingHours.end_time}</span>
+                              <span className={`font-medium ${schedule.morning_session?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
+                                {schedule.morning_session?.available !== false ? 'Available' : 'Unavailable'}
+                              </span>
                               <span className="text-xs text-gray-500">
-                                {Math.round((new Date(`2000-01-01 ${schedule.workingHours.end_time}`) - new Date(`2000-01-01 ${schedule.workingHours.start_time}`)) / (1000 * 60 * 60))}h
+                                {schedule.morning_session?.start_time || '09:00'} - {schedule.morning_session?.end_time || '13:00'}
                               </span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {schedule.breakTime.start_time} - {schedule.breakTime.end_time}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col">
-                              <span>{schedule.slotDuration} min</span>
+                              <span className={`font-medium ${schedule.afternoon_session?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
+                                {schedule.afternoon_session?.available !== false ? 'Available' : 'Unavailable'}
+                              </span>
                               <span className="text-xs text-gray-500">
-                                {Math.round((new Date(`2000-01-01 ${schedule.workingHours.end_time}`) - new Date(`2000-01-01 ${schedule.workingHours.start_time}`)) / (1000 * 60 * schedule.slotDuration))} slots
+                                {schedule.afternoon_session?.start_time || '14:00'} - {schedule.afternoon_session?.end_time || '18:00'}
                               </span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span className="font-medium">
+                              {(schedule.morning_session?.max_patients || 10) + (schedule.afternoon_session?.max_patients || 10)}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button
@@ -616,68 +671,153 @@ export default function DoctorScheduleManagement() {
 
               {scheduleForm.isAvailable && (
                 <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                      <input
-                        type="time"
-                        value={scheduleForm.workingHours.start_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          workingHours: { ...prev.workingHours, start_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                      />
+                  {/* Morning Session */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-md font-semibold text-gray-900">Morning Session</h4>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={scheduleForm.morningSession.available}
+                          onChange={(e) => setScheduleForm(prev => ({
+                            ...prev,
+                            morningSession: { ...prev.morningSession, available: e.target.checked }
+                          }))}
+                          className="mr-2"
+                        />
+                        Available
+                      </label>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">End Time</label>
-                      <input
-                        type="time"
-                        value={scheduleForm.workingHours.end_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          workingHours: { ...prev.workingHours, end_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                      />
-                    </div>
+                    
+                    {scheduleForm.morningSession.available && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.morningSession.start_time}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              morningSession: { ...prev.morningSession, start_time: e.target.value }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">End Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.morningSession.end_time}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              morningSession: { ...prev.morningSession, end_time: e.target.value }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                          <input
+                            type="number"
+                            value={scheduleForm.morningSession.maxPatients}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              morningSession: { ...prev.morningSession, maxPatients: parseInt(e.target.value) }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            min="1"
+                            max="50"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Break Start</label>
-                      <input
-                        type="time"
-                        value={scheduleForm.breakTime.start_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          breakTime: { ...prev.breakTime, start_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                      />
+                  {/* Afternoon Session */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-md font-semibold text-gray-900">Afternoon Session</h4>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={scheduleForm.afternoonSession.available}
+                          onChange={(e) => setScheduleForm(prev => ({
+                            ...prev,
+                            afternoonSession: { ...prev.afternoonSession, available: e.target.checked }
+                          }))}
+                          className="mr-2"
+                        />
+                        Available
+                      </label>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Break End</label>
-                      <input
-                        type="time"
-                        value={scheduleForm.breakTime.end_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          breakTime: { ...prev.breakTime, end_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                      />
-                    </div>
+                    
+                    {scheduleForm.afternoonSession.available && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.afternoonSession.start_time}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              afternoonSession: { ...prev.afternoonSession, start_time: e.target.value }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">End Time</label>
+                          <input
+                            type="time"
+                            value={scheduleForm.afternoonSession.end_time}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              afternoonSession: { ...prev.afternoonSession, end_time: e.target.value }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                          <input
+                            type="number"
+                            value={scheduleForm.afternoonSession.maxPatients}
+                            onChange={(e) => setScheduleForm(prev => ({
+                              ...prev,
+                              afternoonSession: { ...prev.afternoonSession, maxPatients: parseInt(e.target.value) }
+                            }))}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            min="1"
+                            max="50"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Slot Duration (minutes)</label>
-                    <input
-                      type="number"
-                      value={scheduleForm.slotDuration}
-                      onChange={(e) => setScheduleForm(prev => ({ ...prev, slotDuration: parseInt(e.target.value) }))}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                    />
+                  {/* Legacy fields for backward compatibility */}
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Legacy Settings (Optional)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Slot Duration (minutes)</label>
+                        <input
+                          type="number"
+                          value={scheduleForm.slotDuration}
+                          onChange={(e) => setScheduleForm(prev => ({ ...prev, slotDuration: parseInt(e.target.value) }))}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Max Patients Per Slot</label>
+                        <input
+                          type="number"
+                          value={scheduleForm.maxPatientsPerSlot}
+                          onChange={(e) => setScheduleForm(prev => ({ ...prev, maxPatientsPerSlot: parseInt(e.target.value) }))}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -769,36 +909,171 @@ export default function DoctorScheduleManagement() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                  <input
-                    type="time"
-                    value={bulkForm.scheduleTemplate.workingHours.start_time}
-                    onChange={(e) => setBulkForm(prev => ({
-                      ...prev,
-                      scheduleTemplate: {
-                        ...prev.scheduleTemplate,
-                        workingHours: { ...prev.scheduleTemplate.workingHours, start_time: e.target.value }
-                      }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
+              {/* Morning Session Template */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-md font-semibold text-gray-900">Morning Session Template</h4>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={bulkForm.scheduleTemplate.morningSession?.available || true}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          morningSession: { 
+                            ...prev.scheduleTemplate.morningSession, 
+                            available: e.target.checked 
+                          }
+                        }
+                      }))}
+                      className="mr-2"
+                    />
+                    Available
+                  </label>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">End Time</label>
-                  <input
-                    type="time"
-                    value={bulkForm.scheduleTemplate.workingHours.end_time}
-                    onChange={(e) => setBulkForm(prev => ({
-                      ...prev,
-                      scheduleTemplate: {
-                        ...prev.scheduleTemplate,
-                        workingHours: { ...prev.scheduleTemplate.workingHours, end_time: e.target.value }
-                      }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                    <input
+                      type="time"
+                      value={bulkForm.scheduleTemplate.morningSession?.start_time || '09:00'}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          morningSession: { 
+                            ...prev.scheduleTemplate.morningSession, 
+                            start_time: e.target.value 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">End Time</label>
+                    <input
+                      type="time"
+                      value={bulkForm.scheduleTemplate.morningSession?.end_time || '13:00'}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          morningSession: { 
+                            ...prev.scheduleTemplate.morningSession, 
+                            end_time: e.target.value 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                    <input
+                      type="number"
+                      value={bulkForm.scheduleTemplate.morningSession?.maxPatients || 10}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          morningSession: { 
+                            ...prev.scheduleTemplate.morningSession, 
+                            maxPatients: parseInt(e.target.value) 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                      min="1"
+                      max="50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Afternoon Session Template */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-md font-semibold text-gray-900">Afternoon Session Template</h4>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={bulkForm.scheduleTemplate.afternoonSession?.available || true}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          afternoonSession: { 
+                            ...prev.scheduleTemplate.afternoonSession, 
+                            available: e.target.checked 
+                          }
+                        }
+                      }))}
+                      className="mr-2"
+                    />
+                    Available
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                    <input
+                      type="time"
+                      value={bulkForm.scheduleTemplate.afternoonSession?.start_time || '14:00'}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          afternoonSession: { 
+                            ...prev.scheduleTemplate.afternoonSession, 
+                            start_time: e.target.value 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">End Time</label>
+                    <input
+                      type="time"
+                      value={bulkForm.scheduleTemplate.afternoonSession?.end_time || '18:00'}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          afternoonSession: { 
+                            ...prev.scheduleTemplate.afternoonSession, 
+                            end_time: e.target.value 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                    <input
+                      type="number"
+                      value={bulkForm.scheduleTemplate.afternoonSession?.maxPatients || 10}
+                      onChange={(e) => setBulkForm(prev => ({
+                        ...prev,
+                        scheduleTemplate: {
+                          ...prev.scheduleTemplate,
+                          afternoonSession: { 
+                            ...prev.scheduleTemplate.afternoonSession, 
+                            maxPatients: parseInt(e.target.value) 
+                          }
+                        }
+                      }))}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                      min="1"
+                      max="50"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

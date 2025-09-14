@@ -43,7 +43,10 @@ function AppContent() {
     '/receptionist/dashboard', '/receptionist/appointments', '/receptionist/patients',
     '/receptionist/queue', '/receptionist/billing', '/receptionist/reports', '/receptionist/settings'
   ];
+  // Also hide footer on booking and my appointments pages
+  const hideFooterOnlyRoutes = ['/booking', '/appointments'];
   const shouldHideNavbarFooter = hideNavbarFooterRoutes.includes(location.pathname);
+  const shouldHideFooterOnly = hideFooterOnlyRoutes.includes(location.pathname);
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -83,7 +86,7 @@ function AppContent() {
           <Route path="/receptionist/settings" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistDashboard /></ProtectedRoute>} />
         </Routes>
       </main>
-      {!shouldHideNavbarFooter && <Footer />}
+      {!shouldHideNavbarFooter && !shouldHideFooterOnly && <Footer />}
     </div>
   );
 }

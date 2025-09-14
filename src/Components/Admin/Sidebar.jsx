@@ -50,6 +50,7 @@ export default function AdminSidebar() {
     { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
     { name: 'Patient Management', icon: HiUsers, path: '/admin/patients', status: 'working' },
     { name: 'Leave Requests', icon: HiClipboardList, path: '/admin/leave-requests', status: 'working' },
+    { name: 'Doctor Load Analytics', icon: HiChartBar, path: '/admin/doctor-load', status: 'working' },
   ];
 
   // Partially implemented or planned features

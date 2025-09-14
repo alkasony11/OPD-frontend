@@ -75,6 +75,17 @@ export default function AppointmentManagement() {
     });
   };
 
+  const getSessionDisplay = (timeString) => {
+    // Convert time to session display
+    if (timeString === '09:00') {
+      return 'Morning Session (9:00 AM - 1:00 PM)';
+    } else if (timeString === '14:00') {
+      return 'Afternoon Session (2:00 PM - 6:00 PM)';
+    }
+    // Fallback for legacy time slots
+    return timeString;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -147,6 +158,11 @@ export default function AppointmentManagement() {
               <div className="flex items-center text-sm text-gray-600">
                 <HiUser className="h-4 w-4 mr-2" />
                 <span>Dr. {appointment.doctorName}</span>
+                {appointment.autoAssigned && (
+                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                    Auto-Assigned
+                  </span>
+                )}
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <HiCalendar className="h-4 w-4 mr-2" />
@@ -154,7 +170,7 @@ export default function AppointmentManagement() {
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <HiClock className="h-4 w-4 mr-2" />
-                <span>{appointment.appointmentTime}</span>
+                <span>{getSessionDisplay(appointment.appointmentTime)}</span>
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <HiPhone className="h-4 w-4 mr-2" />
@@ -164,6 +180,14 @@ export default function AppointmentManagement() {
                 <HiMail className="h-4 w-4 mr-2" />
                 <span>{appointment.patientEmail}</span>
               </div>
+              {appointment.tokenNumber && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <span className="font-medium mr-2">Token:</span>
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono">
+                    {appointment.tokenNumber}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="mb-4">

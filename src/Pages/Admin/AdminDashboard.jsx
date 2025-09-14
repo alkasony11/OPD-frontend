@@ -12,6 +12,7 @@ import DepartmentManagement from '../../Components/Admin/DepartmentManagement';
 import PatientManagement from '../../Components/Admin/PatientManagement';
 import DoctorScheduleManagement from '../../Components/Admin/DoctorScheduleManagement';
 import LeaveRequests from '../../Components/Admin/LeaveRequests';
+import DoctorLoadAnalytics from '../../Components/Admin/DoctorLoadAnalytics';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -182,6 +183,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         );
+      case '/admin/doctor-load':
+        return <DoctorLoadAnalytics />;
       case '/admin/priority':
         return (
           <div className="text-center py-12">
@@ -214,6 +217,7 @@ export default function AdminDashboard() {
       case '/admin/patients': return 'Patient Management';
       case '/admin/departments': return 'Department Management';
       case '/admin/appointments': return 'Appointment Management (Coming Soon)';
+      case '/admin/doctor-load': return 'Doctor Load Analytics';
       case '/admin/reports': return 'Reports & Analytics (Coming Soon)';
       case '/admin/logs': return 'System Logs (Coming Soon)';
       case '/admin/priority': return 'Smart Priority (Coming Soon)';

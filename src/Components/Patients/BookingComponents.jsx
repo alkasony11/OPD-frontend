@@ -32,7 +32,10 @@ export function DepartmentSelection({ departments, onSelect, loading }) {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Select Department</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Department</h2>
+      <p className="text-gray-600 mb-6">
+        Not sure which department to choose? Use the "Describe Symptoms" option to get recommendations.
+      </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {departments.map((dept) => (
           <div
@@ -59,7 +62,7 @@ export function DepartmentSelection({ departments, onSelect, loading }) {
 }
 
 // Enhanced Doctor Selection Component
-export function DoctorSelection({ doctors, selectedDepartment, onSelect, loading }) {
+export function DoctorSelection({ doctors, selectedDepartment, onSelect, onAutoAssign, loading }) {
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -83,20 +86,94 @@ export function DoctorSelection({ doctors, selectedDepartment, onSelect, loading
   const availableDoctors = doctors.filter(doctor => doctor.isAvailable);
   const unavailableDoctors = doctors.filter(doctor => !doctor.isAvailable);
 
+  // Separate doctors with slots vs fully booked
+  const doctorsWithSlots = availableDoctors.filter(doctor => doctor.hasAvailableSlots !== false);
+  const fullyBookedDoctors = availableDoctors.filter(doctor => doctor.hasAvailableSlots === false);
+
+  // Find doctor with lowest queue load (only those with available slots)
+  const getBestDoctor = () => {
+    if (doctorsWithSlots.length === 0) return null;
+    return doctorsWithSlots.reduce((best, current) => {
+      return current.patientsAhead < best.patientsAhead ? current : best;
+    });
+  };
+
+  const bestDoctor = getBestDoctor();
+
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Doctor</h2>
       <p className="text-gray-600 mb-6">Department: {selectedDepartment}</p>
       
-      {/* Available Doctors */}
-      {availableDoctors.length > 0 && (
+      {/* Auto-assignment option */}
+      {bestDoctor && (
+        <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="flex items-center space-x-2">
+                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-green-900">Auto-Assign Best Doctor</h3>
+                </div>
+              </div>
+              <p className="text-sm text-green-700 mb-3">
+                Not sure which doctor? Let us assign you the earliest available doctor in this session.
+              </p>
+              {bestDoctor && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center space-x-1">
+                    <span className="text-green-600 font-medium">Recommended:</span>
+                    <span className="text-gray-700">{bestDoctor.name}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-gray-600">Only</span>
+                    <span className="text-green-600 font-medium">{bestDoctor.patientsAhead}</span>
+                    <span className="text-gray-600">patients ahead</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-gray-600">~</span>
+                    <span className="text-green-600 font-medium">{bestDoctor.averageWaitTime}</span>
+                    <span className="text-gray-600">min wait</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => onAutoAssign && onAutoAssign(bestDoctor)}
+              className="ml-4 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-lg"
+            >
+              Auto Assign
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Doctors with Available Slots */}
+      {doctorsWithSlots.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
             <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-            Available Doctors ({availableDoctors.length})
+            Available Doctors ({doctorsWithSlots.length})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableDoctors.map((doctor) => (
+            {doctorsWithSlots.map((doctor) => (
+              <DoctorCard key={doctor.id} doctor={doctor} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fully Booked Doctors */}
+      {fullyBookedDoctors.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <ExclamationTriangleIcon className="h-5 w-5 text-orange-500 mr-2" />
+            Fully Booked ({fullyBookedDoctors.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fullyBookedDoctors.map((doctor) => (
               <DoctorCard key={doctor.id} doctor={doctor} onSelect={onSelect} />
             ))}
           </div>
@@ -123,81 +200,114 @@ export function DoctorSelection({ doctors, selectedDepartment, onSelect, loading
 
 // Doctor Card Component
 function DoctorCard({ doctor, onSelect, disabled = false }) {
+  const isAvailable = doctor.isAvailable && !disabled;
+  const hasSlots = doctor.hasAvailableSlots !== false;
+  
   return (
     <div
-      onClick={() => !disabled && onSelect(doctor)}
-      className={`p-4 border-2 rounded-xl transition-all duration-200 ${
-        disabled
+      onClick={() => isAvailable && onSelect(doctor)}
+      className={`p-6 border-2 rounded-xl transition-all duration-200 ${
+        disabled || !doctor.isAvailable
           ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
-          : 'border-gray-200 cursor-pointer hover:border-black hover:shadow-lg'
+          : 'border-gray-200 cursor-pointer hover:border-blue-500 hover:shadow-lg'
       }`}
     >
-      <div className="flex items-start space-x-3">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center space-x-3">
         <div className="relative flex-shrink-0">
           {doctor.profilePhoto ? (
             <img 
               src={doctor.profilePhoto} 
               alt={doctor.name}
-              className="h-12 w-12 rounded-full object-cover"
+                className="h-14 w-14 rounded-full object-cover"
             />
           ) : (
-            <UserCircleIcon className="h-12 w-12 text-gray-600" />
+              <UserCircleIcon className="h-14 w-14 text-gray-600" />
           )}
-          {!disabled && (
+            {isAvailable && (
             <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 border-2 border-white rounded-full"></div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-gray-900 truncate">{doctor.name}</h3>
-            {!disabled ? (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Available
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                Unavailable
-              </span>
-            )}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{doctor.name}</h3>
+            <p className="text-sm text-gray-600">{doctor.specialization}</p>
+            <p className="text-xs text-gray-500">{doctor.experience} years experience</p>
           </div>
-          <p className="text-sm text-gray-600 mb-1">{doctor.specialization}</p>
-          <p className="text-sm text-gray-500 mb-2">{doctor.experience} years experience</p>
-          
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-900">₹{doctor.fee}</p>
-            {!disabled && doctor.availableDays > 0 && (
-              <p className="text-xs text-green-600">{doctor.availableDays} days available</p>
-            )}
+        </div>
+        
+        <div className="text-right">
+          <div className="text-lg font-bold text-gray-900">₹{doctor.fee}</div>
+          <div className="text-xs text-gray-500">consultation fee</div>
+        </div>
+      </div>
+
+      {/* Availability Info */}
+      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div className="text-gray-600">Available:</div>
+            <div className="font-medium text-gray-900">{doctor.sessionTime}</div>
           </div>
-          
-          {doctor.rating && (
-            <div className="flex items-center mt-2">
-              <div className="flex items-center">
-                {[...Array(5)].map((_, i) => (
-                  <svg
-                    key={i}
-                    className={`h-3 w-3 ${
-                      i < Math.floor(doctor.rating) ? 'text-yellow-400' : 'text-gray-300'
-                    }`}
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
+          <div>
+            <div className="text-gray-600">Next Slot:</div>
+            <div className="font-medium text-gray-900">{doctor.nextSlot}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Patients Ahead:</div>
+            <div className="font-medium text-gray-900">{doctor.patientsAhead}</div>
+          </div>
+          <div>
+            <div className="text-gray-600">Avg Wait:</div>
+            <div className="font-medium text-gray-900">{doctor.averageWaitTime} mins</div>
+          </div>
               </div>
-              <span className="ml-1 text-xs text-gray-600">({doctor.reviews} reviews)</span>
             </div>
+
+      {/* Action Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {isAvailable ? (
+            <>
+              <CheckCircleIcon className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-green-600 font-medium">
+                {hasSlots ? 'Available' : 'Fully Booked'}
+              </span>
+            </>
+          ) : (
+            <>
+              <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
+              <span className="text-sm text-red-600 font-medium">
+                {disabled ? 'Unavailable' : 'Not Scheduled'}
+              </span>
+            </>
           )}
         </div>
+        
+        {isAvailable && hasSlots && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(doctor);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            Book with {doctor.name.split(' ')[0]}
+          </button>
+        )}
+        
+        {isAvailable && !hasSlots && (
+          <span className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium">
+            Fully Booked
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-// Enhanced Date Selection Component with Calendar View
+// Enhanced Date Selection Component with 7-day View
 export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
 
   if (loading) {
@@ -209,305 +319,174 @@ export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
     );
   }
 
-  if (dates.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <CalendarDaysIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No available dates</h3>
-        <p className="text-gray-600">The selected doctor has no available dates in the next month.</p>
-      </div>
-    );
-  }
-
-  // Create a map of available dates for quick lookup
+  // Map of available dates from API
   const availableDatesMap = {};
-  dates.forEach(dateObj => {
+  (dates || []).forEach(dateObj => {
     availableDatesMap[dateObj.date] = dateObj;
   });
 
-  // Calendar generation logic - only show scheduled dates
-  const generateCalendar = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
-    const calendar = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      
-      const dateStr = date.toISOString().split('T')[0];
-      const isCurrentMonth = date.getMonth() === month;
-      const isToday = date.getTime() === today.getTime();
-      const isPast = date < today;
-      const isAvailable = availableDatesMap[dateStr];
-      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-      
-      // Only show dates that have scheduled availability
-      if (isAvailable) {
-        calendar.push({
-          date,
-          dateStr,
-          isCurrentMonth,
-          isToday,
-          isPast,
-          isAvailable,
-          isWeekend,
-          availableSlots: isAvailable?.availableSlots || 0
-        });
-      } else if (isCurrentMonth) {
-        // Show current month dates as "no schedule" placeholders
-        calendar.push({
-          date,
-          dateStr,
-          isCurrentMonth,
-          isToday,
-          isPast,
-          isAvailable: false,
-          isWeekend,
-          availableSlots: 0,
-          isEmpty: true
-        });
-      } else {
-        // Don't show dates from other months that don't have schedules
-        calendar.push({
-          date,
-          dateStr,
-          isCurrentMonth,
-          isToday,
-          isPast,
-          isAvailable: false,
-          isWeekend,
-          availableSlots: 0,
-          isEmpty: true,
-          hide: true
-        });
-      }
-    }
-    
-    return calendar;
+  // Build 7-day window starting today
+  const toLocalYmd = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dateStr = toLocalYmd(d);
+    const fromApi = availableDatesMap[dateStr];
+    days.push({
+      date: d,
+      dateStr,
+      isToday: i === 0,
+      isAvailable: !!fromApi,
+      availableSlots: fromApi?.availableSlots || 0,
+      totalSlots: fromApi?.totalSlots || 0,
+      dayName: d.toLocaleDateString('en-US', { weekday: 'short' })
+    });
+  }
+
+  const handleSelect = (day) => {
+    if (!day.isAvailable) return;
+    setSelectedDate(day.dateStr);
+    onSelect(day.dateStr);
   };
 
-  const calendar = generateCalendar();
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const navigateMonth = (direction) => {
-    const newMonth = new Date(currentMonth);
-    newMonth.setMonth(currentMonth.getMonth() + direction);
-    
-    // Don't allow navigation beyond 1 month from today
-    const maxDate = new Date();
-    maxDate.setMonth(maxDate.getMonth() + 1);
-    
-    if (newMonth <= maxDate) {
-      setCurrentMonth(newMonth);
-    }
-  };
-
-  const handleDateClick = (day) => {
-    if (day.isAvailable && !day.isPast) {
-      setSelectedDate(day.dateStr);
-      onSelect(day.dateStr);
-    }
-  };
-
-  const getDateStatusColor = (day) => {
-    if (day.isPast) return 'bg-gray-100 text-gray-400 cursor-not-allowed';
-    if (!day.isCurrentMonth) return 'bg-gray-50 text-gray-300';
-    if (day.isEmpty) return 'bg-white text-gray-300 cursor-not-allowed';
-    if (day.isToday) return 'bg-blue-100 text-blue-800 border-2 border-blue-500';
-    if (day.isAvailable) {
-      if (day.availableSlots > 5) return 'bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer';
-      if (day.availableSlots > 0) return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer';
-    }
-    return 'bg-red-100 text-red-400 cursor-not-allowed';
-  };
+  const title = selectedDoctor
+    ? `Choose a date for ${selectedDoctor}`
+    : 'Choose a date';
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Date</h2>
-      <p className="text-gray-600 mb-6">Doctor: {selectedDoctor}</p>
-      
-      {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => navigateMonth(-1)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        
-        <h3 className="text-lg font-semibold text-gray-900">
-          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-        </h3>
-        
-        <button
-          onClick={() => navigateMonth(1)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">{title}</h2>
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        <p className="text-blue-800 text-sm">
+          Tip: Choose the date that works best for you. You can change it later if needed.
+        </p>
       </div>
+      <p className="text-gray-600 mb-6">Showing availability for the next 7 days</p>
 
-      {/* Calendar Grid */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 bg-gray-50">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="p-3 text-center text-sm font-medium text-gray-700 border-r border-gray-200 last:border-r-0">
-              {day}
-            </div>
-          ))}
-        </div>
-        
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7">
-          {calendar.map((day, index) => (
-            <div
-              key={index}
-              onClick={() => !day.hide && handleDateClick(day)}
-              className={`p-3 text-center text-sm border-r border-b border-gray-200 last:border-r-0 transition-colors ${day.hide ? 'bg-gray-50' : getDateStatusColor(day)}`}
-              title={day.hide ? '' : day.isAvailable ? `${day.availableSlots} slots available` : day.isEmpty ? 'No schedule' : 'Not available'}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {days.map((day) => {
+          const isSelected = selectedDate === day.dateStr;
+          const base = day.isAvailable
+            ? (isSelected
+                ? 'border-black bg-gray-50'
+                : 'border-green-300 hover:border-green-500 hover:bg-green-50')
+            : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60';
+          return (
+            <button
+              key={day.dateStr}
+              onClick={() => handleSelect(day)}
+              disabled={!day.isAvailable}
+              className={`p-4 border-2 rounded-xl text-left transition-all ${base}`}
             >
-              <div className={`font-medium ${day.hide ? 'text-gray-300' : ''}`}>
-                {day.hide ? '' : day.date.getDate()}
+              <div className="text-xs text-gray-600">{day.dayName}</div>
+              <div className="text-lg font-semibold text-gray-900">
+                {day.date.getDate().toString().padStart(2, '0')}
               </div>
-              {!day.hide && day.isAvailable && day.availableSlots > 0 && (
-                <div className="text-xs mt-1">
-                  {day.availableSlots} slots
-                </div>
+              <div className="text-xs text-gray-500">
+                {day.isAvailable ? `${day.availableSlots} slots` : 'No slots'}
+              </div>
+              {day.isToday && (
+                <div className="mt-1 text-[10px] text-blue-700">Today</div>
               )}
-              {!day.hide && day.isEmpty && day.isCurrentMonth && (
-                <div className="text-xs mt-1 text-gray-400">
-                  No schedule
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap gap-4 text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
-          <span>Available (5+ slots)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></div>
-          <span>Few slots left</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-red-100 border border-red-300 rounded"></div>
-          <span>Fully booked</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-white border border-gray-300 rounded"></div>
-          <span>No schedule</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></div>
-          <span>Past dates</span>
-        </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Enhanced Time Selection Component
-export function TimeSelection({ slots, selectedDate, onSelect, loading }) {
+// Enhanced Session Selection Component
+export function TimeSelection({ sessions, selectedDate, onSelect, loading }) {
+  const formatSelectedDate = (ymd) => {
+    if (!ymd) return '';
+    // Expecting format YYYY-MM-DD; construct local date to avoid timezone shifts
+    const parts = String(ymd).split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // zero-based
+      const day = parseInt(parts[2], 10);
+      if (!Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)) {
+        const dt = new Date(year, month, day);
+        return dt.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+    }
+    // Fallback if unexpected format
+    const d = new Date(ymd);
+    return d.toString() === 'Invalid Date'
+      ? String(ymd)
+      : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  };
+  
   if (loading) {
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading available time slots...</p>
+        <p className="text-gray-600">Loading available sessions...</p>
       </div>
     );
   }
 
-  if (!slots || slots.length === 0) {
+  if (!sessions || sessions.length === 0) {
     return (
       <div className="text-center py-8">
         <ClockIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No available slots</h3>
-        <p className="text-gray-600">No time slots available for the selected date. Please choose a different date.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No available sessions</h3>
+        <p className="text-gray-600">No sessions available for the selected date. Please choose a different date.</p>
       </div>
     );
   }
 
-  // Group slots by time periods
-  const morningSlots = slots.filter(slot => {
-    const hour = parseInt(slot.time.split(':')[0]);
-    return hour >= 6 && hour < 12;
-  });
-
-  const afternoonSlots = slots.filter(slot => {
-    const hour = parseInt(slot.time.split(':')[0]);
-    return hour >= 12 && hour < 17;
-  });
-
-  const eveningSlots = slots.filter(slot => {
-    const hour = parseInt(slot.time.split(':')[0]);
-    return hour >= 17;
-  });
-
   return (
     <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Time</h2>
-      <p className="text-gray-600 mb-6">
-        Date: {new Date(selectedDate).toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        })}
-      </p>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">Select Session</h2>
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+        <p className="text-blue-800 text-sm">
+          Choose a session that works for you. Only sessions with available doctors are shown.
+        </p>
+      </div>
+      <p className="text-gray-600 mb-6">Date: {formatSelectedDate(selectedDate)}</p>
       
-      <div className="space-y-6">
-        {/* Morning slots */}
-        {morningSlots.length > 0 && (
-          <TimeSlotGroup 
-            title="Morning (6 AM - 12 PM)" 
-            color="yellow" 
-            slots={morningSlots} 
-            onSelect={onSelect} 
-          />
-        )}
-
-        {/* Afternoon slots */}
-        {afternoonSlots.length > 0 && (
-          <TimeSlotGroup 
-            title="Afternoon (12 PM - 5 PM)" 
-            color="orange" 
-            slots={afternoonSlots} 
-            onSelect={onSelect} 
-          />
-        )}
-
-        {/* Evening slots */}
-        {eveningSlots.length > 0 && (
-          <TimeSlotGroup 
-            title="Evening (5 PM onwards)" 
-            color="blue" 
-            slots={eveningSlots} 
-            onSelect={onSelect} 
-          />
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {sessions.map((session) => (
+          <div
+            key={session.id}
+            onClick={() => onSelect(session)}
+            className="p-8 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all duration-200 group text-center"
+          >
+            <div className="mb-4">
+              <ClockIcon className="mx-auto h-12 w-12 text-blue-600 mb-4 group-hover:text-blue-700 transition-colors" />
+              <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-2">
+                {session.name}
+              </h3>
+              <p className="text-lg text-gray-600 font-medium mb-3">{session.displayTime}</p>
+              
+              {/* Doctor Count */}
+              <div className="flex items-center justify-center">
+                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {session.doctorCount} doctors available
+                </div>
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-500">
+              Click to select this session
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
