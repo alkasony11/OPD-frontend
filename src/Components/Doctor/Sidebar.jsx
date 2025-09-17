@@ -42,6 +42,8 @@ export default function DoctorSidebar() {
       await signOut();
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       navigate('/login');
     } catch (error) {
@@ -49,6 +51,8 @@ export default function DoctorSidebar() {
       // Force logout even if Clerk fails
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       navigate('/login');
     }

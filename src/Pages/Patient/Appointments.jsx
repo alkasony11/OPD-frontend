@@ -30,14 +30,15 @@ export default function Appointments() {
     applyFilter(filter);
   }, [appointments, filter, selectedFamilyMember]);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (overrideFamilyMemberId) => {
     try {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
       const params = new URLSearchParams();
-      if (selectedFamilyMember !== 'all') {
-        params.append('familyMemberId', selectedFamilyMember);
+      const memberId = overrideFamilyMemberId ?? selectedFamilyMember;
+      if (memberId && memberId !== 'all' && memberId !== 'self') {
+        params.append('familyMemberId', memberId);
       }
       
       const response = await axios.get(`http://localhost:5001/api/patient/appointments?${params.toString()}`, {
@@ -57,9 +58,28 @@ export default function Appointments() {
       const response = await axios.get('http://localhost:5001/api/patient/family-members', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setFamilyMembers(response.data.familyMembers || []);
+      const members = response.data.familyMembers || [];
+      
+      // Add self as first option if not already present
+      const selfMember = {
+        _id: 'self',
+        name: 'Myself',
+        relation: 'self',
+        patientId: 'P001'
+      };
+      
+      // Filter out any existing 'self' members to avoid duplicates
+      const filteredMembers = members.filter(member => member.relation !== 'self');
+      setFamilyMembers([selfMember, ...filteredMembers]);
     } catch (err) {
       console.error('Failed to load family members:', err);
+      // Set fallback self member
+      setFamilyMembers([{
+        _id: 'self',
+        name: 'Myself',
+        relation: 'self',
+        patientId: 'P001'
+      }]);
     }
   };
 
@@ -137,9 +157,7 @@ export default function Appointments() {
   };
 
   const openReschedule = async (apt) => {
-    setRescheduling(apt);
-    setRescheduleDate('');
-    setRescheduleSlots([]);
+    navigate(`/booking?reschedule=${apt.id}`);
   };
 
   const loadSlots = async () => {
@@ -177,7 +195,7 @@ export default function Appointments() {
 
   const handleFamilyMemberChange = (memberId) => {
     setSelectedFamilyMember(memberId);
-    fetchAppointments();
+    fetchAppointments(memberId);
   };
 
   const formatDate = (date) => new Date(date).toLocaleDateString(undefined, {
@@ -251,8 +269,8 @@ export default function Appointments() {
                 className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Family Members</option>
-                {familyMembers.map((member) => (
-                  <option key={member._id || 'self'} value={member._id || 'self'}>
+                {familyMembers.map((member, index) => (
+                  <option key={member._id || `member-${index}`} value={member._id || 'self'}>
                     {member.name} ({member.relation})
                   </option>
                 ))}

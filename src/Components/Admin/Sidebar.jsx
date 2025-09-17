@@ -72,6 +72,8 @@ export default function AdminSidebar() {
       // Always clear localStorage and redirect
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       localStorage.clear(); // Clear everything to ensure fresh start
       setIsLoggedIn(false);
       navigate('/login', { replace: true });

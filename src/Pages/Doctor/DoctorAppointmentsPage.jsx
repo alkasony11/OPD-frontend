@@ -18,6 +18,7 @@ export default function DoctorAppointmentsPage() {
   const [notes, setNotes] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [todayQueue, setTodayQueue] = useState({ date: '', sessions: [] });
 
   useEffect(() => {
     checkDoctorAuth();
@@ -26,6 +27,7 @@ export default function DoctorAppointmentsPage() {
   useEffect(() => {
     if (loading) {
       fetchAppointments();
+      fetchTodayQueue();
     }
   }, [filter]);
 
@@ -48,6 +50,19 @@ export default function DoctorAppointmentsPage() {
     } catch (error) {
       console.error('Error parsing user data:', error);
       navigate('/login');
+    }
+  };
+
+  const fetchTodayQueue = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:5001/api/doctor/today-queue', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTodayQueue(res.data || { date: '', sessions: [] });
+    } catch (e) {
+      console.error('Error fetching today queue:', e);
+      setTodayQueue({ date: '', sessions: [] });
     }
   };
 
@@ -102,10 +117,17 @@ export default function DoctorAppointmentsPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Update local state
+      // Update local state (both lists)
       setAppointments(prev => prev.map(apt => 
         apt._id === appointmentId ? { ...apt, status: newStatus } : apt
       ));
+      setTodayQueue(prev => ({
+        ...prev,
+        sessions: (prev.sessions || []).map(s => ({
+          ...s,
+          queue: (s.queue || []).map(item => item.id === appointmentId ? { ...item, bookingStatus: newStatus } : item)
+        }))
+      }));
       
       alert('Appointment status updated successfully!');
     } catch (error) {
@@ -201,6 +223,100 @@ export default function DoctorAppointmentsPage() {
         </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Today's Queue */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Today's Queue</h2>
+            <button
+              onClick={fetchTodayQueue}
+              className="text-gray-600 hover:text-gray-800 flex items-center space-x-1"
+              title="Refresh queue"
+            >
+              <HiCalendar className="h-4 w-4" />
+              <span>{todayQueue.date || ''}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {(['morning','afternoon','evening']).map((sid) => {
+              const session = (todayQueue.sessions || []).find(s => s.id === sid) || { id: sid, name: sid, range: '', queue: [] };
+              return (
+                <div key={sid} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">{session.name}</h3>
+                      {session.range && <p className="text-sm text-gray-500">{session.range}</p>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">{session.queue?.length || 0}</div>
+                      <div className="text-xs text-gray-500">in queue</div>
+                    </div>
+                  </div>
+
+                  {(!session.queue || session.queue.length === 0) ? (
+                    <div className="text-sm text-gray-500">No patients in this session.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {session.queue.map(item => (
+                        <div key={item.id} className="border rounded p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                {item.tokenNumber && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">Token #{item.tokenNumber}</span>
+                                )}
+                                <span className="text-sm font-medium text-gray-900">{item.patientName}</span>
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {(item.age || item.gender) && (
+                                  <span className="mr-3">{item.age ? `Age: ${item.age}` : ''}{item.age && item.gender ? ' • ' : ''}{item.gender || ''}</span>
+                                )}
+                                {item.symptoms && <span>Symptoms: {item.symptoms}</span>}
+                              </div>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <div className="flex items-center space-x-2 justify-end">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.bookingStatus)}`}>{item.bookingStatus}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  item.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                                  item.paymentStatus === 'refunded' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>{item.paymentStatus || 'pending'}</span>
+                              </div>
+                              <div className="flex items-center space-x-2 justify-end">
+                                {(item.bookingStatus === 'booked' || item.bookingStatus === 'in_queue') && (
+                                  <>
+                                    <button
+                                      onClick={() => updateAppointmentStatus(item.id, 'in_queue')}
+                                      disabled={updating}
+                                      className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                                      title="Mark In Queue"
+                                    >
+                                      In Queue
+                                    </button>
+                                    <button
+                                      onClick={() => updateAppointmentStatus(item.id, 'consulted')}
+                                      disabled={updating}
+                                      className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                      title="Mark Consulted"
+                                    >
+                                      Consulted
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Filter Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">

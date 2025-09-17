@@ -26,6 +26,8 @@ export default function DoctorDashboard() {
   const [appointmentFilter, setAppointmentFilter] = useState('all'); // all, today, upcoming, past
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [todayQueue, setTodayQueue] = useState({ date: '', sessions: [] });
+  const [nextPatient, setNextPatient] = useState(null);
 
   useEffect(() => {
     checkDoctorAuth();
@@ -34,6 +36,8 @@ export default function DoctorDashboard() {
   useEffect(() => {
     if (doctor) {
       fetchDashboardData();
+      fetchTodayQueue();
+      fetchNextPatient();
       // If sidebar link was used to open leave modal
       const params = new URLSearchParams(location.search);
       if (params.get('open') === 'leave') {
@@ -135,6 +139,75 @@ export default function DoctorDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTodayQueue = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:5001/api/doctor/today-queue', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTodayQueue(res.data || { date: '', sessions: [] });
+    } catch (error) {
+      console.error('Error fetching today queue:', error);
+      setTodayQueue({ date: '', sessions: [] });
+    }
+  };
+
+  const fetchNextPatient = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:5001/api/doctor/next-patient', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNextPatient(res.data?.next || null);
+    } catch (e) {
+      console.error('Error fetching next patient:', e);
+      setNextPatient(null);
+    }
+  };
+
+  const startConsultation = async () => {
+    if (!nextPatient) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5001/api/doctor/consultation/start', { tokenId: nextPatient.id }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await fetchTodayQueue();
+      await fetchNextPatient();
+      navigate('/doctor/appointments');
+    } catch (e) {
+      console.error('Start consultation error:', e);
+    }
+  };
+
+  const skipConsultation = async () => {
+    if (!nextPatient) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5001/api/doctor/consultation/skip', { tokenId: nextPatient.id }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await fetchTodayQueue();
+      await fetchNextPatient();
+    } catch (e) {
+      console.error('Skip consultation error:', e);
+    }
+  };
+
+  const markNoShow = async () => {
+    if (!nextPatient) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:5001/api/doctor/consultation/no-show', { tokenId: nextPatient.id }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await fetchTodayQueue();
+      await fetchNextPatient();
+    } catch (e) {
+      console.error('No-show error:', e);
     }
   };
 
@@ -316,6 +389,120 @@ export default function DoctorDashboard() {
             </div>
           </div>
                     </div>
+
+        {/* Next Patient */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Next Patient</h2>
+            <button onClick={fetchNextPatient} className="text-gray-600 hover:text-gray-800 flex items-center space-x-1">
+              <HiCalendar className="h-4 w-4" />
+              <span>Refresh</span>
+            </button>
+          </div>
+          {!nextPatient ? (
+            <div className="text-sm text-gray-500">No patients waiting.</div>
+          ) : (
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold text-gray-900">
+                    Next Patient: Token #{nextPatient.tokenNumber} {nextPatient.patientName}
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {nextPatient.age ? `Age: ${nextPatient.age}` : ''}{nextPatient.age && nextPatient.gender ? ' • ' : ''}{nextPatient.gender || ''}
+                  </div>
+                  {nextPatient.symptoms && (
+                    <div className="text-sm text-gray-700 mt-1">Symptoms: {nextPatient.symptoms}</div>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button onClick={startConsultation} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Start Consultation</button>
+                  <button onClick={skipConsultation} className="px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">Skip / Call Later</button>
+                  <button onClick={markNoShow} className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Mark as No-Show</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Today's Queue by Session */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Today's Queue</h2>
+            <button
+              onClick={fetchTodayQueue}
+              className="text-gray-600 hover:text-gray-800 flex items-center space-x-1"
+              title="Refresh queue"
+            >
+              <HiCalendar className="h-4 w-4" />
+              <span>{todayQueue.date || ''}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {(['morning','afternoon','evening']).map((sid) => {
+              const session = (todayQueue.sessions || []).find(s => s.id === sid) || { id: sid, name: sid, range: '', queue: [] };
+              return (
+                <div key={sid} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">{session.name}</h3>
+                      {session.range && <p className="text-sm text-gray-500">{session.range}</p>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">{session.queue?.length || 0}</div>
+                      <div className="text-xs text-gray-500">in queue</div>
+                    </div>
+                  </div>
+
+                  {(!session.queue || session.queue.length === 0) ? (
+                    <div className="text-sm text-gray-500">No patients in this session.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {session.queue.map(item => (
+                        <div key={item.id} className="border rounded p-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                {item.tokenNumber && (
+                                  <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">Token #{item.tokenNumber}</span>
+                                )}
+                                <span className="text-sm font-medium text-gray-900">{item.patientName}</span>
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {(item.age || item.gender) && (
+                                  <span className="mr-3">{item.age ? `Age: ${item.age}` : ''}{item.age && item.gender ? ' • ' : ''}{item.gender || ''}</span>
+                                )}
+                                {item.symptoms && <span>Symptoms: {item.symptoms}</span>}
+                              </div>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                item.bookingStatus === 'booked' ? 'bg-yellow-100 text-yellow-800' :
+                                item.bookingStatus === 'in_queue' ? 'bg-blue-100 text-blue-800' :
+                                item.bookingStatus === 'consulted' ? 'bg-green-100 text-green-800' :
+                                item.bookingStatus === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                item.bookingStatus === 'missed' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>{item.bookingStatus}</span>
+                              <div>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  item.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                                  item.paymentStatus === 'refunded' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>{item.paymentStatus || 'pending'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Quick Actions Grid */}
         <div className="mb-8">

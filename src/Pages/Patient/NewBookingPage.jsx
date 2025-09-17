@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
 import { getCurrentUser } from '../../utils/auth';
@@ -27,10 +28,15 @@ import {
 
 export default function NewBookingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useUser();
   const { token } = useContext(AuthContext);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(() => {
+    // Restore step from localStorage on component mount
+    const savedStep = localStorage.getItem('bookingCurrentStep');
+    return savedStep ? parseInt(savedStep) : 1;
+  });
   const [loading, setLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   
@@ -41,21 +47,66 @@ export default function NewBookingPage() {
   const [availableSessions, setAvailableSessions] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [symptomAnalysis, setSymptomAnalysis] = useState(null);
+  const [rescheduleFor, setRescheduleFor] = useState(null); // appointment id if rescheduling
 
   // Booking form data
-  const [bookingData, setBookingData] = useState({
-    departmentId: '',
-    departmentName: '',
-    doctorId: '',
-    doctorName: '',
-    appointmentDate: '',
-    appointmentTime: '',
-    symptoms: '',
-    familyMemberId: 'self',
-    familyMemberName: '',
-    familyMemberPatientId: '',
-    paymentMethod: 'card'
+  const [bookingData, setBookingData] = useState(() => {
+    // Restore booking data from localStorage on component mount
+    const savedData = localStorage.getItem('bookingData');
+    return savedData ? JSON.parse(savedData) : {
+      departmentId: '',
+      departmentName: '',
+      doctorId: '',
+      doctorName: '',
+      appointmentDate: '',
+      appointmentTime: '',
+      symptoms: '',
+      familyMemberId: 'self',
+      familyMemberName: '',
+      familyMemberPatientId: '',
+      paymentMethod: 'card'
+    };
   });
+
+  // Function to save current step to localStorage
+  const saveCurrentStep = (step) => {
+    setCurrentStep(step);
+    localStorage.setItem('bookingCurrentStep', step.toString());
+  };
+
+  // Function to save booking data to localStorage
+  const saveBookingData = (data) => {
+    setBookingData(data);
+    localStorage.setItem('bookingData', JSON.stringify(data));
+  };
+
+  // Function to clear booking data from localStorage
+  const clearBookingData = () => {
+    localStorage.removeItem('bookingData');
+    localStorage.removeItem('bookingCurrentStep');
+    setBookingData({
+      departmentId: '',
+      departmentName: '',
+      doctorId: '',
+      doctorName: '',
+      appointmentDate: '',
+      appointmentTime: '',
+      symptoms: '',
+      familyMemberId: 'self',
+      familyMemberName: '',
+      familyMemberPatientId: '',
+      paymentMethod: 'card'
+    });
+    setCurrentStep(1);
+  };
+
+  // Reset booking progress when navigating away from booking page
+  useEffect(() => {
+    return () => {
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
+    };
+  }, []);
 
   // Family member form
   const [showAddMember, setShowAddMember] = useState(false);
@@ -69,10 +120,108 @@ export default function NewBookingPage() {
 
   useEffect(() => {
     if (token) {
-    fetchDepartments();
-    fetchFamilyMembers();
+      fetchDepartments();
+      fetchFamilyMembers();
+      // Check reschedule query param
+      const params = new URLSearchParams(location.search);
+      const resId = params.get('reschedule');
+      if (resId) {
+        setRescheduleFor(resId);
+        // Prefill existing appointment details
+        const t = localStorage.getItem('token');
+        axios.get(`http://localhost:5001/api/patient/appointments/${resId}`, {
+          headers: { Authorization: `Bearer ${t}` }
+        }).then(({ data }) => {
+          const apt = data.appointment;
+          if (apt) {
+            const newData = {
+              ...bookingData,
+              departmentId: apt.departmentId || '',
+              departmentName: apt.departmentName || '',
+              doctorId: apt.doctorId || '',
+              doctorName: apt.doctorName || '',
+              appointmentDate: '', // force user to pick a new date
+              appointmentTime: '',
+              selectedSession: null
+            };
+            saveBookingData(newData);
+            if (apt.departmentId) {
+              generateNext7Days(apt.departmentId);
+              fetchDoctors(apt.departmentId);
+            }
+            // Ask whether to keep the same department using SweetAlert2
+            Swal.fire({
+              title: 'Reschedule Appointment',
+              text: 'Do you want to keep the same department?',
+              icon: 'question',
+              showDenyButton: true,
+              confirmButtonText: 'Yes, keep department',
+              denyButtonText: 'No, change department',
+              reverseButtons: true
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // Keep department → Date → Session → Doctor
+                saveCurrentStep(3);
+              } else if (result.isDenied) {
+                // Change department → Symptoms → Department → Date → Session → Doctor
+                const resetData = {
+                  ...newData,
+                  departmentId: '',
+                  departmentName: '',
+                  doctorId: '',
+                  doctorName: '',
+                  appointmentDate: '',
+                  appointmentTime: '',
+                  selectedSession: null
+                };
+                saveBookingData(resetData);
+                saveCurrentStep(2);
+              }
+            });
+          }
+        }).catch(() => {
+          // fallback to normal flow if fetch fails
+          setRescheduleFor(null);
+        });
+      }
+      
+      // If we have saved booking data, restore the appropriate step
+      const savedStep = localStorage.getItem('bookingCurrentStep');
+      if (savedStep && parseInt(savedStep) > 1) {
+        // If we're past step 1, we need to restore the data for that step
+        const savedData = localStorage.getItem('bookingData');
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.departmentId) {
+            // Restore department data and prefetch dates + doctors
+            generateNext7Days(parsedData.departmentId);
+            fetchDoctors(parsedData.departmentId);
+          }
+          if (parsedData.appointmentDate) {
+            // Restore session data for the stored date
+            fetchRealSessionData(parsedData.departmentId, parsedData.appointmentDate);
+          }
+        }
+      }
     }
   }, [token]);
+
+  // Also fetch family members when user changes (for Clerk auth)
+  useEffect(() => {
+    if (user && token) {
+      fetchFamilyMembers();
+    }
+  }, [user, token]);
+
+  // Additional effect to ensure family members are loaded after a short delay
+  useEffect(() => {
+    if (token && familyMembers.length === 0) {
+      const timer = setTimeout(() => {
+        fetchFamilyMembers();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [token, familyMembers.length]);
 
   const fetchDepartments = async () => {
     try {
@@ -102,6 +251,77 @@ export default function NewBookingPage() {
     }
   };
 
+  const generateNext7Days = async (departmentId) => {
+    const dates = [];
+    const today = new Date();
+    
+    // Generate the 7 days first
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const isToday = i === 0;
+      
+      dates.push({
+        date: dateStr,
+        dayName: dayName,
+        isToday: isToday,
+        availableSessions: 2, // Morning and afternoon
+        totalSessions: 2,
+        availableSlots: 0, // Will be updated with real data
+        totalSlots: 0
+      });
+    }
+    
+    setAvailableDates(dates);
+    
+    // Now fetch real slot data for each date
+    if (departmentId) {
+      await fetchRealSlotDataForDates(dates, departmentId);
+    }
+  };
+
+  const fetchRealSlotDataForDates = async (dates, departmentId) => {
+    try {
+      if (!departmentId) {
+        console.error('No department ID provided for fetching slot data');
+        return;
+      }
+
+      // Fetch slot data for each date in parallel
+      const slotPromises = dates.map(async (dateObj) => {
+        try {
+          const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-dates`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { date: dateObj.date }
+          });
+          
+          const dateData = res.data.availableDates?.find(d => d.date === dateObj.date);
+          if (dateData) {
+            return {
+              ...dateObj,
+              availableSlots: dateData.availableSlots || 0,
+              totalSlots: dateData.totalSlots || 0,
+              availableSessions: dateData.availableSessions || 2,
+              totalSessions: dateData.totalSessions || 2
+            };
+          }
+          return dateObj;
+        } catch (error) {
+          console.error(`Error fetching slots for ${dateObj.date}:`, error);
+          return dateObj; // Return original data if fetch fails
+        }
+      });
+      
+      const updatedDates = await Promise.all(slotPromises);
+      setAvailableDates(updatedDates);
+    } catch (error) {
+      console.error('Error fetching real slot data:', error);
+    }
+  };
+
   const fetchDepartmentAvailableDates = async (departmentId) => {
     try {
       setLoading(true);
@@ -125,6 +345,89 @@ export default function NewBookingPage() {
       setAvailableSessions(res.data.sessions || []);
     } catch (error) {
       console.error('Error fetching department available sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRealSessionData = async (departmentId, date) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/availability/${date}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const sessions = res.data.sessions || [];
+      setAvailableSessions(sessions);
+    } catch (error) {
+      console.error('Error fetching real session data:', error);
+      // Fallback to empty sessions if API fails
+      setAvailableSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDoctorCountsForSessions = async (departmentId, date, sessions) => {
+    try {
+      // Fetch doctor counts for both sessions in parallel
+      const [morningRes, afternoonRes] = await Promise.all([
+        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date, time: '09:00' }
+        }).catch(() => ({ data: { doctors: [] } })),
+        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date, time: '14:00' }
+        }).catch(() => ({ data: { doctors: [] } }))
+      ]);
+
+      const morningDoctors = morningRes.data.doctors || [];
+      const afternoonDoctors = afternoonRes.data.doctors || [];
+
+      // Update sessions with actual doctor counts
+      setAvailableSessions(prev => prev.map(session => {
+        if (session.id === 'morning') {
+          return { ...session, doctorCount: morningDoctors.length, availableDoctors: morningDoctors };
+        } else if (session.id === 'afternoon') {
+          return { ...session, doctorCount: afternoonDoctors.length, availableDoctors: afternoonDoctors };
+        }
+        return session;
+      }));
+    } catch (error) {
+      console.error('Error fetching doctor counts for sessions:', error);
+      // Set all sessions to 0 doctors on error
+      setAvailableSessions(prev => prev.map(session => 
+        ({ ...session, doctorCount: 0, availableDoctors: [] })
+      ));
+    }
+  };
+
+  const fetchAvailableDoctorsForSession = async (departmentId, date, time) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { date, time }
+      });
+      const doctors = res.data.doctors || [];
+      setDoctors(doctors);
+      
+      // Update the session with actual doctor count
+      setAvailableSessions(prev => prev.map(session => 
+        session.startTime === time 
+          ? { ...session, doctorCount: doctors.length, availableDoctors: doctors }
+          : session
+      ));
+    } catch (error) {
+      console.error('Error fetching available doctors for session:', error);
+      setDoctors([]);
+      // Update session to show 0 doctors on error
+      setAvailableSessions(prev => prev.map(session => 
+        session.startTime === time 
+          ? { ...session, doctorCount: 0, availableDoctors: [] }
+          : session
+      ));
     } finally {
       setLoading(false);
     }
@@ -158,7 +461,7 @@ export default function NewBookingPage() {
       
       // Add self as first option - get name from stored user data
       const currentUser = getCurrentUser();
-      const userName = currentUser?.name || user?.firstName + ' ' + user?.lastName || 'You';
+      const userName = currentUser?.name || (user?.firstName + ' ' + user?.lastName) || 'You';
       
       const selfMember = {
         id: 'self',
@@ -169,7 +472,9 @@ export default function NewBookingPage() {
         gender: 'N/A'
       };
       
-      setFamilyMembers([selfMember, ...members]);
+      // Filter out any existing 'self' members to avoid duplicates
+      const filteredMembers = members.filter(member => member.relation !== 'self');
+      setFamilyMembers([selfMember, ...filteredMembers]);
 
       // Ensure default selection reflects the logged-in user visibly
       setBookingData(prev => ({
@@ -180,6 +485,18 @@ export default function NewBookingPage() {
       }));
     } catch (error) {
       console.error('Error fetching family members:', error);
+      // Set a fallback self member even if API fails
+      const currentUser = getCurrentUser();
+      const userName = currentUser?.name || (user?.firstName + ' ' + user?.lastName) || 'You';
+      const selfMember = {
+        id: 'self',
+        patientId: currentUser?.patientId || 'P001',
+        name: userName,
+        relation: 'self',
+        age: 'Adult',
+        gender: 'N/A'
+      };
+      setFamilyMembers([selfMember]);
     }
   };
 
@@ -218,62 +535,63 @@ export default function NewBookingPage() {
     await analyzeSymptoms(symptoms);
   };
 
-  const handleDepartmentSelect = (department) => {
-    setBookingData(prev => ({
-      ...prev,
+  const handleDepartmentSelect = async (department) => {
+    // Optimistically update UI to reduce perceived lag
+    const newData = {
+      ...bookingData,
       departmentId: department.id,
-      departmentName: department.name
-    }));
-    fetchDepartmentAvailableDates(department.id);
-    setCurrentStep(3);
+      departmentName: department.name,
+      // reset downstream selections when department changes
+      doctorId: '',
+      doctorName: '',
+      appointmentDate: '',
+      appointmentTime: '',
+      selectedSession: null
+    };
+    saveBookingData(newData);
+    saveCurrentStep(3);
+    // Preload dates and doctors without blocking UI
+    generateNext7Days(department.id);
+    fetchDoctors(department.id);
   };
 
   const handleDoctorSelect = (doctor) => {
-    setBookingData(prev => ({
-      ...prev,
+    const newData = {
+      ...bookingData,
       doctorId: doctor.id,
       doctorName: doctor.name
-    }));
-    setCurrentStep(6);
+    };
+    saveBookingData(newData);
+    saveCurrentStep(6); // Go directly to payment/confirmation
   };
 
   const handleDateSelect = async (date) => {
-    setBookingData(prev => ({
-      ...prev,
+    const newData = {
+      ...bookingData,
       appointmentDate: date
-    }));
-    // Check active appointment in same department immediately
-    try {
-      const params = new URLSearchParams({
-        departmentId: bookingData.departmentId,
-        familyMemberId: bookingData.familyMemberId
-      });
-      const res = await axios.get(`http://localhost:5001/api/patient/appointments/active-department-check?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.data?.conflict) {
-        setBookingError(res.data.message);
-        return; // Do not proceed to slots
-      } else {
-        setBookingError('');
-      }
-    } catch (e) {
-      // Silent fail; don't block flow if check fails
-    }
-    fetchDepartmentAvailableSessions(bookingData.departmentId, date);
-    setCurrentStep(4);
+    };
+    saveBookingData(newData);
+    saveCurrentStep(4);
+    // Fetch real session data from backend
+    await fetchRealSessionData(newData.departmentId, date);
   };
 
   const handleSessionSelect = async (session) => {
-    setBookingData(prev => ({
-      ...prev,
+    const newData = {
+      ...bookingData,
       selectedSession: session,
       appointmentTime: session.startTime // Store session start time
-    }));
+    };
+    saveBookingData(newData);
     
-    // Set doctors from the selected session
-    setDoctors(session.availableDoctors);
-    setCurrentStep(5);
+    // Use the doctors that were already fetched with the session data
+    if (session.availableDoctors && session.availableDoctors.length > 0) {
+      setDoctors(session.availableDoctors);
+    } else {
+      // Fallback: fetch doctors if not available in session data
+      await fetchAvailableDoctorsForSession(newData.departmentId, newData.appointmentDate, session.startTime);
+    }
+    saveCurrentStep(5);
   };
 
   const handleAutoAssign = async () => {
@@ -320,6 +638,12 @@ export default function NewBookingPage() {
       console.log('Adding family member:', newMember);
       console.log('Using token:', token ? 'Token present' : 'No token');
       
+      // Validate required fields
+      if (!newMember.name.trim() || !newMember.age) {
+        alert('Please fill in name and age');
+        return;
+      }
+      
       const response = await axios.post('http://localhost:5001/api/patient/family-members', newMember, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -330,7 +654,13 @@ export default function NewBookingPage() {
         ...addedMember,
         patientId: addedMember.patientId || 'FM0000'
       };
-      setFamilyMembers(prev => [...prev, memberWithDefaults]);
+      
+      // Add the new member to the existing list (excluding self)
+      setFamilyMembers(prev => {
+        const filteredPrev = prev.filter(member => member.relation !== 'self');
+        return [...prev.slice(0, 1), ...filteredPrev, memberWithDefaults];
+      });
+      
       setNewMember({ name: '', age: '', gender: 'male', relation: 'spouse', phone: '' });
       setShowAddMember(false);
       alert('Family member added successfully!');
@@ -344,6 +674,13 @@ export default function NewBookingPage() {
     try {
       setLoading(true);
       setBookingError('');
+      // Validate required fields before calling API
+      if (!bookingData.departmentId || !bookingData.doctorId || !bookingData.appointmentDate || !bookingData.appointmentTime) {
+        setBookingError('Please select department, doctor, date and time before confirming.');
+        setLoading(false);
+        return;
+      }
+
       const appointmentData = {
         doctorId: bookingData.doctorId,
         departmentId: bookingData.departmentId,
@@ -354,17 +691,33 @@ export default function NewBookingPage() {
         paymentMethod: bookingData.paymentMethod
       };
 
-      const response = await axios.post('http://localhost:5001/api/patient/book-appointment', appointmentData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      let response;
+      if (rescheduleFor) {
+        response = await axios.post(`http://localhost:5001/api/patient/appointments/${rescheduleFor}/reschedule`, {
+          doctorId: bookingData.doctorId,
+          newDate: bookingData.appointmentDate,
+          newTime: bookingData.appointmentTime
+        }, { headers: { Authorization: `Bearer ${token}` } });
+      } else {
+        response = await axios.post('http://localhost:5001/api/patient/book-appointment', appointmentData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
 
       setBookingData(prev => ({
         ...prev,
-        tokenNumber: response.data?.appointment?.tokenNumber,
+        tokenNumber: response.data?.appointment?.tokenNumber || response.data?.tokenNumber,
         estimatedWaitTime: response.data?.appointment?.estimatedWaitTime
       }));
 
-      setCurrentStep(7);
+      saveCurrentStep(6);
+      
+      // Clear booking data after success (with a delay to show confirmation)
+      setTimeout(() => {
+        clearBookingData();
+        setRescheduleFor(null);
+        navigate('/appointments');
+      }, 5000); // Clear after 5 seconds
     } catch (error) {
       console.error('Error booking appointment:', error);
       setBookingError(error.response?.data?.message || 'Unable to book appointment');
@@ -373,17 +726,15 @@ export default function NewBookingPage() {
     }
   };
 
+  // (SweetAlert2 handles reschedule choice inline)
+
   const handlePrevStep = () => {
     if (currentStep === 2) {
-      setCurrentStep(1);
-      return;
-    }
-    if (currentStep === 5.5) {
-      setCurrentStep(5);
+      saveCurrentStep(1);
       return;
     }
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      saveCurrentStep(currentStep - 1);
     }
   };
 
@@ -391,12 +742,10 @@ export default function NewBookingPage() {
     const titles = {
       1: 'Select Patient',
       2: 'Symptoms and Department',
-      3: 'Pick Date',
+      3: 'Pick Date (Next 7 Days)',
       4: 'Select Session',
-      5: 'Choose Doctor Selection',
-      5.5: 'Select Doctor',
-      6: 'Payment',
-      7: 'Booking Confirmed'
+      5: 'Select Doctor',
+      6: 'Payment & Confirmation'
     };
     return titles[currentStep];
   };
@@ -411,7 +760,7 @@ export default function NewBookingPage() {
               <h1 className="text-2xl font-bold text-gray-900">Book New Appointment</h1>
               <p className="text-gray-600 mt-1">{getStepTitle()}</p>
             </div>
-            {currentStep > 1 && currentStep < 8 && (
+            {currentStep > 1 && currentStep < 7 && (
               <button
                 onClick={handlePrevStep}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
@@ -425,7 +774,7 @@ export default function NewBookingPage() {
           {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex items-center">
-              {[1, 2, 3, 4, 5, 6, 7].map((step) => (
+              {[1, 2, 3, 4, 5, 6].map((step) => (
                 <div key={step} className="flex items-center">
                   <div
                     className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
@@ -436,7 +785,7 @@ export default function NewBookingPage() {
                   >
                     {step}
                   </div>
-                  {step < 7 && (
+                  {step < 6 && (
                     <div
                       className={`w-12 h-1 mx-2 ${
                         step < currentStep ? 'bg-black' : 'bg-gray-200'
@@ -451,6 +800,7 @@ export default function NewBookingPage() {
 
         {/* Step Content */}
         <div className="bg-white rounded-lg shadow-sm p-6">
+          {/* SweetAlert2 reschedule choice is shown programmatically; no inline UI here */}
           {/* Step 1: Select Patient */}
           {currentStep === 1 && (
             <PatientSelection
@@ -462,6 +812,7 @@ export default function NewBookingPage() {
               newMember={newMember}
               setNewMember={setNewMember}
               onAddMember={handleAddFamilyMember}
+              onRefresh={fetchFamilyMembers}
               loading={loading}
             />
           )}
@@ -517,25 +868,8 @@ export default function NewBookingPage() {
             </>
           )}
 
-          {/* Step 5: Doctor Selection Choice */}
+          {/* Step 5: Doctor Selection */}
           {currentStep === 5 && (
-            <>
-              {!!bookingError && (
-                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
-                  {bookingError}
-                </div>
-              )}
-              <DoctorSelectionChoice
-                session={bookingData.selectedSession}
-                onManualSelect={() => setCurrentStep(5.5)}
-                onAutoAssign={handleAutoAssign}
-                loading={loading}
-              />
-            </>
-          )}
-
-          {/* Step 5.5: Manual Doctor Selection */}
-          {currentStep === 5.5 && (
             <>
               {!!bookingError && (
                 <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
@@ -551,7 +885,7 @@ export default function NewBookingPage() {
                     <p className="text-gray-600">{bookingData.selectedSession?.displayTime}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">{bookingData.selectedSession?.doctorCount}</div>
+                    <div className="text-2xl font-bold text-blue-600">{doctors.length}</div>
                     <div className="text-sm text-gray-500">doctors available</div>
                   </div>
                 </div>
@@ -575,28 +909,6 @@ export default function NewBookingPage() {
                     }
                     setBookingError('');
                     handleDoctorSelect(doctor);
-                    setCurrentStep(6);
-                  } catch (e) {
-                    // If the check fails, be conservative and block selection
-                    setBookingError('Unable to verify availability. Please try again.');
-                  }
-                }}
-                onAutoAssign={async (doctor) => {
-                  try {
-                    const token = localStorage.getItem('token');
-                    const params = new URLSearchParams({
-                      date: bookingData.appointmentDate,
-                      doctorId: doctor.id,
-                      familyMemberId: bookingData.familyMemberId
-                    });
-                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-                    if (res.data?.conflict) {
-                      setBookingError(res.data.message || 'You already have an appointment with this doctor on this date');
-                      return; // block selecting same doctor for same date
-                    }
-                    setBookingError('');
-                    handleDoctorSelect(doctor);
-                    setCurrentStep(6);
                   } catch (e) {
                     // If the check fails, be conservative and block selection
                     setBookingError('Unable to verify availability. Please try again.');
@@ -607,6 +919,7 @@ export default function NewBookingPage() {
             </>
           )}
 
+
           {/* Inline conflict warning (if any) shown above payment too) */}
           {!!bookingError && currentStep !== 7 && (
             <div className="mt-4 mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
@@ -614,19 +927,17 @@ export default function NewBookingPage() {
             </div>
           )}
 
-          {/* Step 6: Payment */}
-          {currentStep === 6 && (
-            <PaymentStep
+          {/* Step 6: Confirm & Book (Payment removed for testing) */}
+          {currentStep === 6 && !bookingData.tokenNumber && (
+            <PreBookingConfirmation
               bookingData={bookingData}
-              onPaid={handleBookAppointment}
-              setBookingData={setBookingData}
-              bookingError={bookingError}
-              onClearError={() => setBookingError('')}
+              onConfirm={handleBookAppointment}
+              loading={loading}
             />
           )}
 
-          {/* Step 7: Booking Confirmed */}
-          {currentStep === 7 && (
+          {/* Step 6: Booking Confirmed */}
+          {currentStep === 6 && bookingData.tokenNumber && (
             <BookingSuccess
               bookingData={bookingData}
               onNewBooking={() => {
@@ -689,6 +1000,7 @@ function PatientSelection({
   newMember, 
   setNewMember, 
   onAddMember, 
+  onRefresh,
   loading 
 }) {
   return (
@@ -697,9 +1009,9 @@ function PatientSelection({
       
       {/* Family Members */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {familyMembers.map((member) => (
+        {familyMembers.map((member, index) => (
           <div
-            key={member.id}
+            key={member.id || `member-${index}`}
             onClick={() => onSelect(member)}
             className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
               selectedMemberId === member.id
@@ -732,6 +1044,15 @@ function PatientSelection({
 
       {/* Add Family Member */}
       <div className="border-t pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Family Members</h3>
+          <button
+            onClick={onRefresh}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            Refresh
+          </button>
+        </div>
         {!showAddMember ? (
           <button
             onClick={() => setShowAddMember(true)}
@@ -923,6 +1244,16 @@ function DepartmentSuggestion({ analysis, departments, onSelect, loading }) {
 
 // Pre-Booking Confirmation Component
 function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
+  const formatLocalYMD = (ymd) => {
+    if (!ymd) return '';
+    const parts = String(ymd).split('-').map(Number);
+    if (parts.length === 3 && parts.every(n => !Number.isNaN(n))) {
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      return dt.toLocaleDateString();
+    }
+    // fallback
+    try { return new Date(ymd).toLocaleDateString(); } catch { return String(ymd); }
+  };
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-6">Confirm Booking</h2>
@@ -944,7 +1275,7 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Date:</span>
-            <span className="font-medium">{new Date(bookingData.appointmentDate).toLocaleDateString()}</span>
+            <span className="font-medium">{formatLocalYMD(bookingData.appointmentDate)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Time:</span>
@@ -1085,114 +1416,6 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
         >
           {loading ? 'Processing...' : 'Confirm Payment'}
         </button>
-      </div>
-    </div>
-  );
-}
-
-// Doctor Selection Choice Component
-function DoctorSelectionChoice({ session, onManualSelect, onAutoAssign, loading }) {
-  return (
-    <div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">Choose Doctor Selection</h2>
-      
-      {/* Session Info */}
-      <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{session.name}</h3>
-            <p className="text-gray-600">{session.displayTime}</p>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-blue-600">{session.doctorCount}</div>
-            <div className="text-sm text-gray-500">doctors available</div>
-          </div>
-        </div>
-        
-        {/* Available Doctors List */}
-        <div className="mt-4">
-          <div className="text-sm text-gray-600 mb-2">Available doctors in this session:</div>
-          <div className="flex flex-wrap gap-2">
-            {session.availableDoctors.map((doctor) => (
-              <span
-                key={doctor.id}
-                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
-              >
-                Dr. {doctor.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-        <p className="text-blue-800 text-sm">
-          You can either choose a specific doctor or let us assign the best available doctor for you.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Auto-Assign Option */}
-        <div
-          onClick={onAutoAssign}
-          className="p-6 border-2 border-green-200 bg-green-50 rounded-xl cursor-pointer hover:border-green-500 hover:shadow-lg transition-all duration-200 group"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-green-900 group-hover:text-green-700 transition-colors">
-                Auto-Assign Doctor
-              </h3>
-              <p className="text-green-700 text-sm">Let us choose the best doctor for you</p>
-            </div>
-            <div className="text-green-600">
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="space-y-2 text-sm text-green-700">
-            <div>✓ Fastest assignment</div>
-            <div>✓ Load balancing</div>
-            <div>✓ Shortest wait time</div>
-          </div>
-        </div>
-
-        {/* Manual Selection Option */}
-        <div
-          onClick={onManualSelect}
-          className="p-6 border-2 border-blue-200 bg-blue-50 rounded-xl cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all duration-200 group"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-blue-900 group-hover:text-blue-700 transition-colors">
-                Choose Doctor Manually
-              </h3>
-              <p className="text-blue-700 text-sm">Select from available doctors</p>
-            </div>
-            <div className="text-blue-600">
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="space-y-2 text-sm text-blue-700">
-            <div>✓ Choose specific doctor</div>
-            <div>✓ See doctor details</div>
-            <div>✓ Compare availability</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Session Info */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <h4 className="font-medium text-gray-900 mb-2">Session Details</h4>
-        <div className="text-sm text-gray-600">
-          <div><strong>Session:</strong> {session.name}</div>
-          <div><strong>Time:</strong> {session.displayTime}</div>
-          <div><strong>Available Doctors:</strong> {session.doctorCount}</div>
-        </div>
       </div>
     </div>
   );

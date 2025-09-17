@@ -39,6 +39,8 @@ export default function ReceptionistSidebar() {
       await signOut();
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       navigate('/login');
     } catch (error) {
@@ -46,6 +48,8 @@ export default function ReceptionistSidebar() {
       // Force logout even if Clerk fails
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       navigate('/login');
     }

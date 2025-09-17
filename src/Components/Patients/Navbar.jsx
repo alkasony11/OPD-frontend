@@ -78,6 +78,9 @@ export default function Navbar() {
       // Clear local storage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Clear any persisted booking progress
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       setIsProfileDropdownOpen(false);
       navigate('/login');
@@ -86,6 +89,8 @@ export default function Navbar() {
       // Force logout even if Clerk signout fails
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('bookingData');
+      localStorage.removeItem('bookingCurrentStep');
       setIsLoggedIn(false);
       setIsProfileDropdownOpen(false);
       navigate('/login');
