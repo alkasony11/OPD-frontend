@@ -68,12 +68,23 @@ export default function DoctorScheduleManagement() {
     deleteType: 'range' // 'range' or 'selected'
   });
 
+  // Today's date in YYYY-MM-DD for date input min attributes
+  const todayStr = (() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
+
   useEffect(() => {
     fetchDoctors();
   }, []);
 
   useEffect(() => {
     if (selectedDoctor) {
+      // Clear previous doctor's schedules immediately to avoid showing other doctors' data
+      setSchedules([]);
       fetchSchedules(selectedDoctor.id);
     }
   }, [selectedDoctor]);
@@ -99,7 +110,8 @@ export default function DoctorScheduleManagement() {
       const response = await axios.get(`http://localhost:5001/api/admin/doctor-schedules/${doctorId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSchedules(response.data.schedules || []);
+      // Ensure only this doctor's schedules are shown
+      setSchedules((response.data.schedules || []).filter(s => !!s.id));
     } catch (error) {
       console.error('Error fetching schedules:', error);
       setSchedules([]);
@@ -587,28 +599,28 @@ export default function DoctorScheduleManagement() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex flex-col">
-                              <span className={`font-medium ${schedule.morning_session?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
-                                {schedule.morning_session?.available !== false ? 'Available' : 'Unavailable'}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {schedule.morning_session?.start_time || '09:00'} - {schedule.morning_session?.end_time || '13:00'}
-                              </span>
-                            </div>
+                      <div className="flex flex-col">
+                        <span className={`font-medium ${schedule.morningSession?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
+                          {schedule.morningSession?.available !== false ? 'Available' : 'Unavailable'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {schedule.morningSession?.start_time || '09:00'} - {schedule.morningSession?.end_time || '13:00'}
+                        </span>
+                      </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex flex-col">
-                              <span className={`font-medium ${schedule.afternoon_session?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
-                                {schedule.afternoon_session?.available !== false ? 'Available' : 'Unavailable'}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {schedule.afternoon_session?.start_time || '14:00'} - {schedule.afternoon_session?.end_time || '18:00'}
-                              </span>
-                            </div>
+                      <div className="flex flex-col">
+                        <span className={`font-medium ${schedule.afternoonSession?.available !== false ? 'text-green-600' : 'text-red-600'}`}>
+                          {schedule.afternoonSession?.available !== false ? 'Available' : 'Unavailable'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {schedule.afternoonSession?.start_time || '14:00'} - {schedule.afternoonSession?.end_time || '18:00'}
+                        </span>
+                      </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <span className="font-medium">
-                              {(schedule.morning_session?.max_patients || 10) + (schedule.afternoon_session?.max_patients || 10)}
+                        {((schedule.morningSession?.max_patients ?? 0) + (schedule.afternoonSession?.max_patients ?? 0))}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -640,20 +652,21 @@ export default function DoctorScheduleManagement() {
 
       {/* Add/Edit Schedule Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+          <div className="relative top-16 mx-auto p-6 md:p-8 w-[640px] max-w-full rounded-xl bg-white shadow-xl border border-gray-100">
+            <h3 className="text-2xl font-semibold text-gray-900 mb-6">
               {editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <label className="block text-sm font-medium text-gray-800">Date</label>
                 <input
                   type="date"
                   value={scheduleForm.date}
                   onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                  min={todayStr}
+                  className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                 />
               </div>
 
@@ -663,18 +676,18 @@ export default function DoctorScheduleManagement() {
                     type="checkbox"
                     checked={scheduleForm.isAvailable}
                     onChange={(e) => setScheduleForm(prev => ({ ...prev, isAvailable: e.target.checked }))}
-                    className="mr-2"
+                    className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                   />
-                  Available
+                  <span className="text-sm text-gray-800">Available</span>
                 </label>
               </div>
 
               {scheduleForm.isAvailable && (
                 <>
                   {/* Morning Session */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-md font-semibold text-gray-900">Morning Session</h4>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 md:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-base font-semibold text-gray-900">Morning Session</h4>
                       <label className="flex items-center">
                         <input
                           type="checkbox"
@@ -683,16 +696,16 @@ export default function DoctorScheduleManagement() {
                             ...prev,
                             morningSession: { ...prev.morningSession, available: e.target.checked }
                           }))}
-                          className="mr-2"
+                          className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                         />
-                        Available
+                        <span className="text-sm text-gray-800">Available</span>
                       </label>
                     </div>
                     
                     {scheduleForm.morningSession.available && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                          <label className="block text-sm font-medium text-gray-800">Start Time</label>
                           <input
                             type="time"
                             value={scheduleForm.morningSession.start_time}
@@ -700,11 +713,11 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               morningSession: { ...prev.morningSession, start_time: e.target.value }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">End Time</label>
+                          <label className="block text-sm font-medium text-gray-800">End Time</label>
                           <input
                             type="time"
                             value={scheduleForm.morningSession.end_time}
@@ -712,11 +725,11 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               morningSession: { ...prev.morningSession, end_time: e.target.value }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                           />
                         </div>
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800">Max Patients</label>
                           <input
                             type="number"
                             value={scheduleForm.morningSession.maxPatients}
@@ -724,7 +737,7 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               morningSession: { ...prev.morningSession, maxPatients: parseInt(e.target.value) }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                             min="1"
                             max="50"
                           />
@@ -734,9 +747,9 @@ export default function DoctorScheduleManagement() {
                   </div>
 
                   {/* Afternoon Session */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-md font-semibold text-gray-900">Afternoon Session</h4>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 md:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-base font-semibold text-gray-900">Afternoon Session</h4>
                       <label className="flex items-center">
                         <input
                           type="checkbox"
@@ -745,16 +758,16 @@ export default function DoctorScheduleManagement() {
                             ...prev,
                             afternoonSession: { ...prev.afternoonSession, available: e.target.checked }
                           }))}
-                          className="mr-2"
+                          className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                         />
-                        Available
+                        <span className="text-sm text-gray-800">Available</span>
                       </label>
                     </div>
                     
                     {scheduleForm.afternoonSession.available && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                          <label className="block text-sm font-medium text-gray-800">Start Time</label>
                           <input
                             type="time"
                             value={scheduleForm.afternoonSession.start_time}
@@ -762,11 +775,11 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               afternoonSession: { ...prev.afternoonSession, start_time: e.target.value }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">End Time</label>
+                          <label className="block text-sm font-medium text-gray-800">End Time</label>
                           <input
                             type="time"
                             value={scheduleForm.afternoonSession.end_time}
@@ -774,11 +787,11 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               afternoonSession: { ...prev.afternoonSession, end_time: e.target.value }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                           />
                         </div>
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700">Max Patients</label>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800">Max Patients</label>
                           <input
                             type="number"
                             value={scheduleForm.afternoonSession.maxPatients}
@@ -786,7 +799,7 @@ export default function DoctorScheduleManagement() {
                               ...prev,
                               afternoonSession: { ...prev.afternoonSession, maxPatients: parseInt(e.target.value) }
                             }))}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                            className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
                             min="1"
                             max="50"
                           />
@@ -795,30 +808,7 @@ export default function DoctorScheduleManagement() {
                     )}
                   </div>
 
-                  {/* Legacy fields for backward compatibility */}
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Legacy Settings (Optional)</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Slot Duration (minutes)</label>
-                        <input
-                          type="number"
-                          value={scheduleForm.slotDuration}
-                          onChange={(e) => setScheduleForm(prev => ({ ...prev, slotDuration: parseInt(e.target.value) }))}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Max Patients Per Slot</label>
-                        <input
-                          type="number"
-                          value={scheduleForm.maxPatientsPerSlot}
-                          onChange={(e) => setScheduleForm(prev => ({ ...prev, maxPatientsPerSlot: parseInt(e.target.value) }))}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  {/* Simplified: Legacy fields removed to keep only relevant schedule inputs */}
                 </>
               )}
 
@@ -836,31 +826,31 @@ export default function DoctorScheduleManagement() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <label className="block text-sm font-medium text-gray-800">Notes</label>
                 <textarea
                   value={scheduleForm.notes}
                   onChange={(e) => setScheduleForm(prev => ({ ...prev, notes: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  rows={3}
-                  placeholder="Additional notes"
+                  className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black/20"
+                  rows={4}
+                  placeholder="Additional notes (optional)"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-3 mt-8">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setEditingSchedule(null);
                   resetScheduleForm();
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveSchedule}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-900 shadow-sm"
               >
                 Save Schedule
               </button>
@@ -883,6 +873,7 @@ export default function DoctorScheduleManagement() {
                     type="date"
                     value={bulkForm.startDate}
                     onChange={(e) => setBulkForm(prev => ({ ...prev, startDate: e.target.value }))}
+                      min={todayStr}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   />
                 </div>
@@ -892,6 +883,7 @@ export default function DoctorScheduleManagement() {
                     type="date"
                     value={bulkForm.endDate}
                     onChange={(e) => setBulkForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      min={bulkForm.startDate || todayStr}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   />
                 </div>
@@ -1140,6 +1132,7 @@ export default function DoctorScheduleManagement() {
                       type="date"
                       value={bulkDeleteForm.startDate}
                       onChange={(e) => setBulkDeleteForm(prev => ({ ...prev, startDate: e.target.value }))}
+                      min={todayStr}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     />
                   </div>
@@ -1149,6 +1142,7 @@ export default function DoctorScheduleManagement() {
                       type="date"
                       value={bulkDeleteForm.endDate}
                       onChange={(e) => setBulkDeleteForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      min={bulkDeleteForm.startDate || todayStr}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     />
                   </div>

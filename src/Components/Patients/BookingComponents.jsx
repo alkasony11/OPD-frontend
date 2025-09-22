@@ -8,6 +8,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
+import PrintBookingDetails from './PrintBookingDetails.jsx';
 
 // Enhanced Department Selection Component
 export function DepartmentSelection({ departments, onSelect, loading }) {
@@ -344,7 +345,10 @@ export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
       date: d,
       dateStr,
       isToday: i === 0,
-      isAvailable: !!fromApi,
+      // Treat availability based on sessions available from backend
+      isAvailable: !!fromApi && ((fromApi.availableSessions || fromApi.availableSlots || 0) > 0),
+      availableSessions: fromApi?.availableSessions || 0,
+      totalSessions: fromApi?.totalSessions || 0,
       availableSlots: fromApi?.availableSlots || 0,
       totalSlots: fromApi?.totalSlots || 0,
       dayName: d.toLocaleDateString('en-US', { weekday: 'short' })
@@ -391,7 +395,9 @@ export function DateSelection({ dates, selectedDoctor, onSelect, loading }) {
                 {day.date.getDate().toString().padStart(2, '0')}
               </div>
               <div className="text-xs text-gray-500">
-                {day.isAvailable ? `${day.availableSlots} slots` : 'No slots'}
+                {day.isAvailable 
+                  ? `${day.availableSessions || day.availableSlots} sessions` 
+                  : 'No sessions'}
               </div>
               {day.isToday && (
                 <div className="mt-1 text-[10px] text-blue-700">Today</div>
@@ -536,7 +542,7 @@ function TimeSlotCard({ slot, onSelect }) {
 }
 
 // Booking Confirmation Component
-export function BookingConfirmation({ bookingData, onNewBooking }) {
+export function BookingConfirmation({ bookingData, onNewBooking, user }) {
   return (
     <div className="text-center">
       <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -552,9 +558,28 @@ export function BookingConfirmation({ bookingData, onNewBooking }) {
             <h3 className="text-sm font-medium text-gray-500 mb-1">Token Number</h3>
             <p className="text-lg font-semibold text-gray-900">{bookingData.tokenNumber}</p>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Patient</h3>
-            <p className="text-lg font-semibold text-gray-900">{bookingData.familyMemberName}</p>
+          <div className="flex items-center space-x-3">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-1">Patient</h3>
+              <p className="text-lg font-semibold text-gray-900">{bookingData.familyMemberName}</p>
+            </div>
+            {(user?.profilePhoto || user?.profile_photo) ? (
+              <img
+                src={(user.profilePhoto || user.profile_photo).startsWith('http') 
+                  ? (user.profilePhoto || user.profile_photo)
+                  : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                }
+                alt="Profile"
+                className="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : null}
+            <UserCircleIcon 
+              className={`h-8 w-8 text-gray-400 ${(user?.profilePhoto || user?.profile_photo) ? 'hidden' : 'block'}`} 
+            />
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Doctor</h3>
@@ -604,12 +629,21 @@ export function BookingConfirmation({ bookingData, onNewBooking }) {
           </ul>
         </div>
         
-        <button
-          onClick={onNewBooking}
-          className="w-full bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-        >
-          Book Another Appointment
-        </button>
+        <div className="flex space-x-3">
+          <PrintBookingDetails 
+            bookingData={bookingData} 
+            user={user}
+            onPrint={() => {
+              console.log('Booking details printed from confirmation component');
+            }}
+          />
+          <button
+            onClick={onNewBooking}
+            className="flex-1 bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Book Another Appointment
+          </button>
+        </div>
       </div>
     </div>
   );

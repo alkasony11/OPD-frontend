@@ -5,6 +5,7 @@ import { useClerkAuth } from '../../hooks/useClerkAuth';
 // Import new sidebar and components
 import AdminSidebar from '../../Components/Admin/Sidebar';
 import DashboardStats from '../../Components/Admin/DashboardStats';
+import DashboardCharts from '../../Components/Admin/DashboardCharts';
 import UserManagement from '../../Components/Admin/UserManagement';
 import DoctorManagement from '../../Components/Admin/DoctorManagement';
 import AppointmentManagement from '../../Components/Admin/AppointmentManagement';
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
         return (
           <>
             <DashboardStats />
+            <DashboardCharts />
             {/* Dashboard Overview Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
               {/* Patient Management */}
@@ -231,8 +233,8 @@ export default function AdminDashboard() {
       <AdminSidebar />
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 overflow-hidden">
-        <div className="p-6 space-y-6">
+      <div className="flex-1 ml-64 overflow-y-auto">
+        <div className="p-6 space-y-6 pb-20">
           {/* Header */}
          
 

@@ -4,10 +4,11 @@ import Footer from "./Components/Patients/Footer";
 import LandingPage from "./Pages/Patient/LandingPage";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
-import { createContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import NewBookingPage from "./Pages/Patient/NewBookingPage";
 import Profile from "./Pages/Patient/Profile";
 import Appointments from './Pages/Patient/Appointments';
+import ManageAccount from './Pages/Patient/ManageAccount';
 import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
@@ -21,27 +22,41 @@ import DoctorLeaveRequestsPage from './Pages/Doctor/DoctorLeaveRequestsPage';
 import DoctorRecordsPage from './Pages/Doctor/DoctorRecordsPage';
 import DoctorReportsPage from './Pages/Doctor/DoctorReportsPage';
 import DoctorSettingsPage from './Pages/Doctor/DoctorSettingsPage';
+import PatientChatbotPage from './Pages/Patient/ChatbotPage';
+import DoctorProfilesPage from './Pages/Patient/DoctorProfilesPage';
+import DoctorDetailPage from './Pages/Patient/DoctorDetailPage';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
 import { ProtectedRoute, GuestRoute } from './Components/ProtectedRoute';
+import ChatbotWidget from './Components/Chatbot/ChatbotWidget';
 
 export const AuthContext = createContext();
 
 // Separate component to use the hook inside the context
 function AppContent() {
   const location = useLocation();
+  const authContext = useContext(AuthContext);
+  
+  // Safety check for context
+  if (!authContext) {
+    console.warn('AuthContext is not available in AppContent');
+    return <div>Loading...</div>;
+  }
+  
+  const { isLoggedIn } = authContext;
 
-  // Initialize Clerk auth hook
+  // Initialize Clerk auth only after context is available
   useClerkAuth();
 
   // Routes where navbar and footer should be hidden
   const hideNavbarFooterRoutes = [
     '/login', '/register', '/forgot-password', '/reset-password',
-    '/admin/dashboard', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments', '/admin/leave-requests',
+    '/admin/dashboard', '/admin/users', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments', '/admin/leave-requests', '/admin/appointments', '/admin/reports', '/admin/logs', '/admin/doctor-load', '/admin/priority',
     '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
     '/doctor/schedule', '/doctor/leave-requests', '/doctor/records', '/doctor/reports', '/doctor/settings',
     '/receptionist/dashboard', '/receptionist/appointments', '/receptionist/patients',
-    '/receptionist/queue', '/receptionist/billing', '/receptionist/reports', '/receptionist/settings'
+    '/receptionist/queue', '/receptionist/billing', '/receptionist/reports', '/receptionist/settings',
+    '/chatbot'
   ];
   // Also hide footer on booking and my appointments pages
   const hideFooterOnlyRoutes = ['/booking', '/appointments'];
@@ -59,6 +74,10 @@ function AppContent() {
           <Route path="/booking" element={<NewBookingPage />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/appointments" element={<ProtectedRoute requiredRole="patient"><Appointments /></ProtectedRoute>} />
+          <Route path="/manage-account" element={<ProtectedRoute requiredRole="patient"><ManageAccount /></ProtectedRoute>} />
+          <Route path="/chatbot" element={<ProtectedRoute requiredRole="patient"><PatientChatbotPage /></ProtectedRoute>} />
+          <Route path="/doctors" element={<DoctorProfilesPage />} />
+          <Route path="/doctors/:doctorId" element={<DoctorDetailPage />} />
           <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
           <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
           <Route path="/sso-callback" element={<SSOCallback />} />
@@ -87,6 +106,9 @@ function AppContent() {
         </Routes>
       </main>
       {!shouldHideNavbarFooter && !shouldHideFooterOnly && <Footer />}
+      
+      {/* Chatbot Widget - Show only for authenticated patients, but not on chatbot page */}
+      {isLoggedIn && location.pathname !== '/chatbot' && <ChatbotWidget />}
     </div>
   );
 }

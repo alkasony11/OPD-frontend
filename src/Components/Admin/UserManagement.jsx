@@ -165,15 +165,9 @@ export default function UserManagement() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-        <button
-          onClick={openAddModal}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <HiPlus className="h-5 w-5" />
-          <span>Add User</span>
-        </button>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Registered Patients</h2>
+        <p className="text-gray-600 mt-1">Manage patients who have registered through your website</p>
       </div>
 
       {successMessage && (
@@ -182,14 +176,46 @@ export default function UserManagement() {
         </div>
       )}
 
+      {/* Statistics Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="text-2xl font-bold text-gray-900">{users.filter(user => user.role === 'patient').length}</div>
+          <div className="text-sm text-gray-600">Total Patients</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="text-2xl font-bold text-green-600">{users.filter(user => user.role === 'patient' && user.isVerified).length}</div>
+          <div className="text-sm text-gray-600">Verified Patients</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="text-2xl font-bold text-yellow-600">{users.filter(user => user.role === 'patient' && !user.isVerified).length}</div>
+          <div className="text-sm text-gray-600">Unverified Patients</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="text-2xl font-bold text-blue-600">
+            {users.filter(user => user.role === 'patient' && user.createdAt && new Date(user.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
+          </div>
+          <div className="text-sm text-gray-600">New This Week</div>
+        </div>
+      </div>
+
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
+        {/* Table Header */}
+        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-8 text-sm font-medium text-gray-500">#</div>
+              <div className="text-sm font-medium text-gray-500">Patient Details</div>
+            </div>
+            <div className="text-sm font-medium text-gray-500">Actions</div>
+          </div>
+        </div>
         <ul className="divide-y divide-gray-200">
-          {users.length === 0 ? (
+          {users.filter(user => user.role === 'patient').length === 0 ? (
             <li className="px-6 py-4 text-center text-gray-500">
-              No users found. Click "Add User" to create the first user.
+              No registered patients found.
             </li>
           ) : (
-            users.map((user, index) => (
+            users.filter(user => user.role === 'patient').map((user, index) => (
               <li key={user._id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -203,23 +229,28 @@ export default function UserManagement() {
                         </span>
                       </div>
                     </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                    <div className="ml-4 flex-1">
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                          user.isVerified 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {user.isVerified ? 'Verified' : 'Unverified'}
+                        </span>
+                      </div>
                       <div className="text-sm text-gray-500">{user.email}</div>
-                      <div className="text-sm text-gray-500">
-                        {user.role} • {user.doctor_info?.department?.name || user.receptionist_info?.department?.name || 'No Department'}
+                      <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+                        {user.phone && <span>📞 {user.phone}</span>}
+                        <span>📅 Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
+                        {user.lastLogin && <span>🕒 Last login: {new Date(user.lastLogin).toLocaleDateString()}</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      user.role === 'doctor' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : user.role === 'receptionist'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role}
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      Patient
                     </span>
                     <button
                       onClick={() => openViewModal(user)}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { HiCalendar, HiClock, HiUsers, HiDocumentText, HiChartBar, HiCog, HiExclamation, HiArrowRight, HiTrendingUp, HiTrendingDown } from 'react-icons/hi';
+import { HiCalendar, HiClock, HiUsers, HiDocumentText, HiChartBar, HiCog, HiExclamation, HiArrowRight, HiTrendingUp, HiTrendingDown, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
 export default function DoctorDashboard() {
@@ -107,17 +107,30 @@ export default function DoctorDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const allAppointmentsData = allAppointmentsResponse.data.appointments || [];
-      const patients = patientsResponse.data.patients || [];
-      const schedules = schedulesResponse.data.schedules || [];
-      const bookedPatientsData = bookedPatientsResponse.data.patients || [];
+      const allAppointmentsData = Array.isArray(allAppointmentsResponse.data?.appointments)
+        ? allAppointmentsResponse.data.appointments
+        : [];
+      const patients = Array.isArray(patientsResponse.data?.patients)
+        ? patientsResponse.data.patients
+        : [];
+      const schedules = Array.isArray(schedulesResponse.data?.schedules)
+        ? schedulesResponse.data.schedules
+        : [];
+      const bookedPatientsData = Array.isArray(bookedPatientsResponse.data?.patients)
+        ? bookedPatientsResponse.data.patients
+        : [];
 
       // Calculate stats
       const today = new Date().toISOString().split('T')[0];
-      const todayAppointments = allAppointmentsData.filter(apt => apt.booking_date.split('T')[0] === today);
-      const completedAppointments = allAppointmentsData.filter(apt => apt.status === 'consulted').length;
-      const pendingAppointments = allAppointmentsData.filter(apt => apt.status === 'booked' || apt.status === 'in_queue').length;
-      const availableDays = schedules.filter(s => s.isAvailable).length;
+      const todayAppointments = allAppointmentsData.filter(apt => {
+        const d = apt?.booking_date;
+        if (!d) return false;
+        const isoDay = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : new Date(d).toISOString().split('T')[0];
+        return isoDay === today;
+      });
+      const completedAppointments = allAppointmentsData.filter(apt => apt?.status === 'consulted').length;
+      const pendingAppointments = allAppointmentsData.filter(apt => apt?.status === 'booked' || apt?.status === 'in_queue').length;
+      const availableDays = schedules.filter(s => s?.isAvailable).length;
       const leaveDays = schedules.filter(s => !s.isAvailable).length;
       const activeTokens = allAppointmentsData.filter(apt => apt.status === 'booked' || apt.status === 'in_queue').length;
 
@@ -414,6 +427,23 @@ export default function DoctorDashboard() {
                   {nextPatient.symptoms && (
                     <div className="text-sm text-gray-700 mt-1">Symptoms: {nextPatient.symptoms}</div>
                   )}
+                  {nextPatient.appointmentType === 'video' && (nextPatient.meetingLink || nextPatient.meeting_link) && (
+                    <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <HiVideoCamera className="h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-900">Video Consultation</span>
+                        </div>
+                        <button
+                          onClick={() => window.open((nextPatient.meetingLink || nextPatient.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                          className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
+                        >
+                          <HiExternalLink className="h-3 w-3" />
+                          <span>Join Meeting</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <button onClick={startConsultation} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Start Consultation</button>
@@ -475,6 +505,17 @@ export default function DoctorDashboard() {
                                 )}
                                 {item.symptoms && <span>Symptoms: {item.symptoms}</span>}
                               </div>
+                              {item.appointmentType === 'video' && (item.meetingLink || item.meeting_link) && (
+                                <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded">
+                                  <button
+                                    onClick={() => window.open((item.meetingLink || item.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                                    className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
+                                  >
+                                    <HiVideoCamera className="h-3 w-3" />
+                                    <span>Join Meeting</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <div className="text-right space-y-1">
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${

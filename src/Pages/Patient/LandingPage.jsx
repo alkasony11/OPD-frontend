@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import HeroSection from "../../Components/Patients/HeroSection";
 import AboutSection from "../../Components/Patients/AboutSection";
 import ServicesSection from "../../Components/Patients/ServicesSection";
+import VideoConsultationSection from "../../Components/Patients/VideoConsultationSection";
+import DoctorsSection from "../../Components/Patients/DoctorsSection";
 import ContactSection from "../../Components/Patients/ContactSection";
 
 export default function LandingPage() {
@@ -45,6 +47,12 @@ export default function LandingPage() {
       </section>
       <section id="services">
         <ServicesSection />
+      </section>
+      <section id="video-consultation">
+        <VideoConsultationSection />
+      </section>
+      <section id="doctors">
+        <DoctorsSection />
       </section>
       <section id="contact">
         <ContactSection />

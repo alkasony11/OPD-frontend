@@ -38,31 +38,27 @@ export default function DashboardStats() {
   const statCards = [
     {
       title: 'Total Patients',
-      value: '2,847',
+      value: stats.totalUsers || '0',
       icon: HiUsers,
-      color: 'bg-gray-600',
-      change: '+12%'
+      color: 'bg-gray-600'
     },
     {
       title: 'Active Doctors',
-      value: '165',
+      value: stats.totalDoctors || '0',
       icon: HiUserGroup,
-      color: 'bg-gray-600',
-      change: '+8%'
+      color: 'bg-gray-600'
     },
     {
       title: "Today's Appointments",
-      value: '89',
+      value: stats.totalAppointments || '0',
       icon: HiClipboardList,
-      color: 'bg-gray-600',
-      change: '+23%'
+      color: 'bg-gray-600'
     },
     {
       title: 'System Alerts',
-      value: '12',
+      value: stats.recentActivity || '0',
       icon: HiTrendingUp,
-      color: 'bg-gray-600',
-      change: '+5%'
+      color: 'bg-gray-600'
     }
   ];
 
@@ -89,7 +85,6 @@ export default function DashboardStats() {
               <div>
                 <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                 <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                <p className="text-sm text-green-600 mt-1">{stat.change} from last month</p>
               </div>
               <div className={`${stat.color} p-3 rounded-full`}>
                 <Icon className="h-6 w-6 text-white" />

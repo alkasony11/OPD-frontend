@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, HiPencil, HiEye, HiClipboardList } from 'react-icons/hi';
+import { HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, HiPencil, HiEye, HiClipboardList, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 import axios from 'axios';
 import PatientDetailsModal from './PatientDetailsModal';
 import PrescriptionModal from './PrescriptionModal';
@@ -62,6 +62,10 @@ export default function AppointmentList() {
 
   const getTypeColor = (type) => {
     switch (type) {
+      case 'video':
+        return 'bg-purple-100 text-purple-800';
+      case 'in-person':
+        return 'bg-green-100 text-green-800';
       case 'emergency':
         return 'bg-red-100 text-red-800';
       case 'follow-up':
@@ -252,6 +256,35 @@ export default function AppointmentList() {
                     </span>
                   </div>
                 </div>
+
+                {/* Video Consultation Meeting Link */}
+                {appointment.appointmentType === 'video' && appointment.meeting_link && (
+                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <HiVideoCamera className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-medium text-purple-900">Video Consultation</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-purple-700">
+                          ID: {appointment.meeting_link.meetingId}
+                        </span>
+                        <button
+                          onClick={() => window.open(appointment.meeting_link.meetingUrl, '_blank', 'noopener,noreferrer')}
+                          className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
+                        >
+                          <HiExternalLink className="h-3 w-3" />
+                          <span>Join Meeting</span>
+                        </button>
+                      </div>
+                    </div>
+                    {appointment.meeting_link.meetingPassword && (
+                      <div className="mt-2 text-xs text-purple-700">
+                        Password: <span className="font-mono">{appointment.meeting_link.meetingPassword}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Symptoms */}
                 {appointment.symptoms && (

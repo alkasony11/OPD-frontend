@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { HiArrowLeft, HiCalendar, HiClock, HiTag, HiX, HiPencil, HiUser, HiDocumentText, HiClipboardList, HiCash, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
+import { HiArrowLeft, HiCalendar, HiClock, HiTag, HiX, HiPencil, HiUser, HiDocumentText, HiClipboardList, HiCash, HiCheckCircle, HiExclamationCircle, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -20,10 +20,12 @@ export default function Appointments() {
   const [cancelReason, setCancelReason] = useState('');
   const [refundMethod, setRefundMethod] = useState('wallet');
   const [cancelling, setCancelling] = useState(false);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     fetchAppointments();
     fetchFamilyMembers();
+    fetchUserData();
   }, []);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function Appointments() {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams();
       const memberId = overrideFamilyMemberId ?? selectedFamilyMember;
-      if (memberId && memberId !== 'all' && memberId !== 'self') {
+      if (memberId && memberId !== 'all') {
         params.append('familyMemberId', memberId);
       }
       
@@ -52,20 +54,42 @@ export default function Appointments() {
     }
   };
 
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5001/api/patient/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Fallback to localStorage data
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      setUser(userData);
+    }
+  };
+
   const fetchFamilyMembers = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:5001/api/patient/family-members', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const members = response.data.familyMembers || [];
+      const members = (response.data.familyMembers || []).map(m => ({
+        id: m.id || m._id || m.id,
+        name: m.name,
+        relation: m.relation,
+        patientId: m.patientId
+      }));
       
       // Add self as first option if not already present
+      // Use logged-in user's name for self
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const selfMember = {
-        _id: 'self',
-        name: 'Myself',
+        id: 'self',
+        name: user?.name || 'Me',
         relation: 'self',
-        patientId: 'P001'
+        patientId: user?.patientId || 'P001'
       };
       
       // Filter out any existing 'self' members to avoid duplicates
@@ -74,12 +98,8 @@ export default function Appointments() {
     } catch (err) {
       console.error('Failed to load family members:', err);
       // Set fallback self member
-      setFamilyMembers([{
-        _id: 'self',
-        name: 'Myself',
-        relation: 'self',
-        patientId: 'P001'
-      }]);
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      setFamilyMembers([{ id: 'self', name: user?.name || 'Me', relation: 'self', patientId: user?.patientId || 'P001' }]);
     }
   };
 
@@ -90,17 +110,7 @@ export default function Appointments() {
     }
 
     const now = new Date();
-    let list = appointments;
-
-    // Filter by family member first
-    if (selectedFamilyMember !== 'all') {
-      list = list.filter((apt) => {
-        if (selectedFamilyMember === 'self') {
-          return !apt.isFamilyMember;
-        }
-        return apt.isFamilyMember && apt.familyMemberRelation;
-      });
-    }
+    let list = appointments; // already filtered by family member via API
 
     // Then filter by time
     list = list.filter((apt) => {
@@ -270,7 +280,7 @@ export default function Appointments() {
               >
                 <option value="all">All Family Members</option>
                 {familyMembers.map((member, index) => (
-                  <option key={member._id || `member-${index}`} value={member._id || 'self'}>
+                  <option key={member.id || `member-${index}`} value={member.id || 'self'}>
                     {member.name} ({member.relation})
                   </option>
                 ))}
@@ -302,11 +312,28 @@ export default function Appointments() {
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
                           {apt.status.charAt(0).toUpperCase() + apt.status.slice(1).replace('_', ' ')}
                         </span>
+                        {apt.appointmentType === 'video' && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Video Consultation</span>
+                        )}
                       </div>
                       <p className="text-gray-600 font-medium">{apt.departmentName}</p>
                       {apt.isFamilyMember && (
                         <div className="flex items-center gap-2 mt-1">
-                          <HiUser className="h-4 w-4 text-blue-500" />
+                          {(user?.profilePhoto || user?.profile_photo) ? (
+                            <img
+                              src={(user.profilePhoto || user.profile_photo).startsWith('http') 
+                                ? (user.profilePhoto || user.profile_photo)
+                                : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                              }
+                              alt="Profile"
+                              className="h-4 w-4 rounded-full object-cover border border-white shadow-sm"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                          ) : null}
+                          <HiUser className={`h-4 w-4 text-blue-500 ${(user?.profilePhoto || user?.profile_photo) ? 'hidden' : 'block'}`} />
                           <span className="text-sm text-blue-600">
                             For: {apt.patientName} ({apt.familyMemberRelation})
                           </span>
@@ -357,6 +384,34 @@ export default function Appointments() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Video Consultation Join Button */}
+                  {(apt.meetingLink) && (
+                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <HiVideoCamera className="h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-900">Video Consultation</span>
+                        </div>
+                        <button
+                          onClick={() => window.open(apt.meetingLink.meetingUrl, '_blank', 'noopener,noreferrer')}
+                          className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 flex items-center gap-1"
+                        >
+                          <HiExternalLink className="h-3 w-3" />
+                          Join Meeting
+                        </button>
+                      </div>
+                      <div className="mt-2 text-xs text-purple-700">
+                        ID: <span className="font-mono">{apt.meetingLink.meetingId}</span>
+                        {apt.meetingLink.meetingPassword && (
+                          <>
+                            <span className="mx-2">•</span>
+                            Password: <span className="font-mono">{apt.meetingLink.meetingPassword}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Symptoms */}
                   {apt.symptoms && apt.symptoms !== 'Not provided' && (

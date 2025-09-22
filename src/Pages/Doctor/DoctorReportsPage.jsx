@@ -3,6 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiChartBar, HiCalendar, HiUsers, HiDocumentText, HiDownload, HiTrendingUp, HiTrendingDown } from 'react-icons/hi';
 import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement,
+} from 'chart.js';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement
+);
 
 export default function DoctorReportsPage() {
   const navigate = useNavigate();
@@ -371,6 +397,87 @@ export default function DoctorReportsPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Appointment Status Chart */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Appointment Status Distribution</h3>
+            <div className="h-64">
+              <Doughnut 
+                data={{
+                  labels: ['Completed', 'Pending', 'Cancelled', 'Missed'],
+                  datasets: [{
+                    data: [
+                      stats.completedAppointments,
+                      stats.totalAppointments - stats.completedAppointments - stats.cancelledAppointments,
+                      stats.cancelledAppointments,
+                      0 // missed appointments
+                    ],
+                    backgroundColor: [
+                      'rgba(16, 185, 129, 0.8)',
+                      'rgba(245, 158, 11, 0.8)',
+                      'rgba(239, 68, 68, 0.8)',
+                      'rgba(156, 163, 175, 0.8)'
+                    ],
+                    borderColor: [
+                      'rgba(16, 185, 129, 1)',
+                      'rgba(245, 158, 11, 1)',
+                      'rgba(239, 68, 68, 1)',
+                      'rgba(156, 163, 175, 1)'
+                    ],
+                    borderWidth: 1
+                  }]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Daily Appointment Trend */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Daily Appointment Trend</h3>
+            <div className="h-64">
+              <Line 
+                data={{
+                  labels: getDailyAppointmentTrend().map(([date]) => 
+                    new Date(date).toLocaleDateString('en-US', { weekday: 'short' })
+                  ),
+                  datasets: [{
+                    label: 'Appointments',
+                    data: getDailyAppointmentTrend().map(([, count]) => count),
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                  }]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Recent Activity Summary */}

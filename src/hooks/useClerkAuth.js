@@ -8,9 +8,22 @@ import axios from 'axios';
 export const useClerkAuth = () => {
   const { user, isLoaded: userLoaded } = useUser();
   const { isSignedIn, signOut } = useAuth();
-  const { setIsLoggedIn } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Safety check for context
+  if (!authContext) {
+    console.warn('AuthContext is not available');
+    return {
+      user,
+      isSignedIn,
+      userLoaded,
+      handleSignOut: () => {}
+    };
+  }
+
+  const { setIsLoggedIn } = authContext;
 
   useEffect(() => {
     const syncClerkWithBackend = async () => {

@@ -4,7 +4,15 @@ import { AuthContext } from '../../App';
 
 export default function HeroSection() {
   const navigate = useNavigate();
-  const { isLoggedIn, setRedirectPath } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
+  
+  // Safety check for context
+  if (!authContext) {
+    console.warn('AuthContext is not available in HeroSection');
+    return null;
+  }
+  
+  const { isLoggedIn, setRedirectPath } = authContext;
 
   const handleBookAppointment = () => {
     if (!isLoggedIn) {

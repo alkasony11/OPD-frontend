@@ -16,8 +16,12 @@ import {
   DocumentTextIcon,
   CheckCircleIcon,
   PlusIcon,
-  XMarkIcon
+  XMarkIcon,
+  VideoCameraIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline';
+import PrintBookingDetails from '../../Components/Patients/PrintBookingDetails.jsx';
+import VideoConsultationDetails from '../../Components/Patients/VideoConsultationDetails.jsx';
 import {
   DepartmentSelection,
   DoctorSelection,
@@ -64,7 +68,8 @@ export default function NewBookingPage() {
       familyMemberId: 'self',
       familyMemberName: '',
       familyMemberPatientId: '',
-      paymentMethod: 'card'
+      paymentMethod: 'card',
+      appointmentType: 'in-person' // Default to in-person, can be 'video'
     };
   });
 
@@ -95,7 +100,8 @@ export default function NewBookingPage() {
       familyMemberId: 'self',
       familyMemberName: '',
       familyMemberPatientId: '',
-      paymentMethod: 'card'
+      paymentMethod: 'card',
+      appointmentType: 'in-person'
     });
     setCurrentStep(1);
   };
@@ -122,8 +128,20 @@ export default function NewBookingPage() {
     if (token) {
       fetchDepartments();
       fetchFamilyMembers();
-      // Check reschedule query param
+      
+      // Check for video consultation type
       const params = new URLSearchParams(location.search);
+      const appointmentType = params.get('type');
+      if (appointmentType === 'video') {
+        const updatedData = {
+          ...bookingData,
+          appointmentType: 'video'
+        };
+        setBookingData(updatedData);
+        saveBookingData(updatedData);
+      }
+      
+      // Check reschedule query param
       const resId = params.get('reschedule');
       if (resId) {
         setRescheduleFor(resId);
@@ -192,6 +210,13 @@ export default function NewBookingPage() {
         const savedData = localStorage.getItem('bookingData');
         if (savedData) {
           const parsedData = JSON.parse(savedData);
+          
+          // If coming from video consultation link, ensure appointment type is set
+          if (appointmentType === 'video' && parsedData.appointmentType !== 'video') {
+            parsedData.appointmentType = 'video';
+            saveBookingData(parsedData);
+          }
+          
           if (parsedData.departmentId) {
             // Restore department data and prefetch dates + doctors
             generateNext7Days(parsedData.departmentId);
@@ -260,7 +285,8 @@ export default function NewBookingPage() {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
-      const dateStr = date.toISOString().split('T')[0];
+      // Use local date to avoid UTC shift (matches backend formatting)
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
       const isToday = i === 0;
       
@@ -268,18 +294,18 @@ export default function NewBookingPage() {
         date: dateStr,
         dayName: dayName,
         isToday: isToday,
-        availableSessions: 2, // Morning and afternoon
-        totalSessions: 2,
-        availableSlots: 0, // Will be updated with real data
+        availableSessions: 0,
+        totalSessions: 0,
+        availableSlots: 0,
         totalSlots: 0
       });
     }
-    
-    setAvailableDates(dates);
-    
-    // Now fetch real slot data for each date
+
+    // Fetch real slot data for each date and only keep dates with slots
     if (departmentId) {
       await fetchRealSlotDataForDates(dates, departmentId);
+    } else {
+      setAvailableDates([]);
     }
   };
 
@@ -299,23 +325,24 @@ export default function NewBookingPage() {
           });
           
           const dateData = res.data.availableDates?.find(d => d.date === dateObj.date);
-          if (dateData) {
+          if (dateData && (dateData.availableSlots || 0) > 0) {
             return {
               ...dateObj,
               availableSlots: dateData.availableSlots || 0,
               totalSlots: dateData.totalSlots || 0,
-              availableSessions: dateData.availableSessions || 2,
-              totalSessions: dateData.totalSessions || 2
+              availableSessions: dateData.availableSessions || 0,
+              totalSessions: dateData.totalSessions || 0
             };
           }
-          return dateObj;
+          // No slots for this date -> exclude by returning null
+          return null;
         } catch (error) {
           console.error(`Error fetching slots for ${dateObj.date}:`, error);
-          return dateObj; // Return original data if fetch fails
+          return null; // Exclude on error to avoid showing false availability
         }
       });
       
-      const updatedDates = await Promise.all(slotPromises);
+      const updatedDates = (await Promise.all(slotPromises)).filter(Boolean);
       setAvailableDates(updatedDates);
     } catch (error) {
       console.error('Error fetching real slot data:', error);
@@ -406,17 +433,41 @@ export default function NewBookingPage() {
   const fetchAvailableDoctorsForSession = async (departmentId, date, time) => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { date, time }
-      });
-      const doctors = res.data.doctors || [];
-      setDoctors(doctors);
+      const token = localStorage.getItem('token');
+      const [allDeptRes, availableRes] = await Promise.all([
+        axios.get(`http://localhost:5001/api/patient/doctors/${departmentId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date, time }
+        }).catch(() => ({ data: { doctors: [] } }))
+      ]);
+
+      const allDeptDoctors = (allDeptRes.data?.doctors || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        email: d.email,
+        specialization: d.specialization,
+        department: d.department,
+        departmentId: d.departmentId,
+        experience: d.experience,
+        fee: d.fee,
+        profilePhoto: d.profilePhoto,
+        rating: d.rating,
+        reviews: d.reviews,
+        isAvailable: false,
+        hasAvailableSlots: false
+      }));
+
+      const availableMap = new Map((availableRes.data?.doctors || []).map(doc => [String(doc.id), doc]));
+      const merged = allDeptDoctors.map(doc => availableMap.has(String(doc.id)) ? { ...doc, ...availableMap.get(String(doc.id)), isAvailable: true } : doc);
+      setDoctors(merged);
       
       // Update the session with actual doctor count
       setAvailableSessions(prev => prev.map(session => 
         session.startTime === time 
-          ? { ...session, doctorCount: doctors.length, availableDoctors: doctors }
+          ? { ...session, doctorCount: (availableRes.data?.doctors || []).length, availableDoctors: (availableRes.data?.doctors || []) }
           : session
       ));
     } catch (error) {
@@ -520,13 +571,25 @@ export default function NewBookingPage() {
   };
 
   const handlePatientSelect = (member) => {
-    setBookingData(prev => ({
-      ...prev,
+    const updatedData = {
+      ...bookingData,
       familyMemberId: member.id,
       familyMemberName: member.name,
       familyMemberPatientId: member.patientId
-    }));
+    };
+    setBookingData(updatedData);
+    saveBookingData(updatedData);
     setCurrentStep(2);
+  };
+
+  const handleAppointmentTypeSelect = (type) => {
+    const updatedData = {
+      ...bookingData,
+      appointmentType: type
+    };
+    setBookingData(updatedData);
+    saveBookingData(updatedData);
+    setCurrentStep(3);
   };
 
   const handleSymptomsSubmit = async (symptoms) => {
@@ -549,7 +612,7 @@ export default function NewBookingPage() {
       selectedSession: null
     };
     saveBookingData(newData);
-    saveCurrentStep(3);
+    saveCurrentStep(4);
     // Preload dates and doctors without blocking UI
     generateNext7Days(department.id);
     fetchDoctors(department.id);
@@ -562,7 +625,7 @@ export default function NewBookingPage() {
       doctorName: doctor.name
     };
     saveBookingData(newData);
-    saveCurrentStep(6); // Go directly to payment/confirmation
+    saveCurrentStep(7); // Go directly to payment/confirmation
   };
 
   const handleDateSelect = async (date) => {
@@ -571,7 +634,7 @@ export default function NewBookingPage() {
       appointmentDate: date
     };
     saveBookingData(newData);
-    saveCurrentStep(4);
+    saveCurrentStep(5);
     // Fetch real session data from backend
     await fetchRealSessionData(newData.departmentId, date);
   };
@@ -584,14 +647,52 @@ export default function NewBookingPage() {
     };
     saveBookingData(newData);
     
-    // Use the doctors that were already fetched with the session data
-    if (session.availableDoctors && session.availableDoctors.length > 0) {
-      setDoctors(session.availableDoctors);
-    } else {
-      // Fallback: fetch doctors if not available in session data
-      await fetchAvailableDoctorsForSession(newData.departmentId, newData.appointmentDate, session.startTime);
+    // Merge all department doctors with currently available doctors for this session
+    try {
+      const token = localStorage.getItem('token');
+      const [allDeptRes, availableRes] = await Promise.all([
+        axios.get(`http://localhost:5001/api/patient/doctors/${newData.departmentId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        session.availableDoctors
+          ? Promise.resolve({ data: { doctors: session.availableDoctors } })
+          : axios.get(`http://localhost:5001/api/patient/departments/${newData.departmentId}/available-doctors`, {
+              headers: { Authorization: `Bearer ${token}` },
+              params: { date: newData.appointmentDate, time: session.startTime }
+            }).catch(() => ({ data: { doctors: [] } }))
+      ]);
+
+      const allDeptDoctors = (allDeptRes.data?.doctors || []).map(d => ({
+        id: d.id,
+        name: d.name,
+        email: d.email,
+        specialization: d.specialization,
+        department: d.department,
+        departmentId: d.departmentId,
+        experience: d.experience,
+        fee: d.fee,
+        profilePhoto: d.profilePhoto,
+        rating: d.rating,
+        reviews: d.reviews,
+        isAvailable: false,
+        hasAvailableSlots: false
+      }));
+
+      const availableMap = new Map((availableRes.data?.doctors || []).map(doc => [String(doc.id), doc]));
+      const merged = allDeptDoctors.map(doc => {
+        const avail = availableMap.get(String(doc.id));
+        return avail ? { ...doc, ...avail, isAvailable: true } : doc;
+      });
+      setDoctors(merged);
+    } catch (e) {
+      // Fallback to available-only if merge fails
+      if (session.availableDoctors && session.availableDoctors.length > 0) {
+        setDoctors(session.availableDoctors);
+      } else {
+        await fetchAvailableDoctorsForSession(newData.departmentId, newData.appointmentDate, session.startTime);
+      }
     }
-    saveCurrentStep(5);
+    saveCurrentStep(6);
   };
 
   const handleAutoAssign = async () => {
@@ -615,7 +716,7 @@ export default function NewBookingPage() {
         autoAssignReason: reason
       }));
 
-      setCurrentStep(6); // Skip doctor selection, go to payment
+      setCurrentStep(7); // Skip doctor selection, go to payment
     } catch (error) {
       console.error('Auto-assign error:', error);
       setBookingError(error.response?.data?.message || 'Auto-assignment failed');
@@ -688,7 +789,8 @@ export default function NewBookingPage() {
         appointmentTime: bookingData.appointmentTime,
         symptoms: bookingData.symptoms,
         familyMemberId: bookingData.familyMemberId === 'self' ? null : bookingData.familyMemberId,
-        paymentMethod: bookingData.paymentMethod
+        paymentMethod: bookingData.paymentMethod,
+        appointmentType: bookingData.appointmentType
       };
 
       let response;
@@ -706,18 +808,16 @@ export default function NewBookingPage() {
 
       setBookingData(prev => ({
         ...prev,
+        appointmentId: response.data?.appointment?.id,
+        paymentStatus: response.data?.appointment?.paymentStatus || 'pending',
         tokenNumber: response.data?.appointment?.tokenNumber || response.data?.tokenNumber,
-        estimatedWaitTime: response.data?.appointment?.estimatedWaitTime
+        estimatedWaitTime: response.data?.appointment?.estimatedWaitTime,
+        meetingLink: response.data?.appointment?.meetingLink || null
       }));
 
-      saveCurrentStep(6);
-      
-      // Clear booking data after success (with a delay to show confirmation)
-      setTimeout(() => {
-        clearBookingData();
-        setRescheduleFor(null);
-        navigate('/appointments');
-      }, 5000); // Clear after 5 seconds
+      saveCurrentStep(7);
+
+      // Note: Payment is triggered by user via Confirm Payment button on this step
     } catch (error) {
       console.error('Error booking appointment:', error);
       setBookingError(error.response?.data?.message || 'Unable to book appointment');
@@ -741,11 +841,12 @@ export default function NewBookingPage() {
   const getStepTitle = () => {
     const titles = {
       1: 'Select Patient',
-      2: 'Symptoms and Department',
-      3: 'Pick Date (Next 7 Days)',
-      4: 'Select Session',
-      5: 'Select Doctor',
-      6: 'Payment & Confirmation'
+      2: 'Appointment Type',
+      3: 'Symptoms and Department',
+      4: 'Pick Date (Next 7 Days)',
+      5: 'Select Session',
+      6: 'Select Doctor',
+      7: 'Payment & Confirmation'
     };
     return titles[currentStep];
   };
@@ -760,7 +861,7 @@ export default function NewBookingPage() {
               <h1 className="text-2xl font-bold text-gray-900">Book New Appointment</h1>
               <p className="text-gray-600 mt-1">{getStepTitle()}</p>
             </div>
-            {currentStep > 1 && currentStep < 7 && (
+            {currentStep > 1 && currentStep < 8 && (
               <button
                 onClick={handlePrevStep}
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
@@ -774,7 +875,7 @@ export default function NewBookingPage() {
           {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex items-center">
-              {[1, 2, 3, 4, 5, 6].map((step) => (
+              {[1, 2, 3, 4, 5, 6, 7].map((step) => (
                 <div key={step} className="flex items-center">
                   <div
                     className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
@@ -785,7 +886,7 @@ export default function NewBookingPage() {
                   >
                     {step}
                   </div>
-                  {step < 6 && (
+                  {step < 7 && (
                     <div
                       className={`w-12 h-1 mx-2 ${
                         step < currentStep ? 'bg-black' : 'bg-gray-200'
@@ -817,8 +918,66 @@ export default function NewBookingPage() {
             />
           )}
 
-          {/* Step 2: Symptoms (optional) + Choose Department */}
+          {/* Step 2: Appointment Type Selection */}
           {currentStep === 2 && (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Appointment Type</h2>
+              <p className="text-gray-600 mb-8">
+                Select how you would like to consult with your doctor.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div
+                  onClick={() => handleAppointmentTypeSelect('in-person')}
+                  className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                    bookingData.appointmentType === 'in-person'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      bookingData.appointmentType === 'in-person'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-blue-100 text-blue-600'
+                    }`}>
+                      <HomeIcon className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">In-Person Visit</h3>
+                      <p className="text-sm text-gray-600">Visit our clinic for a traditional consultation</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => handleAppointmentTypeSelect('video')}
+                  className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                    bookingData.appointmentType === 'video'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      bookingData.appointmentType === 'video'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-purple-100 text-purple-600'
+                    }`}>
+                      <VideoCameraIcon className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Video Consultation</h3>
+                      <p className="text-sm text-gray-600">Consult from the comfort of your home</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Symptoms (optional) + Choose Department */}
+          {currentStep === 3 && (
             <>
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
                 <p className="text-blue-800 text-sm">
@@ -841,8 +1000,8 @@ export default function NewBookingPage() {
             </>
           )}
 
-          {/* Step 3: Select Date */}
-          {currentStep === 3 && (
+          {/* Step 4: Select Date */}
+          {currentStep === 4 && (
             <DateSelection
               dates={availableDates}
               selectedDoctor={bookingData.departmentName}
@@ -851,8 +1010,8 @@ export default function NewBookingPage() {
             />
           )}
 
-          {/* Step 4: Select Session */}
-          {currentStep === 4 && (
+          {/* Step 5: Select Session */}
+          {currentStep === 5 && (
             <>
               {!!bookingError && (
                 <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
@@ -868,8 +1027,8 @@ export default function NewBookingPage() {
             </>
           )}
 
-          {/* Step 5: Doctor Selection */}
-          {currentStep === 5 && (
+          {/* Step 6: Doctor Selection */}
+          {currentStep === 6 && (
             <>
               {!!bookingError && (
                 <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
@@ -914,21 +1073,22 @@ export default function NewBookingPage() {
                     setBookingError('Unable to verify availability. Please try again.');
                   }
                 }}
+                onAutoAssign={handleAutoAssign}
                 loading={loading}
               />
             </>
           )}
 
 
-          {/* Inline conflict warning (if any) shown above payment too) */}
-          {!!bookingError && currentStep !== 7 && (
+          {/* Show errors (including on step 7 before booking) */}
+          {!!bookingError && (
             <div className="mt-4 mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
               {bookingError}
             </div>
           )}
 
-          {/* Step 6: Confirm & Book (Payment removed for testing) */}
-          {currentStep === 6 && !bookingData.tokenNumber && (
+          {/* Step 7: Confirm & Book */}
+          {currentStep === 7 && !bookingData.tokenNumber && (
             <PreBookingConfirmation
               bookingData={bookingData}
               onConfirm={handleBookAppointment}
@@ -936,28 +1096,42 @@ export default function NewBookingPage() {
             />
           )}
 
-          {/* Step 6: Booking Confirmed */}
-          {currentStep === 6 && bookingData.tokenNumber && (
-            <BookingSuccess
-              bookingData={bookingData}
-              onNewBooking={() => {
-                setCurrentStep(1);
-                setBookingData({
-                  departmentId: '',
-                  departmentName: '',
-                  doctorId: '',
-                  doctorName: '',
-                  appointmentDate: '',
-                  appointmentTime: '',
-                  symptoms: '',
-                  familyMemberId: 'self',
-                  familyMemberName: '',
-                  familyMemberPatientId: '',
-                  paymentMethod: 'card'
-                });
-                setSymptomAnalysis(null);
-              }}
-            />
+          {/* Step 7: Booking Confirmed + Payment */}
+          {currentStep === 7 && bookingData.tokenNumber && (
+            <div className="space-y-6">
+              {bookingData.paymentStatus !== 'paid' && (
+                <PaymentStep
+                  bookingData={bookingData}
+                  setBookingData={setBookingData}
+                  bookingError={bookingError}
+                  onClearError={() => setBookingError('')}
+                  onPaid={() => setBookingData(prev => ({ ...prev, paymentStatus: 'paid' }))}
+                />
+              )}
+              {bookingData.paymentStatus === 'paid' && (
+                <BookingSuccess
+                  bookingData={bookingData}
+                  user={user}
+                  onNewBooking={() => {
+                    setCurrentStep(1);
+                    setBookingData({
+                      departmentId: '',
+                      departmentName: '',
+                      doctorId: '',
+                      doctorName: '',
+                      appointmentDate: '',
+                      appointmentTime: '',
+                      symptoms: '',
+                      familyMemberId: 'self',
+                      familyMemberName: '',
+                      familyMemberPatientId: '',
+                      paymentMethod: 'card'
+                    });
+                    setSymptomAnalysis(null);
+                  }}
+                />
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1282,9 +1456,41 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
             <span className="font-medium">{bookingData.appointmentTime}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-gray-600">Appointment Type:</span>
+            <span className="font-medium">
+              {bookingData.appointmentType === 'video' ? 'Video Consultation' : 'In-Person Visit'}
+            </span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-gray-600">Symptoms:</span>
             <span className="font-medium text-right max-w-xs">{bookingData.symptoms}</span>
           </div>
+          {bookingData.appointmentType === 'video' && bookingData.meetingLink && (
+            <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h4 className="font-semibold text-purple-900 mb-2">Video Consultation Details</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-purple-700">Meeting Link:</span>
+                  <a 
+                    href={bookingData.meetingLink.meetingUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-800 underline break-all"
+                  >
+                    Join Video Call
+                  </a>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-purple-700">Meeting ID:</span>
+                  <span className="font-mono text-purple-900">{bookingData.meetingLink.meetingId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-purple-700">Password:</span>
+                  <span className="font-mono text-purple-900">{bookingData.meetingLink.meetingPassword}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1302,7 +1508,7 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
 }
 
 // Booking Success Component
-function BookingSuccess({ bookingData, onNewBooking }) {
+function BookingSuccess({ bookingData, onNewBooking, user }) {
   return (
     <div className="text-center">
       <div className="mb-6">
@@ -1311,6 +1517,17 @@ function BookingSuccess({ bookingData, onNewBooking }) {
         <p className="text-gray-600">Your appointment has been confirmed.</p>
       </div>
 
+      {/* Video Consultation Details */}
+      {bookingData.appointmentType === 'video' && bookingData.meetingLink && (
+        <VideoConsultationDetails
+          meetingLink={bookingData.meetingLink}
+          appointmentDate={bookingData.appointmentDate}
+          appointmentTime={bookingData.appointmentTime}
+          doctorName={bookingData.doctorName}
+          patientName={bookingData.familyMemberName}
+        />
+      )}
+
       <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
         <h3 className="font-semibold text-green-900 mb-4">Booking Details</h3>
         <div className="space-y-2 text-sm">
@@ -1318,9 +1535,28 @@ function BookingSuccess({ bookingData, onNewBooking }) {
             <span className="text-green-700">Token Number:</span>
             <span className="font-medium text-green-900">{bookingData.tokenNumber}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-green-700">Patient:</span>
-            <span className="font-medium text-green-900">{bookingData.familyMemberName}</span>
+            <div className="flex items-center space-x-2">
+              <span className="font-medium text-green-900">{bookingData.familyMemberName}</span>
+              {(user?.profilePhoto || user?.profile_photo) ? (
+                <img
+                  src={(user.profilePhoto || user.profile_photo).startsWith('http') 
+                    ? (user.profilePhoto || user.profile_photo)
+                    : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                  }
+                  alt="Profile"
+                  className="h-6 w-6 rounded-full object-cover border border-white shadow-sm"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+              ) : null}
+              <UserCircleIcon 
+                className={`h-6 w-6 text-gray-400 ${(user?.profilePhoto || user?.profile_photo) ? 'hidden' : 'block'}`} 
+              />
+            </div>
           </div>
           <div className="flex justify-between">
             <span className="text-green-700">Doctor:</span>
@@ -1330,6 +1566,12 @@ function BookingSuccess({ bookingData, onNewBooking }) {
             <span className="text-green-700">Date & Time:</span>
             <span className="font-medium text-green-900">
               {new Date(bookingData.appointmentDate).toLocaleDateString()} at {bookingData.appointmentTime}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-green-700">Appointment Type:</span>
+            <span className="font-medium text-green-900">
+              {bookingData.appointmentType === 'video' ? 'Video Consultation' : 'In-Person Visit'}
             </span>
           </div>
           {bookingData.estimatedWaitTime && (
@@ -1342,6 +1584,20 @@ function BookingSuccess({ bookingData, onNewBooking }) {
       </div>
 
       <div className="flex justify-center space-x-4">
+        <PrintBookingDetails 
+          bookingData={bookingData} 
+          user={user}
+          onPrint={() => {
+            // Optional: Add any analytics or tracking here
+            console.log('Booking details printed');
+          }}
+        />
+        <button
+          onClick={() => navigate('/appointments')}
+          className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+        >
+          View My Appointments
+        </button>
         <button
           onClick={onNewBooking}
           className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
@@ -1358,17 +1614,87 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [keyId, setKeyId] = useState('');
+  // No dummy modal for professional Razorpay UI
 
   useEffect(() => {
-    // Razorpay temporarily disabled: mark as configured to enable button
-    setKeyId('disabled');
+    const init = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const { data } = await axios.get('http://localhost:5001/api/patient/payment/key', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setKeyId(data.keyId || 'rzp_test_dummy_key');
+      } catch (e) {
+        setKeyId('rzp_test_dummy_key');
+      }
+    };
+    init();
   }, []);
 
   const openRazorpay = async () => {
     setLoading(true);
     try {
-      // Temporary flow: skip payment and move to next step
-      onPaid();
+      const token = localStorage.getItem('token');
+
+      // 1) Create order (or dummy order)
+      const amount = bookingData.fee || bookingData.doctorFee || 500;
+      const { data: orderRes } = await axios.post('http://localhost:5001/api/patient/payment/create-order', {
+        amount,
+        currency: 'INR',
+        receipt: `apt_${bookingData.tokenNumber || Date.now()}`
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      const order = orderRes.order;
+
+      // 2) Ensure Razorpay script is loaded
+      if (!window.Razorpay) {
+        try {
+          await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
+        } catch (e) {
+          setError('Failed to load Razorpay checkout. Check your network.');
+          return;
+        }
+      }
+
+      // 3) If backend returned dummy, keys are missing → show config error
+      if (orderRes.dummy) {
+        setError('Razorpay keys not configured. Add RAZORPAY_KEY_ID/SECRET in backend and restart.');
+        return;
+      }
+
+      const options = {
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Clinic Appointment',
+        description: 'Consultation Fee',
+        order_id: order.id,
+        handler: async function (response) {
+          try {
+            await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+              appointmentId: bookingData.appointmentId,
+              amount,
+              method: bookingData.paymentMethod || 'card',
+              reference: response.razorpay_payment_id
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            onPaid();
+          } catch (e) {
+            setError('Failed to verify payment');
+          }
+        },
+        prefill: {
+          name: bookingData.familyMemberName,
+          email: '',
+          contact: ''
+        },
+        theme: { color: '#111827' }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function () {
+        setError('Payment failed. Please try again.');
+      });
+      rzp.open();
     } finally {
       setLoading(false);
     }
@@ -1421,6 +1747,119 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
   );
 }
 
+// Appointment Type Selection Component
+function AppointmentTypeSelection({ selectedType, onSelect }) {
+  const appointmentTypes = [
+    {
+      id: 'in-person',
+      title: 'In-Person Visit',
+      description: 'Visit our clinic for a traditional face-to-face consultation with your doctor.',
+      icon: <HomeIcon className="h-8 w-8" />,
+      features: [
+        'Physical examination',
+        'Direct interaction with doctor',
+        'Access to medical equipment',
+        'Immediate test results'
+      ],
+      color: 'blue'
+    },
+    {
+      id: 'video',
+      title: 'Video Consultation',
+      description: 'Consult with your doctor from the comfort of your home via secure video call.',
+      icon: <VideoCameraIcon className="h-8 w-8" />,
+      features: [
+        'Convenient home consultation',
+        'No travel required',
+        'Digital prescriptions',
+        'Follow-up care included'
+      ],
+      color: 'purple'
+    }
+  ];
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Choose Appointment Type</h2>
+      <p className="text-gray-600 mb-8">
+        Select how you would like to consult with your doctor. Both options provide quality medical care.
+      </p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {appointmentTypes.map((type) => (
+          <div
+            key={type.id}
+            onClick={() => onSelect(type.id)}
+            className={`relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-lg ${
+              selectedType === type.id
+                ? `border-${type.color}-500 bg-${type.color}-50`
+                : 'border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            <div className="flex items-start space-x-4">
+              <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+                selectedType === type.id
+                  ? `bg-${type.color}-500 text-white`
+                  : `bg-${type.color}-100 text-${type.color}-600`
+              }`}>
+                {type.icon}
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  selectedType === type.id ? `text-${type.color}-900` : 'text-gray-900'
+                }`}>
+                  {type.title}
+                </h3>
+                <p className={`text-sm mb-4 ${
+                  selectedType === type.id ? `text-${type.color}-700` : 'text-gray-600'
+                }`}>
+                  {type.description}
+                </p>
+                
+                <div className="space-y-2">
+                  {type.features.map((feature, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        selectedType === type.id ? `bg-${type.color}-500` : 'bg-gray-400'
+                      }`}></div>
+                      <span className={`text-xs ${
+                        selectedType === type.id ? `text-${type.color}-700` : 'text-gray-600'
+                      }`}>
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {selectedType === type.id && (
+              <div className="absolute top-4 right-4">
+                <CheckCircleIcon className={`h-6 w-6 text-${type.color}-500`} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {selectedType && (
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <InformationCircleIcon className="h-5 w-5 text-blue-500" />
+            <span className="font-medium text-gray-900">Important Note:</span>
+          </div>
+          <p className="text-sm text-gray-600">
+            {selectedType === 'video' 
+              ? 'For video consultations, ensure you have a stable internet connection and a device with camera and microphone. You will receive a secure link to join the consultation.'
+              : 'For in-person visits, please arrive 10 minutes before your scheduled time. Bring any relevant medical documents or test results.'
+            }
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 async function loadRazorpayScript(src) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
@@ -1428,5 +1867,66 @@ async function loadRazorpayScript(src) {
     script.onload = resolve;
     script.onerror = reject;
     document.body.appendChild(script);
+  });
+}
+
+// Programmatic payment initiation to run right after booking
+async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, paymentMethod = 'card' }) {
+  const token = localStorage.getItem('token');
+  // Fetch key
+  let keyId = 'rzp_test_dummy_key';
+  try {
+    const { data } = await axios.get('http://localhost:5001/api/patient/payment/key', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    keyId = data.keyId || keyId;
+  } catch {}
+
+  // Create order (or dummy)
+  const { data: orderRes } = await axios.post('http://localhost:5001/api/patient/payment/create-order', {
+    amount,
+    currency: 'INR',
+    receipt: `apt_${tokenNumber || Date.now()}`
+  }, { headers: { Authorization: `Bearer ${token}` } });
+
+  const order = orderRes.order;
+  const isDummy = orderRes.dummy || !window.Razorpay;
+  if (isDummy) {
+    await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+      appointmentId,
+      amount,
+      method: paymentMethod,
+      reference: order.id
+    }, { headers: { Authorization: `Bearer ${token}` } });
+    return;
+  }
+
+  if (!window.Razorpay) {
+    await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
+  }
+
+  return new Promise((resolve) => {
+    const options = {
+      key: keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Clinic Appointment',
+      description: 'Consultation Fee',
+      order_id: order.id,
+      handler: async function (response) {
+        try {
+          await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+            appointmentId,
+            amount,
+            method: paymentMethod,
+            reference: response.razorpay_payment_id
+          }, { headers: { Authorization: `Bearer ${token}` } });
+        } catch {}
+        resolve();
+      },
+      theme: { color: '#111827' }
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   });
 }
