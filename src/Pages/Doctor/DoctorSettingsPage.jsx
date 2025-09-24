@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiUser, HiMail, HiPhone, HiCog, HiKey, HiSave, HiEye, HiEyeOff } from 'react-icons/hi';
 import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
+import Swal from 'sweetalert2';
 
 export default function DoctorSettingsPage() {
   const navigate = useNavigate();
@@ -19,8 +20,17 @@ export default function DoctorSettingsPage() {
     specialization: '',
     experience: '',
     qualifications: '',
+    certifications: '',
+    license_number: '',
+    languages: '',
     bio: ''
   });
+  const [qualificationProofs, setQualificationProofs] = useState([]);
+  const [certificationProofs, setCertificationProofs] = useState([]);
+  const qualFileInputRef = useRef(null);
+  const certFileInputRef = useRef(null);
+  const [qualPendingName, setQualPendingName] = useState('');
+  const [certPendingName, setCertPendingName] = useState('');
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -68,11 +78,40 @@ export default function DoctorSettingsPage() {
         name: parsedUser.name || '',
         email: parsedUser.email || '',
         phone: parsedUser.phone || '',
-        specialization: parsedUser.specialization || '',
-        experience: parsedUser.experience || '',
-        qualifications: parsedUser.qualifications || '',
-        bio: parsedUser.bio || ''
+        specialization: parsedUser.specialization || parsedUser.doctor_info?.specialization || '',
+        experience: parsedUser.experience || parsedUser.doctor_info?.experience_years || '',
+        qualifications: parsedUser.qualifications || parsedUser.doctor_info?.qualifications || '',
+        certifications: parsedUser.doctor_info?.certifications || '',
+        license_number: parsedUser.doctor_info?.license_number || '',
+        languages: (parsedUser.doctor_info?.languages || []).join(', '),
+        bio: parsedUser.bio || parsedUser.doctor_info?.bio || ''
       });
+      setQualificationProofs(parsedUser.doctor_info?.qualification_proofs || []);
+      setCertificationProofs(parsedUser.doctor_info?.certification_proofs || []);
+
+      // Fetch latest profile from backend to ensure admin-entered data is reflected
+      (async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const { data } = await axios.get('http://localhost:5001/api/doctor/profile', { headers: { Authorization: `Bearer ${token}` } });
+          const d = data?.doctor || {};
+          setProfileForm(prev => ({
+            ...prev,
+            name: d.name || prev.name,
+            email: d.email || prev.email,
+            phone: d.phone || prev.phone,
+            specialization: d.doctor_info?.specialization || prev.specialization,
+            experience: d.doctor_info?.experience_years || prev.experience,
+            qualifications: d.doctor_info?.qualifications || prev.qualifications,
+            certifications: d.doctor_info?.certifications || prev.certifications,
+            license_number: d.doctor_info?.license_number || prev.license_number,
+            languages: (d.doctor_info?.languages || []).join(', ') || prev.languages,
+            bio: d.doctor_info?.bio || prev.bio
+          }));
+          setQualificationProofs(d.doctor_info?.qualification_proofs || []);
+          setCertificationProofs(d.doctor_info?.certification_proofs || []);
+        } catch {}
+      })();
       setLoading(false);
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -88,7 +127,16 @@ export default function DoctorSettingsPage() {
       const token = localStorage.getItem('token');
       const response = await axios.put(
         'http://localhost:5001/api/doctor/profile',
-        profileForm,
+        {
+          specialization: profileForm.specialization,
+          experience_years: profileForm.experience,
+          phone: profileForm.phone,
+          qualifications: profileForm.qualifications,
+          certifications: profileForm.certifications,
+          license_number: profileForm.license_number,
+          languages: profileForm.languages,
+          bio: profileForm.bio
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -97,10 +145,14 @@ export default function DoctorSettingsPage() {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setDoctor(updatedUser);
 
-      alert('Profile updated successfully!');
+      if (response.data?.profileCompleted) {
+        await Swal.fire({ icon: 'success', title: 'Profile Completed', text: 'Your account is now active.' });
+      } else {
+        await Swal.fire({ icon: 'success', title: 'Profile updated' });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile: ' + (error.response?.data?.message || 'Unknown error'));
+      await Swal.fire({ icon: 'error', title: 'Update failed', text: (error.response?.data?.message || 'Unknown error') });
     } finally {
       setSaving(false);
     }
@@ -300,6 +352,107 @@ export default function DoctorSettingsPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., MBBS, MD, etc."
                   />
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700">Qualification Proof</label>
+                    <div className="mt-1 flex items-center gap-3">
+                      <input ref={qualFileInputRef} type="file" accept=".pdf,image/*" className="hidden" onChange={async (e)=>{
+                        const file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const token = localStorage.getItem('token');
+                          const form = new FormData();
+                          form.append('file', file);
+                          const { data } = await axios.post('http://localhost:5001/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
+                          setQualificationProofs(prev => [...prev, data.fileUrl]);
+                          setQualPendingName(file.name);
+                          await Swal.fire({ icon: 'success', title: 'Document uploaded' });
+                        } catch (err) {
+                          await Swal.fire({ icon: 'error', title: 'Upload failed', text: err.response?.data?.message || 'Unknown error' });
+                        }
+                      }} />
+                      <button type="button" onClick={() => qualFileInputRef.current?.click()} className="inline-flex items-center px-3 py-2 rounded-md bg-black text-white text-sm hover:bg-gray-800">
+                        Upload Proof
+                      </button>
+                      <span className="text-sm text-gray-500 truncate max-w-[50%]">{qualPendingName || 'PDF, JPG or PNG (max 5MB)'}</span>
+                    </div>
+                    {qualificationProofs.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {qualificationProofs.map((url, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <a href={url} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{url}</a>
+                            <button type="button" onClick={()=>setQualificationProofs(prev=>prev.filter((_,i)=>i!==idx))} className="text-red-600">Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Certifications</label>
+                  <input
+                    type="text"
+                    value={profileForm.certifications}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, certifications: e.target.value }))}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., FACC, MRCP"
+                  />
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-gray-700">Certification Proof</label>
+                    <div className="mt-1 flex items-center gap-3">
+                      <input ref={certFileInputRef} type="file" accept=".pdf,image/*" className="hidden" onChange={async (e)=>{
+                        const file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const token = localStorage.getItem('token');
+                          const form = new FormData();
+                          form.append('file', file);
+                          const { data } = await axios.post('http://localhost:5001/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
+                          setCertificationProofs(prev => [...prev, data.fileUrl]);
+                          setCertPendingName(file.name);
+                          await Swal.fire({ icon: 'success', title: 'Document uploaded' });
+                        } catch (err) {
+                          await Swal.fire({ icon: 'error', title: 'Upload failed', text: err.response?.data?.message || 'Unknown error' });
+                        }
+                      }} />
+                      <button type="button" onClick={() => certFileInputRef.current?.click()} className="inline-flex items-center px-3 py-2 rounded-md bg-black text-white text-sm hover:bg-gray-800">
+                        Upload Proof
+                      </button>
+                      <span className="text-sm text-gray-500 truncate max-w-[50%]">{certPendingName || 'PDF, JPG or PNG (max 5MB)'}</span>
+                    </div>
+                    {certificationProofs.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {certificationProofs.map((url, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <a href={url} target="_blank" rel="noreferrer" className="text-blue-600 underline break-all">{url}</a>
+                            <button type="button" onClick={()=>setCertificationProofs(prev=>prev.filter((_,i)=>i!==idx))} className="text-red-600">Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">License / Registration Number</label>
+                  <input
+                    type="text"
+                    value={profileForm.license_number}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, license_number: e.target.value }))}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., TNMC 123456"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Languages</label>
+                  <input
+                    type="text"
+                    value={profileForm.languages}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, languages: e.target.value }))}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., English, Hindi, Tamil"
+                  />
                 </div>
               </div>
 
@@ -325,6 +478,9 @@ export default function DoctorSettingsPage() {
                 </button>
               </div>
             </form>
+            <div className="mt-6 p-4 border rounded bg-blue-50 text-blue-800 text-sm">
+              Note: Please provide your Qualifications, Certifications and License number, and a short Bio. Once these are filled, your account will be activated automatically.
+            </div>
           </div>
         )}
 

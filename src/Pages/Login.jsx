@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import { AuthContext } from '../App';
 import { HiArrowLeft } from 'react-icons/hi';
 import { useLoginValidation } from '../hooks/useFormValidation';
@@ -84,6 +85,16 @@ export default function Login() {
     
     try {
       const response = await axios.post('http://localhost:5001/api/auth/login', formData);
+      if (response.data?.user && (response.data.user.status === 'inactive' || response.data.user.isActive === false)) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Account Deactivated',
+          html: '<div style="text-align:center">Your account has been deactivated by the administrator.<br/>Please contact support for assistance.</div>',
+          confirmButtonText: 'OK'
+        });
+        setServerError('Your account has been deactivated by the administrator. Please contact support.');
+        return;
+      }
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
@@ -99,11 +110,19 @@ export default function Login() {
         patient: 'Login successful!'
       };
       
-      alert(roleMessages[response.data.user.role] || 'Login successful!');
+      await Swal.fire({ icon: 'success', title: roleMessages[response.data.user.role] || 'Login successful!' });
       navigate(redirectUrl);
       setRedirectPath('/');
     } catch (err) {
+      const status = err.response?.status;
       const errorMessage = err.response?.data?.message || 'Login failed';
+      if (status === 403 || /deactivated/i.test(errorMessage)) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Account Deactivated',
+          html: '<div style="text-align:center">Your account has been deactivated by the administrator.<br/>Please contact support for assistance.</div>'
+        });
+      }
       
       // Handle specific field errors
       if (errorMessage.toLowerCase().includes('email')) {

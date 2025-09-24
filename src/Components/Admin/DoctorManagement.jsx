@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { HiPlus, HiPencil, HiTrash, HiEye, HiX } from 'react-icons/hi';
+import Swal from 'sweetalert2';
 import axios from 'axios';
 
 export default function DoctorManagement() {
   const [doctors, setDoctors] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [filters, setFilters] = useState({ department: '', specialization: '', status: '' });
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -18,13 +20,17 @@ export default function DoctorManagement() {
     name: '',
     email: '',
     phone: '',
+    gender: '',
     role: 'doctor',
     department: '',
-    specialization: '',
+    specialization: '', // comma-separated tags
     experience_years: '',
     consultation_fee: '',
-    qualifications: '',
-    bio: ''
+    video_fee: '',
+    followup_fee: '',
+    consultation_type: 'physical', // physical | video | both (optional)
+    employment_type: 'full-time', // full-time | part-time | visiting
+    status: 'pending'
   });
 
   useEffect(() => {
@@ -87,8 +93,11 @@ export default function DoctorManagement() {
         specialization: doctorForm.specialization.trim(),
         experience_years: parseInt(doctorForm.experience_years) || 0,
         consultation_fee: parseInt(doctorForm.consultation_fee) || 500,
-        qualifications: doctorForm.qualifications.trim(),
-        bio: doctorForm.bio.trim()
+        video_fee: parseInt(doctorForm.video_fee) || 0,
+        followup_fee: parseInt(doctorForm.followup_fee) || 0,
+        consultation_type: doctorForm.consultation_type,
+        employment_type: doctorForm.employment_type,
+        status: doctorForm.status // default 'pending' to allow login and complete profile
       };
 
       const response = await axios.post('http://localhost:5001/api/admin/users', userData, {
@@ -102,8 +111,8 @@ export default function DoctorManagement() {
       
       // Show success message
       const roleText = doctorForm.role === 'doctor' ? 'Doctor' : 'Receptionist';
-      const scheduleText = doctorForm.role === 'doctor' ? ' Initial schedules have been created for the next 30 days.' : '';
-      setSuccessMessage(`${roleText} ${doctorForm.name} added successfully! Login credentials have been sent to ${doctorForm.email}.${scheduleText}`);
+      const profileText = doctorForm.role === 'doctor' ? ' The doctor has been marked as Pending Profile Completion and should finish their profile under Settings.' : '';
+      setSuccessMessage(`${roleText} ${doctorForm.name} added successfully! Credentials sent to ${doctorForm.email}.${profileText}`);
       setTimeout(() => setSuccessMessage(''), 10000); // Clear message after 10 seconds
       
     } catch (error) {
@@ -126,8 +135,17 @@ export default function DoctorManagement() {
           specialization: doctorForm.specialization,
           experience_years: parseInt(doctorForm.experience_years) || 0,
           consultation_fee: parseInt(doctorForm.consultation_fee) || 500,
+          video_fee: parseInt(doctorForm.video_fee) || 0,
+          followup_fee: parseInt(doctorForm.followup_fee) || 0,
           qualifications: doctorForm.qualifications,
-          bio: doctorForm.bio
+          certifications: doctorForm.certifications,
+          license_number: doctorForm.license_number,
+          bio: doctorForm.bio,
+          consultation_type: doctorForm.consultation_type,
+          default_slot_duration: parseInt(doctorForm.slot_duration) || 30,
+          employment_type: doctorForm.employment_type,
+          active_days: doctorForm.active_days,
+          status: doctorForm.status
         }
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -146,19 +164,73 @@ export default function DoctorManagement() {
     }
   };
 
+  const filteredDoctors = doctors.filter((d) => {
+    const deptOk = !filters.department || d.doctor_info?.department?._id === filters.department;
+    const specOk = !filters.specialization || (d.doctor_info?.specialization || '').toLowerCase().includes(filters.specialization.toLowerCase());
+    const statusVal = (d.status || (d.isActive === false ? 'inactive' : 'active'));
+    const statusOk = !filters.status || statusVal === filters.status;
+    return deptOk && specOk && statusOk;
+  });
+
+  const handleDeactivate = async (doctor) => {
+    const current = doctor.status || (doctor.isActive === false ? 'inactive' : 'active');
+    const next = current === 'active' ? 'inactive' : 'active';
+    const isDeactivating = next === 'inactive';
+
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: isDeactivating ? 'Deactivate doctor?' : 'Reactivate doctor?',
+      html: isDeactivating
+        ? '<div style="text-align:center;color:#374151">This doctor will not be able to sign in until reactivated.</div>'
+        : '<div style="text-align:center;color:#374151">This doctor will regain access on reactivation.</div>',
+      showCancelButton: true,
+      confirmButtonText: isDeactivating ? 'Deactivate' : 'Reactivate',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: isDeactivating ? '#dc2626' : '#16a34a',
+      cancelButtonColor: '#6b7280'
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const { data: updated } = await axios.patch(`http://localhost:5001/api/admin/users/${doctor._id}`, { status: next }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDoctors(prev => prev.map(d => d._id === doctor._id ? { ...d, ...updated } : d));
+      await Swal.fire({
+        icon: 'success',
+        title: isDeactivating ? 'Doctor deactivated' : 'Doctor reactivated',
+        html: isDeactivating
+          ? '<div style="text-align:center;color:#374151">Email notification sent to the doctor.</div>'
+          : '<div style="text-align:center;color:#374151">Doctor can log in again. Notification sent.</div>'
+      });
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to update status';
+      await Swal.fire({ icon: 'error', title: 'Action failed', html: `<div style=\"text-align:center;color:#374151\">${msg}</div>` });
+    }
+  };
+
   const handleDelete = async (doctorId) => {
-    if (window.confirm('Are you sure you want to delete this doctor? This action cannot be undone.')) {
-      try {
-        const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/admin/doctors/${doctorId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setDoctors(doctors.filter(doc => doc._id !== doctorId));
-        alert('Doctor deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting doctor:', error);
-        alert('Error deleting doctor: ' + (error.response?.data?.message || 'Unknown error'));
-      }
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete doctor?',
+      html: '<div style="text-align:center;color:#374151">This action cannot be undone.</div>',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`http://localhost:5001/api/admin/doctors/${doctorId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDoctors(doctors.filter(doc => doc._id !== doctorId));
+      await Swal.fire({ icon: 'success', title: 'Doctor deleted', html: '<div style="text-align:center;color:#374151">The doctor was removed successfully.</div>' });
+    } catch (error) {
+      await Swal.fire({ icon: 'error', title: 'Delete failed', html: `<div style=\"text-align:center;color:#374151\">${error.response?.data?.message || 'Unknown error'}\</div>` });
     }
   };
 
@@ -173,11 +245,16 @@ export default function DoctorManagement() {
       name: doctor.name || '',
       email: doctor.email || '',
       phone: doctor.phone || '',
+      gender: doctor.gender || '',
       department: doctor.doctor_info?.department?._id || '',
       specialization: doctor.doctor_info?.specialization || '',
       experience_years: doctor.doctor_info?.experience_years || '',
       consultation_fee: doctor.doctor_info?.consultation_fee || '',
+      video_fee: doctor.doctor_info?.video_fee || '',
+      followup_fee: doctor.doctor_info?.followup_fee || '',
       qualifications: doctor.doctor_info?.qualifications || '',
+      certifications: doctor.doctor_info?.certifications || '',
+      license_number: doctor.doctor_info?.license_number || '',
       bio: doctor.doctor_info?.bio || ''
     });
     setShowEditModal(true);
@@ -193,13 +270,17 @@ export default function DoctorManagement() {
       name: '',
       email: '',
       phone: '',
+      gender: '',
       role: 'doctor',
       department: '',
       specialization: '',
       experience_years: '',
       consultation_fee: '',
-      qualifications: '',
-      bio: ''
+      video_fee: '',
+      followup_fee: '',
+      consultation_type: 'physical',
+      employment_type: 'full-time',
+      status: 'pending'
     });
   };
 
@@ -216,13 +297,7 @@ export default function DoctorManagement() {
           <h3 className="text-lg font-semibold text-black">Doctor Management</h3>
           <p className="text-sm text-gray-600">Manage doctor profiles, departments, and credentials</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="bg-black text-white px-4 py-2 rounded-lg flex items-center hover:bg-gray-800"
-        >
-          <HiPlus className="h-4 w-4 mr-2" />
-          Add Doctor
-        </button>
+        {/* Single Add Doctor button retained below in Filters */}
       </div>
 
       {/* Success Message */}
@@ -249,6 +324,23 @@ export default function DoctorManagement() {
         </div>
       )}
 
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <select value={filters.department} onChange={(e)=>setFilters(f=>({...f, department:e.target.value}))} className="px-3 py-2 border rounded">
+            <option value="">All Departments</option>
+            {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+          </select>
+          <input value={filters.specialization} onChange={(e)=>setFilters(f=>({...f, specialization:e.target.value}))} placeholder="Filter by specialization" className="px-3 py-2 border rounded" />
+          <select value={filters.status} onChange={(e)=>setFilters(f=>({...f, status:e.target.value}))} className="px-3 py-2 border rounded">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button onClick={openAddModal} className="bg-black text-white px-4 py-2 rounded-lg flex items-center justify-center hover:bg-gray-800"><HiPlus className="h-4 w-4 mr-2"/>Add Doctor</button>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -261,19 +353,20 @@ export default function DoctorManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Specialization</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Experience</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fee</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fees</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {doctors.length === 0 ? (
+              {filteredDoctors.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                     No doctors found. Click "Add Doctor" to create the first doctor.
                   </td>
                 </tr>
               ) : (
-                doctors.map((doctor, index) => (
+                filteredDoctors.map((doctor, index) => (
                   <tr key={doctor._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {index + 1}
@@ -297,7 +390,24 @@ export default function DoctorManagement() {
                       {doctor.doctor_info?.experience_years ? `${doctor.doctor_info.experience_years} years` : 'Not specified'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ₹{doctor.doctor_info?.consultation_fee || 500}
+                      <div>Consult: ₹{doctor.doctor_info?.consultation_fee || 500}</div>
+                      {doctor.doctor_info?.video_fee !== undefined && (
+                        <div>Video: ₹{doctor.doctor_info?.video_fee}</div>
+                      )}
+                      {doctor.doctor_info?.followup_fee !== undefined && (
+                        <div>Follow-up: ₹{doctor.doctor_info?.followup_fee}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        const s = doctor.status || (doctor.isActive===false ? 'inactive' : 'active');
+                        const cls = s === 'active'
+                          ? 'bg-green-100 text-green-700'
+                          : (s === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700');
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{s}</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
@@ -316,11 +426,11 @@ export default function DoctorManagement() {
                           <HiPencil className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(doctor._id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
-                          title="Delete Doctor"
+                          onClick={() => handleDeactivate(doctor)}
+                          className="text-yellow-600 hover:text-yellow-800 p-1 rounded"
+                          title="Activate/Deactivate"
                         >
-                          <HiTrash className="h-4 w-4" />
+                          { (doctor.status || (doctor.isActive === false ? 'inactive' : 'active')) === 'active' ? 'Deactivate' : 'Activate' }
                         </button>
                       </div>
                     </td>
@@ -380,6 +490,20 @@ export default function DoctorManagement() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700">Gender</label>
+                <select
+                  value={doctorForm.gender}
+                  onChange={(e) => setDoctorForm(prev => ({ ...prev, gender: e.target.value }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Department</label>
                 <select
                   value={doctorForm.department}
@@ -393,7 +517,7 @@ export default function DoctorManagement() {
                 </select>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Specialization</label>
                 <input
                   type="text"
@@ -428,26 +552,82 @@ export default function DoctorManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Qualifications</label>
+                <label className="block text-sm font-medium text-gray-700">Video Fee (₹)</label>
                 <input
-                  type="text"
-                  value={doctorForm.qualifications}
-                  onChange={(e) => setDoctorForm(prev => ({ ...prev, qualifications: e.target.value }))}
+                  type="number"
+                  value={doctorForm.video_fee}
+                  onChange={(e) => setDoctorForm(prev => ({ ...prev, video_fee: e.target.value }))}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., MBBS, MD"
+                  min="0"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Follow-up Fee (₹)</label>
+                <input
+                  type="number"
+                  value={doctorForm.followup_fee}
+                  onChange={(e) => setDoctorForm(prev => ({ ...prev, followup_fee: e.target.value }))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                />
+              </div>
+
+              {/* Doctor will complete: qualifications, certifications, license, bio during onboarding */}
+            </div>
+
+            {/* Consultation Settings (admin policy) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Consultation Type</label>
+                <select
+                  value={doctorForm.consultation_type}
+                  onChange={(e)=>setDoctorForm(prev=>({...prev, consultation_type: e.target.value}))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="physical">Physical</option>
+                  <option value="video">Video</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Slot Duration</label>
+                <select
+                  value={doctorForm.slot_duration}
+                  onChange={(e)=>setDoctorForm(prev=>({...prev, slot_duration: parseInt(e.target.value)||30}))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {[10,15,20,30].map(m => <option key={m} value={m}>{m} min</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Employment Type</label>
+                <select
+                  value={doctorForm.employment_type}
+                  onChange={(e)=>setDoctorForm(prev=>({...prev, employment_type: e.target.value}))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="full-time">Full-time</option>
+                  <option value="part-time">Part-time</option>
+                  <option value="visiting">Visiting</option>
+                </select>
               </div>
             </div>
 
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">Bio</label>
-              <textarea
-                value={doctorForm.bio}
-                onChange={(e) => setDoctorForm(prev => ({ ...prev, bio: e.target.value }))}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                placeholder="Brief description about the doctor"
-              />
+            {/* Status */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  value={doctorForm.status}
+                  onChange={(e)=>setDoctorForm(prev=>({...prev, status: e.target.value}))}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="pending">Pending Profile Completion</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">

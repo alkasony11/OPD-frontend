@@ -232,18 +232,38 @@ export default function Appointments() {
     }
   };
 
+  // Determine if Join Meeting should be visible (status and timing checks)
+  const canShowJoinMeeting = (apt) => {
+    if (!apt) return false;
+    if (apt.appointmentType !== 'video') return false;
+    if (!(apt.meetingLink || apt.meeting_link)) return false;
+    if (!['booked', 'in_queue'].includes(apt.status)) return false;
+    // Optional: gate by time window around appointment time (±6 hours)
+    try {
+      const dateStr = apt.appointmentDate;
+      const timeStr = apt.appointmentTime || '09:00';
+      const start = new Date(`${dateStr}T${timeStr}`);
+      if (isNaN(start.getTime())) return true; // if parsing fails, don't block
+      const now = new Date();
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      return now >= new Date(start.getTime() - sixHoursMs) && now <= new Date(start.getTime() + sixHoursMs);
+    } catch (_) {
+      return true;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div className="min-h-screen bg-gray-50 py-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Appointments</h1>
-              <p className="text-gray-600 mt-1">View and track your bookings</p>
+              <h1 className="text-xl font-semibold text-gray-900">My Appointments</h1>
+              <p className="text-xs text-gray-600 mt-0.5">View, manage and track your bookings</p>
             </div>
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 rounded-lg px-2.5 py-1.5 hover:bg-gray-50"
             >
               <HiArrowLeft className="h-5 w-5" />
               <span>Back</span>
@@ -251,9 +271,9 @@ export default function Appointments() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
             {/* Time Filter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Time:</span>
@@ -261,8 +281,8 @@ export default function Appointments() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                  className={`px-3 py-1 rounded-lg border text-sm font-medium transition-colors ${
-                    filter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                  className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                    filter === f ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {f[0].toUpperCase() + f.slice(1)}
@@ -276,7 +296,7 @@ export default function Appointments() {
               <select
                 value={selectedFamilyMember}
                 onChange={(e) => handleFamilyMemberChange(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
                 <option value="all">All Family Members</option>
                 {familyMembers.map((member, index) => (
@@ -301,24 +321,24 @@ export default function Appointments() {
               <p className="text-gray-600">No appointments found</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {filtered.map((apt) => (
-                <div key={apt.id} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200 bg-white">
+                <div key={apt.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 bg-white">
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-900">{apt.doctorName}</h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apt.status)}`}>
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <h3 className="text-base font-semibold text-gray-900">{apt.doctorName}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(apt.status)}`}>
                           {apt.status.charAt(0).toUpperCase() + apt.status.slice(1).replace('_', ' ')}
                         </span>
                         {apt.appointmentType === 'video' && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Video Consultation</span>
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-800">Video</span>
                         )}
                       </div>
-                      <p className="text-gray-600 font-medium">{apt.departmentName}</p>
+                      <p className="text-xs text-gray-600">{apt.departmentName}</p>
                       {apt.isFamilyMember && (
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1">
                           {(user?.profilePhoto || user?.profile_photo) ? (
                             <img
                               src={(user.profilePhoto || user.profile_photo).startsWith('http') 
@@ -334,7 +354,7 @@ export default function Appointments() {
                             />
                           ) : null}
                           <HiUser className={`h-4 w-4 text-blue-500 ${(user?.profilePhoto || user?.profile_photo) ? 'hidden' : 'block'}`} />
-                          <span className="text-sm text-blue-600">
+                          <span className="text-[11px] text-blue-600">
                             For: {apt.patientName} ({apt.familyMemberRelation})
                           </span>
                         </div>
@@ -343,7 +363,7 @@ export default function Appointments() {
                     
                     {/* Payment Status */}
                     <div className="text-right">
-                      <div className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(apt.paymentStatus)}`}>
+                      <div className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${getPaymentStatusColor(apt.paymentStatus)}`}>
                         <HiCash className="h-3 w-3 inline mr-1" />
                         {apt.paymentStatus.charAt(0).toUpperCase() + apt.paymentStatus.slice(1)}
                       </div>
@@ -351,76 +371,113 @@ export default function Appointments() {
                   </div>
 
                   {/* Appointment Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                     <div className="flex items-center gap-2 text-sm">
                       <HiCalendar className="h-4 w-4 text-gray-500" />
                       <div>
-                        <div className="font-medium text-gray-900">{formatDate(apt.appointmentDate)}</div>
-                        <div className="text-gray-600">{apt.appointmentTime}</div>
+                        <div className="font-medium text-gray-900 text-sm">{formatDate(apt.appointmentDate)}</div>
+                        <div className="text-gray-600 text-xs">{apt.appointmentTime}</div>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm">
                       <HiClock className="h-4 w-4 text-gray-500" />
                       <div>
-                        <div className="font-medium text-gray-900">{apt.sessionType.charAt(0).toUpperCase() + apt.sessionType.slice(1)} Session</div>
-                        <div className="text-gray-600">{apt.sessionTimeRange}</div>
+                        <div className="font-medium text-gray-900 text-sm">{apt.sessionType.charAt(0).toUpperCase() + apt.sessionType.slice(1)} Session</div>
+                        <div className="text-gray-600 text-xs">{apt.sessionTimeRange}</div>
                     </div>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm">
                       <HiTag className="h-4 w-4 text-gray-500" />
                       <div>
-                        <div className="font-medium text-gray-900">Token #{apt.tokenNumber}</div>
-                        <div className="text-gray-600">Wait: {apt.estimatedWaitTime} mins</div>
+                        <div className="font-medium text-gray-900 text-sm">Token #{apt.tokenNumber}</div>
+                        <div className="text-gray-600 text-xs">Wait: {apt.estimatedWaitTime} mins</div>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm">
                       <HiDocumentText className="h-4 w-4 text-gray-500" />
                       <div>
-                        <div className="font-medium text-gray-900">Patient ID</div>
-                        <div className="text-gray-600">{apt.patientCode || 'N/A'}</div>
+                        <div className="font-medium text-gray-900 text-sm">Patient ID</div>
+                        <div className="text-gray-600 text-xs">{apt.patientCode || 'N/A'}</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Video Consultation Join Button */}
-                  {(apt.meetingLink) && (
-                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  {canShowJoinMeeting(apt) && (
+                    <div className="mb-3 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <HiVideoCamera className="h-4 w-4 text-purple-600" />
-                          <span className="text-sm font-medium text-purple-900">Video Consultation</span>
+                          <span className="text-xs font-medium text-purple-900">Video Consultation</span>
                         </div>
                         <button
-                          onClick={() => window.open(apt.meetingLink.meetingUrl, '_blank', 'noopener,noreferrer')}
-                          className="px-3 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 flex items-center gap-1"
+                          onClick={() => window.open((apt.meetingLink || apt.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                          className="px-2.5 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 flex items-center gap-1"
                         >
                           <HiExternalLink className="h-3 w-3" />
                           Join Meeting
                         </button>
                       </div>
-                      <div className="mt-2 text-xs text-purple-700">
-                        ID: <span className="font-mono">{apt.meetingLink.meetingId}</span>
-                        {apt.meetingLink.meetingPassword && (
+                      <div className="mt-1.5 text-[11px] text-purple-700 flex items-center gap-2 flex-wrap">
+                        <span>
+                          ID: <span className="font-mono">{(apt.meetingLink || apt.meeting_link).meetingId}</span>
+                        </span>
+                        {(apt.meetingLink || apt.meeting_link).meetingPassword && (
                           <>
-                            <span className="mx-2">•</span>
-                            Password: <span className="font-mono">{apt.meetingLink.meetingPassword}</span>
+                            <span className="mx-1">•</span>
+                            <span>Pwd: <span className="font-mono">{(apt.meetingLink || apt.meeting_link).meetingPassword}</span></span>
                           </>
                         )}
+                        <button
+                          onClick={() => navigator.clipboard.writeText((apt.meetingLink || apt.meeting_link).meetingUrl)}
+                          className="ml-auto px-2 py-0.5 border border-purple-300 text-purple-800 rounded text-[10px] hover:bg-purple-100"
+                          title="Copy meeting link"
+                        >
+                          Copy Link
+                        </button>
                       </div>
                     </div>
                   )}
 
                   {/* Symptoms */}
+                  {/* Patient Details */}
+                  <div className="mb-3 p-2.5 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <HiUser className="h-4 w-4 text-gray-500" />
+                      <span className="text-xs font-medium text-gray-700">Patient Details</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-gray-700">
+                      <div><span className="text-gray-500">Name:</span> <span className="font-medium">{apt.patientName}</span></div>
+                      <div><span className="text-gray-500">Patient ID:</span> <span className="font-mono">{apt.patientCode || 'N/A'}</span></div>
+                      {apt.familyMemberRelation ? (
+                        <div><span className="text-gray-500">Relation:</span> <span className="font-medium">{apt.familyMemberRelation}</span></div>
+                      ) : (
+                        <div className="hidden md:block"></div>
+                      )}
+                      {!apt.isFamilyMember && (
+                        <>
+                          {user?.email && (
+                            <div><span className="text-gray-500">Email:</span> <span className="font-medium">{user.email}</span></div>
+                          )}
+                          {user?.phone && (
+                            <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{user.phone}</span></div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Symptoms */}
                   {apt.symptoms && apt.symptoms !== 'Not provided' && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="mb-3 p-2.5 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <HiDocumentText className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Symptoms</span>
+                        <span className="text-xs font-medium text-gray-700">Symptoms</span>
                       </div>
-                      <p className="text-sm text-gray-600">{apt.symptoms}</p>
+                      <p className="text-xs text-gray-600">{apt.symptoms}</p>
                     </div>
                   )}
 
@@ -510,18 +567,18 @@ export default function Appointments() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
                     {apt.status === 'booked' && (
                       <>
                         <button 
                           onClick={() => openCancelModal(apt)} 
-                          className="px-4 py-2 text-sm rounded-lg border border-red-300 text-red-700 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                          className="px-3 py-1.5 text-xs rounded-lg border border-red-300 text-red-700 hover:bg-red-50 flex items-center gap-2 transition-colors"
                         >
                           <HiX className="h-4 w-4" /> Cancel
                         </button>
                         <button 
                           onClick={() => openReschedule(apt)} 
-                          className="px-4 py-2 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                          className="px-3 py-1.5 text-xs rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
                         >
                           <HiPencil className="h-4 w-4" /> Reschedule
                         </button>
@@ -531,7 +588,7 @@ export default function Appointments() {
                     {apt.status === 'consulted' && apt.prescriptions?.length > 0 && (
                       <button 
                         onClick={() => setShowPrescriptionModal(apt)} 
-                        className="px-4 py-2 text-sm rounded-lg border border-green-300 text-green-700 hover:bg-green-50 flex items-center gap-2 transition-colors"
+                        className="px-3 py-1.5 text-xs rounded-lg border border-green-300 text-green-700 hover:bg-green-50 flex items-center gap-2 transition-colors"
                       >
                         <HiClipboardList className="h-4 w-4" /> View Prescription
                       </button>

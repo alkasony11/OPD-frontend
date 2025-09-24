@@ -812,7 +812,7 @@ export default function NewBookingPage() {
         paymentStatus: response.data?.appointment?.paymentStatus || 'pending',
         tokenNumber: response.data?.appointment?.tokenNumber || response.data?.tokenNumber,
         estimatedWaitTime: response.data?.appointment?.estimatedWaitTime,
-        meetingLink: response.data?.appointment?.meetingLink || null
+        meetingLink: response.data?.appointment?.meetingLink || response.data?.appointment?.meeting_link || null
       }));
 
       saveCurrentStep(7);
@@ -1465,14 +1465,14 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
             <span className="text-gray-600">Symptoms:</span>
             <span className="font-medium text-right max-w-xs">{bookingData.symptoms}</span>
           </div>
-          {bookingData.appointmentType === 'video' && bookingData.meetingLink && (
+          {bookingData.appointmentType === 'video' && (bookingData.meetingLink || bookingData.meeting_link) && (
             <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <h4 className="font-semibold text-purple-900 mb-2">Video Consultation Details</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-purple-700">Meeting Link:</span>
                   <a 
-                    href={bookingData.meetingLink.meetingUrl} 
+                    href={(bookingData.meetingLink || bookingData.meeting_link).meetingUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-purple-600 hover:text-purple-800 underline break-all"
@@ -1482,11 +1482,11 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-700">Meeting ID:</span>
-                  <span className="font-mono text-purple-900">{bookingData.meetingLink.meetingId}</span>
+                  <span className="font-mono text-purple-900">{(bookingData.meetingLink || bookingData.meeting_link).meetingId}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-700">Password:</span>
-                  <span className="font-mono text-purple-900">{bookingData.meetingLink.meetingPassword}</span>
+                  <span className="font-mono text-purple-900">{(bookingData.meetingLink || bookingData.meeting_link).meetingPassword}</span>
                 </div>
               </div>
             </div>
@@ -1518,9 +1518,9 @@ function BookingSuccess({ bookingData, onNewBooking, user }) {
       </div>
 
       {/* Video Consultation Details */}
-      {bookingData.appointmentType === 'video' && bookingData.meetingLink && (
+      {bookingData.appointmentType === 'video' && (bookingData.meetingLink || bookingData.meeting_link) && (
         <VideoConsultationDetails
-          meetingLink={bookingData.meetingLink}
+          meetingLink={bookingData.meetingLink || bookingData.meeting_link}
           appointmentDate={bookingData.appointmentDate}
           appointmentTime={bookingData.appointmentTime}
           doctorName={bookingData.doctorName}

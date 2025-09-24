@@ -155,6 +155,8 @@ export default function Navbar() {
   ];
 
   const handleVideoConsultationClick = () => {
+    // Mark as active and navigate to the section
+    setActiveSection('video-consultation');
     navigate('/', {
       state: { scrollTo: '#video-consultation' }
     });
@@ -253,7 +255,11 @@ export default function Navbar() {
             {/* Video Consultation Button */}
             <button
               onClick={handleVideoConsultationClick}
-              className="flex items-center space-x-1 text-sm font-medium text-gray-600 hover:text-black transition-colors duration-200"
+              className={`flex items-center space-x-1 text-sm font-medium transition-colors duration-200 hover:text-black ${
+                activeSection === 'video-consultation' && location.pathname === '/'
+                  ? 'text-black border-b-2 border-black pb-1'
+                  : 'text-gray-600'
+              }`}
             >
               <HiVideoCamera className="w-4 h-4" />
               <span>Video Consultation</span>
@@ -276,17 +282,17 @@ export default function Navbar() {
 
                 {/* Appointment Dropdown Menu */}
                 {isAppointmentDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200">
+                  <div className="absolute right-0 mt-2 min-w-max bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200">
                     <button
                       onClick={() => handleAppointmentClick('/booking')}
-                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 whitespace-nowrap"
                     >
                       <HiCalendar className="mr-3 h-4 w-4 text-blue-600" />
                       Book Appointment
                     </button>
                     <button
                       onClick={() => handleAppointmentClick('/appointments')}
-                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 whitespace-nowrap"
                     >
                       <HiClipboardList className="mr-3 h-4 w-4 text-green-600" />
                       My Appointments
