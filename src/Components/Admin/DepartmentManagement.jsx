@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { HiPlus, HiPencil, HiTrash, HiOfficeBuilding } from 'react-icons/hi';
+import { HiPlus, HiPencil, HiTrash, HiOfficeBuilding, HiCheck, HiX } from 'react-icons/hi';
 
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState([]);
@@ -70,18 +70,21 @@ export default function DepartmentManagement() {
     setShowModal(true);
   };
 
-  const handleDelete = async (departmentId) => {
-    if (!confirm('Are you sure you want to delete this department?')) return;
+  const handleToggleStatus = async (departmentId, currentStatus) => {
+    const action = currentStatus ? 'deactivate' : 'activate';
+    if (!confirm(`Are you sure you want to ${action} this department?`)) return;
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/admin/departments/${departmentId}`, {
+      await axios.patch(`http://localhost:5001/api/admin/departments/${departmentId}/status`, {
+        isActive: !currentStatus
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchDepartments();
     } catch (error) {
-      console.error('Error deleting department:', error);
-      alert(error.response?.data?.message || 'Error deleting department');
+      console.error(`Error ${action}ing department:`, error);
+      alert(error.response?.data?.message || `Error ${action}ing department`);
     }
   };
 
@@ -128,14 +131,20 @@ export default function DepartmentManagement() {
                       <button
                         onClick={() => handleEdit(department)}
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Edit Department"
                       >
                         <HiPencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(department._id)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        onClick={() => handleToggleStatus(department._id, department.isActive)}
+                        className={`p-1 transition-colors ${
+                          department.isActive 
+                            ? 'text-gray-400 hover:text-red-600' 
+                            : 'text-gray-400 hover:text-green-600'
+                        }`}
+                        title={department.isActive ? 'Deactivate Department' : 'Activate Department'}
                       >
-                        <HiTrash className="h-4 w-4" />
+                        {department.isActive ? <HiX className="h-4 w-4" /> : <HiCheck className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>

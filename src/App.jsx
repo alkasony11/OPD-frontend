@@ -13,6 +13,7 @@ import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
+import RegisteredPatients from './Components/Admin/RegisteredPatients';
 import ReceptionistDashboard from './Pages/Receptionist/ReceptionistDashboard';
 import DoctorDashboard from './Pages/Doctor/DoctorDashboard';
 import DoctorAppointmentsPage from './Pages/Doctor/DoctorAppointmentsPage';
@@ -51,7 +52,8 @@ function AppContent() {
   // Routes where navbar and footer should be hidden
   const hideNavbarFooterRoutes = [
     '/login', '/register', '/forgot-password', '/reset-password',
-    '/admin/dashboard', '/admin/users', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/departments', '/admin/leave-requests', '/admin/appointments', '/admin/reports', '/admin/logs', '/admin/doctor-load', '/admin/priority',
+    '/admin/dashboard', '/admin/users', '/admin/registered-patients', '/admin/doctors', '/admin/doctor-schedules', '/admin/patients', '/admin/family-members', '/admin/payments', '/admin/messages', '/admin/departments', '/admin/leave-requests', '/admin/feedback', '/admin/appointments', '/admin/reports', '/admin/logs', '/admin/doctor-load', '/admin/priority',
+    '/admin/patient-category/registered', '/admin/patient-category/management', '/admin/patient-category/family', '/admin/patient-category/history', '/admin/patient-category/notifications', '/admin/patient-category/payments', '/admin/patient-category/blocking',
     '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
     '/doctor/schedule', '/doctor/leave-requests', '/doctor/records', '/doctor/reports', '/doctor/settings',
     '/receptionist/dashboard', '/receptionist/appointments', '/receptionist/patients',
@@ -86,8 +88,22 @@ function AppContent() {
           <Route path="/admin/doctors" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/doctor-schedules" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/patients" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/family-members" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/messages" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/registered-patients" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/departments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/appointments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/leave-requests" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/feedback" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          {/* Patient Category Routes */}
+          <Route path="/admin/patient-category/registered" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/management" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/family" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/history" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/notifications" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/payments" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/patient-category/blocking" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/doctor/dashboard" element={<ProtectedRoute requiredRole="doctor"><DoctorDashboard /></ProtectedRoute>} />
           <Route path="/doctor/appointments" element={<ProtectedRoute requiredRole="doctor"><DoctorAppointmentsPage /></ProtectedRoute>} />
           <Route path="/doctor/patients" element={<ProtectedRoute requiredRole="doctor"><DoctorPatientsPage /></ProtectedRoute>} />

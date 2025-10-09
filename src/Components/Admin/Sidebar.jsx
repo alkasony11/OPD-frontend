@@ -15,7 +15,12 @@ import {
   HiStar,
   HiOfficeBuilding,
   HiDocumentReport,
-  HiCalendar
+  HiCalendar,
+  HiBell,
+  HiCash,
+  HiBan,
+  HiChat,
+  HiMail
 } from 'react-icons/hi';
 import { useClerk } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
@@ -41,27 +46,21 @@ export default function AdminSidebar() {
     }
   }, []);
 
-  // Working functionalities (fully implemented)
-  const workingFeatures = [
+  // Essential, clean menu
+  const menuItems = [
     { name: 'Dashboard', icon: HiHome, path: '/admin/dashboard', status: 'working' },
-    { name: 'User Management', icon: HiUser, path: '/admin/users', status: 'working' },
-    { name: 'Doctor Management', icon: HiUserGroup, path: '/admin/doctors', status: 'working' },
+    { name: 'Appointments', icon: HiClipboardList, path: '/admin/appointments', status: 'working' },
+    { name: 'Doctors', icon: HiUserGroup, path: '/admin/doctors', status: 'working' },
     { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules', status: 'working' },
-    { name: 'Department Management', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
-    { name: 'Patient Management', icon: HiUsers, path: '/admin/patients', status: 'working' },
     { name: 'Leave Requests', icon: HiClipboardList, path: '/admin/leave-requests', status: 'working' },
-    { name: 'Doctor Load Analytics', icon: HiChartBar, path: '/admin/doctor-load', status: 'working' },
+    { name: 'Patients', icon: HiUsers, path: '/admin/patients', status: 'working' },
+    { name: 'Family Members', icon: HiUserGroup, path: '/admin/family-members', status: 'working' },
+    { name: 'Departments', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
+    { name: 'Payments', icon: HiCash, path: '/admin/payments', status: 'working' },
+    { name: 'Feedback', icon: HiChat, path: '/admin/feedback', status: 'working' },
+    { name: 'Messages', icon: HiMail, path: '/admin/messages', status: 'working' },
+    { name: 'Analytics', icon: HiChartBar, path: '/admin/doctor-load', status: 'working' },
   ];
-
-  // Partially implemented or planned features
-  const plannedFeatures = [
-    { name: 'Appointment Management', icon: HiClipboardList, path: '/admin/appointments', status: 'planned' },
-    { name: 'Reports & Analytics', icon: HiDocumentReport, path: '/admin/reports', status: 'planned' },
-    { name: 'System Logs', icon: HiClipboardList, path: '/admin/logs', status: 'planned' },
-    { name: 'Smart Priority', icon: HiStar, path: '/admin/priority', status: 'planned' },
-  ];
-
-  const menuItems = [...workingFeatures, ...plannedFeatures];
 
   const handleLogout = async () => {
     try {
@@ -109,6 +108,9 @@ export default function AdminSidebar() {
       {/* Navigation Menu */}
       <nav className="mt-6 flex-1 overflow-y-auto">
         <ul className="space-y-2 px-3">
+          {/* Clean menu only */}
+
+          {/* Existing Items */}
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (

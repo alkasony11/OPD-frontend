@@ -893,11 +893,16 @@ export default function DoctorSchedulePage() {
                   if (!leaveForm.date) { alert('Please select a date'); return; }
                   try {
                     const token = localStorage.getItem('token');
-                    await axios.post(
-                      'http://localhost:5001/api/doctor/leave-requests',
-                      { date: leaveForm.date, reason: leaveForm.reason },
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
+                  await axios.post(
+                    'http://localhost:5001/api/doctor/leave-requests',
+                    { 
+                      leave_type: 'full_day',
+                      start_date: leaveForm.date,
+                      end_date: leaveForm.date,
+                      reason: leaveForm.reason 
+                    },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
                     setShowLeaveRequestModal(false);
                     setLeaveForm({ date: '', reason: '' });
                     fetchLeaveRequests();

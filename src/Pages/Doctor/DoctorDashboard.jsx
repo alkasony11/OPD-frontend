@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 import { HiCalendar, HiClock, HiUsers, HiDocumentText, HiChartBar, HiCog, HiExclamation, HiArrowRight, HiTrendingUp, HiTrendingDown, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
@@ -28,6 +27,7 @@ export default function DoctorDashboard() {
   const [totalPages, setTotalPages] = useState(1);
   const [todayQueue, setTodayQueue] = useState({ date: '', sessions: [] });
   const [nextPatient, setNextPatient] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState([]);
 
   useEffect(() => {
     checkDoctorAuth();
@@ -38,6 +38,7 @@ export default function DoctorDashboard() {
       fetchDashboardData();
       fetchTodayQueue();
       fetchNextPatient();
+      fetchLeaveRequests();
       // If sidebar link was used to open leave modal
       const params = new URLSearchParams(location.search);
       if (params.get('open') === 'leave') {
@@ -73,6 +74,19 @@ export default function DoctorDashboard() {
     } catch (error) {
       console.error('Error parsing user data:', error);
       navigate('/login');
+    }
+  };
+
+  const fetchLeaveRequests = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:5001/api/doctor/leave-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setLeaveRequests(Array.isArray(res.data?.leaveRequests) ? res.data.leaveRequests : []);
+    } catch (e) {
+      console.error('Error fetching leave requests:', e);
+      setLeaveRequests([]);
     }
   };
 
@@ -545,6 +559,57 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
+        {/* Leave Requests Tracker */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Leave Requests</h2>
+            <button onClick={fetchLeaveRequests} className="text-gray-600 hover:text-gray-800 flex items-center space-x-1">
+              <HiCalendar className="h-4 w-4" />
+              <span>Refresh</span>
+            </button>
+          </div>
+          {leaveRequests.length === 0 ? (
+            <div className="text-sm text-gray-500">No leave requests yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Session</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {leaveRequests.slice(0, 8).map(lr => {
+                    const s = new Date(lr.start_date);
+                    const e = new Date(lr.end_date);
+                    const dateStr = s.toDateString() === e.toDateString() ? s.toLocaleDateString() : `${s.toLocaleDateString()} - ${e.toLocaleDateString()}`;
+                    return (
+                      <tr key={lr._id}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{dateStr}</td>
+                        <td className="px-4 py-2 text-sm capitalize">{lr.leave_type?.replace('_', ' ')}</td>
+                        <td className="px-4 py-2 text-sm capitalize">{lr.leave_type === 'half_day' ? (lr.session || '-') : '-'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700">{lr.reason || '-'}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            lr.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            lr.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            lr.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>{lr.status}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* Quick Actions Grid */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
@@ -807,11 +872,16 @@ export default function DoctorDashboard() {
                   if (!leaveForm.date) { alert('Please select a date'); return; }
                   try {
                     const token = localStorage.getItem('token');
-                    await axios.post(
-                      'http://localhost:5001/api/doctor/leave-requests',
-                      { date: leaveForm.date, reason: leaveForm.reason },
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
+                  await axios.post(
+                    'http://localhost:5001/api/doctor/leave-requests',
+                    { 
+                      leave_type: 'full_day',
+                      start_date: leaveForm.date,
+                      end_date: leaveForm.date,
+                      reason: leaveForm.reason 
+                    },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
                     setShowLeaveRequestModal(false);
                     setLeaveForm({ date: '', reason: '' });
                     alert('Leave request submitted');

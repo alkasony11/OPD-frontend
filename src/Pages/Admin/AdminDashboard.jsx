@@ -11,9 +11,23 @@ import DoctorManagement from '../../Components/Admin/DoctorManagement';
 import AppointmentManagement from '../../Components/Admin/AppointmentManagement';
 import DepartmentManagement from '../../Components/Admin/DepartmentManagement';
 import PatientManagement from '../../Components/Admin/PatientManagement';
+import RegisteredPatients from '../../Components/Admin/RegisteredPatients';
 import DoctorScheduleManagement from '../../Components/Admin/DoctorScheduleManagement';
 import LeaveRequests from '../../Components/Admin/LeaveRequests';
 import DoctorLoadAnalytics from '../../Components/Admin/DoctorLoadAnalytics';
+import RealTimeAlerts from '../../Components/Admin/RealTimeAlerts';
+import FeedbackManagement from '../../Components/Admin/FeedbackManagement';
+import FamilyMemberManagement from '../../Components/Admin/FamilyMemberManagement';
+import PaymentManagement from '../../Components/Admin/PaymentManagement';
+import CommunicationManagement from '../../Components/Admin/CommunicationManagement';
+// New Patient Category views
+import PatientCategoryRegistered from '../../Components/Admin/PatientCategory/RegisteredPatientsDashboard';
+import PatientCategoryManagement from '../../Components/Admin/PatientCategory/PatientManagementView';
+import PatientCategoryFamily from '../../Components/Admin/PatientCategory/FamilyAccountManagement';
+import PatientCategoryHistory from '../../Components/Admin/PatientCategory/PatientHistoryRecords';
+import PatientCategoryNotifications from '../../Components/Admin/PatientCategory/CommunicationNotifications';
+import PatientCategoryPayments from '../../Components/Admin/PatientCategory/PaymentRefunds';
+import PatientCategoryBlocking from '../../Components/Admin/PatientCategory/PatientBlocking';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -66,6 +80,9 @@ export default function AdminDashboard() {
           <>
             <DashboardStats />
             <DashboardCharts />
+            <div className="mt-8">
+              <RealTimeAlerts />
+            </div>
             {/* Dashboard Overview Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
               {/* Patient Management */}
@@ -154,19 +171,40 @@ export default function AdminDashboard() {
         return <DoctorScheduleManagement />;
       case '/admin/patients':
         return <PatientManagement />;
+      case '/admin/family-members':
+        return <FamilyMemberManagement />;
+      case '/admin/payments':
+        return <PaymentManagement />;
+      case '/admin/messages':
+        return <CommunicationManagement />;
+      case '/admin/registered-patients':
+        return (
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <RegisteredPatients />
+          </div>
+        );
+      case '/admin/patient-category/registered':
+        return <PatientCategoryRegistered />;
+      case '/admin/patient-category/management':
+        return <PatientCategoryManagement />;
+      case '/admin/patient-category/family':
+        return <PatientCategoryFamily />;
+      case '/admin/patient-category/history':
+        return <PatientCategoryHistory />;
+      case '/admin/patient-category/notifications':
+        return <PatientCategoryNotifications />;
+      case '/admin/patient-category/payments':
+        return <PatientCategoryPayments />;
+      case '/admin/patient-category/blocking':
+        return <PatientCategoryBlocking />;
       case '/admin/departments':
         return <DepartmentManagement />;
       case '/admin/leave-requests':
         return <LeaveRequests />;
+      case '/admin/feedback':
+        return <FeedbackManagement />;
       case '/admin/appointments':
-        return (
-          <div className="text-center py-12">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 max-w-md mx-auto">
-              <h3 className="text-lg font-semibold text-yellow-800 mb-2">Coming Soon</h3>
-              <p className="text-yellow-700">Appointment Management feature is under development.</p>
-            </div>
-          </div>
-        );
+        return <AppointmentManagement />;
       case '/admin/reports':
         return (
           <div className="text-center py-12">
@@ -217,12 +255,24 @@ export default function AdminDashboard() {
       case '/admin/doctors': return 'Doctor Management';
       case '/admin/doctor-schedules': return 'Doctor Schedule Management';
       case '/admin/patients': return 'Patient Management';
+      case '/admin/family-members': return 'Family Member Management';
+      case '/admin/payments': return 'Payment Management';
+      case '/admin/messages': return 'Communication Management';
       case '/admin/departments': return 'Department Management';
-      case '/admin/appointments': return 'Appointment Management (Coming Soon)';
+      case '/admin/leave-requests': return 'Leave Requests';
+      case '/admin/feedback': return 'Patient Feedback & Complaints';
+      case '/admin/appointments': return 'Appointment Management';
       case '/admin/doctor-load': return 'Doctor Load Analytics';
       case '/admin/reports': return 'Reports & Analytics (Coming Soon)';
       case '/admin/logs': return 'System Logs (Coming Soon)';
       case '/admin/priority': return 'Smart Priority (Coming Soon)';
+      case '/admin/patient-category/registered': return 'Registered Patients';
+      case '/admin/patient-category/management': return 'Patient Management';
+      case '/admin/patient-category/family': return 'Family Account Management';
+      case '/admin/patient-category/history': return 'Patient History & Records';
+      case '/admin/patient-category/notifications': return 'Communication & Notifications';
+      case '/admin/patient-category/payments': return 'Payment & Refunds';
+      case '/admin/patient-category/blocking': return 'Patient Blocking / Restrictions';
       default: return 'Admin Dashboard';
     }
   };

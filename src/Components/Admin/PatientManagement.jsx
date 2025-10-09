@@ -11,6 +11,8 @@ export default function PatientManagement() {
   const [patients, setPatients] = useState([]);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientDetails, setShowPatientDetails] = useState(false);
   const [patientHistory, setPatientHistory] = useState(null);
@@ -19,9 +21,15 @@ export default function PatientManagement() {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('all'); // all, id, name, phone
-  const [statusFilter, setStatusFilter] = useState('all'); // all, active, blocked
-  const [familyFilter, setFamilyFilter] = useState('all'); // all, family, individual
-  const [appointmentFilter, setAppointmentFilter] = useState('all'); // all, with_appointments, without_appointments
+  const [statusFilter, setStatusFilter] = useState('all'); // legacy (patients)
+  // simplified UI: hide extra filters by default
+  const [departmentId, setDepartmentId] = useState('');
+  const [doctorId, setDoctorId] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  // Appointments filters
+  const [apptStatus, setApptStatus] = useState(''); // '', booked, confirmed, in_queue, consulted, cancelled
+  const [apptDoctorId, setApptDoctorId] = useState('');
   
   // Action states
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -32,11 +40,13 @@ export default function PatientManagement() {
 
   useEffect(() => {
     fetchPatients();
+    fetchFilters();
+    fetchAppointments();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [patients, searchTerm, searchType, statusFilter, familyFilter, appointmentFilter]);
+  }, [patients, searchTerm, searchType, statusFilter, departmentId, doctorId]);
 
   const fetchPatients = async () => {
     try {
@@ -45,13 +55,56 @@ export default function PatientManagement() {
       const response = await axios.get('http://localhost:5001/api/admin/patients', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPatients(response.data || []);
+      const data = Array.isArray(response.data) ? response.data : (response.data?.patients || []);
+      const onlyPatients = (data || []).filter((user) => {
+        const role = typeof user.role === 'string' ? user.role.toLowerCase() : '';
+        return role === 'patient' || user.isPatient === true;
+      });
+      setPatients(onlyPatients);
     } catch (error) {
       console.error('Error fetching patients:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchFilters = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const [deptRes, docRes] = await Promise.all([
+        axios.get('http://localhost:5001/api/admin/departments', { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get('http://localhost:5001/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      setDepartments(deptRes.data?.departments || []);
+      setDoctors((docRes.data || []).filter(d => d.role === 'doctor'));
+    } catch (e) {
+      console.error('Error loading filters', e);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    try {
+      setAppointmentsLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.get('http://localhost:5001/api/admin/appointments', {
+        params: { limit: 200, status: apptStatus || undefined, doctorId: apptDoctorId || undefined },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const rows = res.data?.appointments || [];
+      setAppointments(rows);
+    } catch (e) {
+      console.error('Error loading appointments', e);
+      setAppointments([]);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // refetch on filter changes
+    fetchAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apptStatus, apptDoctorId]);
 
   const applyFilters = () => {
     let filtered = [...patients];
@@ -86,22 +139,12 @@ export default function PatientManagement() {
       });
     }
 
-    // Family filter
-    if (familyFilter !== 'all') {
-      filtered = filtered.filter(patient => {
-        if (familyFilter === 'family') return patient.hasFamilyMembers;
-        if (familyFilter === 'individual') return !patient.hasFamilyMembers;
-        return true;
-      });
+    // Department / Doctor filters for booked patients table (if these fields exist on rows)
+    if (departmentId) {
+      filtered = filtered.filter(p => (p.departmentId || p.department?._id) === departmentId);
     }
-
-    // Appointment filter
-    if (appointmentFilter !== 'all') {
-      filtered = filtered.filter(patient => {
-        if (appointmentFilter === 'with_appointments') return patient.hasAppointments;
-        if (appointmentFilter === 'without_appointments') return !patient.hasAppointments;
-        return true;
-      });
+    if (doctorId) {
+      filtered = filtered.filter(p => (p.doctorId || p.doctor?._id) === doctorId);
     }
 
     setFilteredPatients(filtered);
@@ -220,9 +263,9 @@ export default function PatientManagement() {
 
   const exportPatientData = () => {
     const csvContent = [
-      ['Patient ID', 'Name', 'Email', 'Phone', 'Status', 'Account Type', 'Relation', 'Registration Date', 'Block Reason'],
-      ...filteredPatients.map(patient => [
-        patient.patientId,
+      ['SI No', 'Name', 'Email', 'Phone', 'Status', 'Account Type', 'Relation', 'Registration Date', 'Block Reason'],
+      ...filteredPatients.map((patient, index) => [
+        index + 1,
         patient.name,
         patient.email,
         patient.phone,
@@ -293,78 +336,39 @@ export default function PatientManagement() {
         </button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Search */}
+      {/* Search + Filters (Appointments) */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
               <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search patients..."
+                placeholder="Search by Patient, Doctor, or Dept"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
-
-          {/* Search Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search By</label>
-            <select
-              value={searchType}
-              onChange={(e) => setSearchType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Fields</option>
-              <option value="id">Patient ID</option>
-              <option value="name">Name</option>
-              <option value="phone">Mobile Number</option>
+          <div className="flex gap-2">
+            <select value={apptStatus} onChange={e=>setApptStatus(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="">All Status</option>
+              <option value="booked">Booked</option>
+              <option value="in_queue">In Queue</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="consulted">Consulted</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Patients</option>
-              <option value="active">Active</option>
-              <option value="blocked">Blocked</option>
+          <div className="flex gap-2 md:col-span-2">
+            <select value={departmentId} onChange={e=>setDepartmentId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="">All Departments</option>
+              {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
             </select>
-          </div>
-        </div>
-
-        {/* Additional Filters */}
-        <div className="mt-4 flex flex-wrap gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
-            <select
-              value={familyFilter}
-              onChange={(e) => setFamilyFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Accounts</option>
-              <option value="family">Family Accounts</option>
-              <option value="individual">Individual Accounts</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Appointments</label>
-            <select
-              value={appointmentFilter}
-              onChange={(e) => setAppointmentFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Patients</option>
-              <option value="with_appointments">With Appointments</option>
-              <option value="without_appointments">Without Appointments</option>
+            <select value={apptDoctorId} onChange={e=>setApptDoctorId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="">All Doctors</option>
+              {doctors.map(doc => <option key={doc._id} value={doc._id}>{doc.name}</option>)}
             </select>
           </div>
         </div>
@@ -373,130 +377,94 @@ export default function PatientManagement() {
       {/* Results Count */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          Showing {filteredPatients.length} of {patients.length} patients
+          Showing {appointments.length} appointments
         </p>
       </div>
 
-      {/* Patients Table */}
+      {/* Appointments Table (Requested Columns) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPatients.map((patient) => (
-                <tr key={patient.patientId} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        {patient.profilePhoto || patient.profile_photo ? (
-                          <img
-                            src={(patient.profilePhoto || patient.profile_photo).startsWith('http') 
-                              ? (patient.profilePhoto || patient.profile_photo)
-                              : `http://localhost:5001${patient.profilePhoto || patient.profile_photo}`
-                            }
-                            alt={patient.name}
-                            className="h-10 w-10 rounded-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'block';
-                            }}
+          {(() => {
+            const search = searchTerm.trim().toLowerCase();
+            const deptNameById = new Map(departments.map(d => [d._id, d.name]));
+            const deptFilterName = departmentId ? deptNameById.get(departmentId) : '';
+            const filtered = appointments.filter(row => {
+              const matchesSearch = !search || [row.patientId, row.patientName, row.linkedAccount, row.doctor, row.department]
+                .join(' ')
+                .toLowerCase()
+                .includes(search);
+              const matchesStatus = !apptStatus || row.status === apptStatus;
+              const matchesDoctor = !apptDoctorId || doctors.find(d => d._id === apptDoctorId)?.name === row.doctor;
+              const matchesDept = !departmentId || (row.department || '') === (deptFilterName || '');
+              return matchesSearch && matchesStatus && matchesDoctor && matchesDept;
+            });
+            return (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Linked Account</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dept</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">No matching appointments</td>
+                    </tr>
+                  )}
+                  {filtered.map((row, i) => (
+                    <tr key={row.id || i} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">{row.patientId || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">{row.patientName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">{row.linkedAccount || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">{row.doctor}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">{row.department}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">{row.date ? new Date(row.date).toLocaleDateString() : ''}{row.time ? `, ${row.time}` : ''}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          row.status === 'consulted' ? 'bg-green-100 text-green-800' :
+                          row.status === 'cancelled' ? 'bg-rose-100 text-rose-700' :
+                          row.status === 'in_queue' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>{row.status}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center gap-2">
+                          <RescheduleButton
+                            patient={{ patientId: row.patientId, name: row.patientName }}
+                            appointment={{ id: row.id, date: row.date, time: row.time, doctor: row.doctor, department: row.department }}
+                            onSuccess={() => fetchAppointments()}
                           />
-                        ) : null}
-                        <UserCircleIcon className={`h-10 w-10 text-gray-400 ${(patient.profilePhoto || patient.profile_photo) ? 'hidden' : 'block'}`} />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{patient.name}</div>
-                        <div className="text-sm text-gray-500">ID: {patient.patientId}</div>
-                        <div className="flex items-center gap-2 text-xs">
-                          {patient.hasFamilyMembers && (
-                            <span className="flex items-center text-blue-600">
-                              <HiUserGroup className="h-3 w-3 mr-1" />
-                              Family Account
-                            </span>
-                          )}
-                          {!patient.isMainAccount && (
-                            <span className="flex items-center text-purple-600">
-                              <HiUser className="h-3 w-3 mr-1" />
-                              Family Member
-                            </span>
-                          )}
-                          {patient.relation && (
-                            <span className="text-gray-500">({patient.relation})</span>
-                          )}
+                          <CancelButton
+                            patient={{ patientId: row.patientId, name: row.patientName }}
+                            appointment={{ id: row.id, date: row.date, time: row.time, doctor: row.doctor, department: row.department }}
+                            onSuccess={() => fetchAppointments()}
+                          />
+                          <AssignDoctorButton
+                            patient={{ patientId: row.patientId, name: row.patientName }}
+                            current={{ doctor: row.doctor, department: row.department, date: row.date, time: row.time }}
+                            appointmentId={row.id}
+                            departments={departments}
+                            onSuccess={() => fetchAppointments()}
+                          />
                         </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{patient.email}</div>
-                    <div className="text-sm text-gray-500">{patient.phone}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(patient.isBlocked)}`}>
-                        {patient.isBlocked ? 'Blocked' : 'Active'}
-                      </span>
-                      {getBlockCount(patient) >= 3 && (
-                        <HiExclamation className="h-4 w-4 text-red-500 ml-2" title="Blocked 3+ times" />
-                      )}
-                    </div>
-                    {patient.isBlocked && patient.blockReason && (
-                      <div className="text-xs text-red-600 mt-1">Reason: {patient.blockReason}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(patient.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => fetchPatientDetails(patient.isMainAccount ? patient.patientId : patient.parentPatientId)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="View Details"
-                      >
-                        <HiEye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedPatient(patient);
-                          setEditData({
-                            name: patient.name,
-                            email: patient.email,
-                            phone: patient.phone
-                          });
-                          setShowEditModal(true);
-                        }}
-                        className="text-green-600 hover:text-green-900"
-                        title="Edit Patient"
-                      >
-                        <HiPencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedPatient(patient);
-                          setShowBlockModal(true);
-                        }}
-                        className={patient.isBlocked ? "text-green-600 hover:text-green-900" : "text-red-600 hover:text-red-900"}
-                        title={patient.isBlocked ? "Unblock Patient" : "Block Patient"}
-                      >
-                        {patient.isBlocked ? <HiCheckCircle className="h-4 w-4" /> : <HiBan className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       </div>
+
+      
 
       {/* Patient Details Modal */}
       {showPatientDetails && selectedPatient && (
@@ -559,13 +527,11 @@ export default function PatientManagement() {
 
 // Patient Details Modal Component
 function PatientDetailsModal({ patient, history, familyMembers, onClose, onBlock, onUnblock, onEdit, onExportSingle, onSwitchPatient }) {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('upcoming');
 
   const tabs = [
-    { id: 'profile', name: 'Profile Info', icon: HiUser },
-    { id: 'bookings', name: 'Bookings & History', icon: HiCalendar },
-    { id: 'family', name: 'Family Members', icon: HiUserGroup },
-    { id: 'blocks', name: 'Block History', icon: HiBan }
+    { id: 'upcoming', name: 'Upcoming', icon: HiCalendar },
+    { id: 'past', name: 'Past', icon: HiClock }
   ];
 
   return (
@@ -611,6 +577,31 @@ function PatientDetailsModal({ patient, history, familyMembers, onClose, onBlock
           </button>
         </div>
 
+        {/* Profile Card + Quick Actions */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            <span className="mr-4">Age: {patient.age || 'N/A'}</span>
+            <span className="mr-4">Gender: {patient.gender || 'N/A'}</span>
+            <span>Mobile: {patient.phone || '-'}</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {familyMembers?.map(m => (
+                <span key={m.patientId} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">
+                  {m.relation || 'Member'}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onEdit} className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700">Edit</button>
+            {patient.isBlocked ? (
+              <button onClick={onUnblock} className="px-3 py-1 text-sm bg-green-600 text-white rounded">Unblock</button>
+            ) : (
+              <button onClick={onBlock} className="px-3 py-1 text-sm bg-red-600 text-white rounded">Block</button>
+            )}
+            <button onClick={onExportSingle} className="px-3 py-1 text-sm text-gray-700 hover:text-gray-900">Export</button>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
@@ -618,7 +609,7 @@ function PatientDetailsModal({ patient, history, familyMembers, onClose, onBlock
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -633,17 +624,11 @@ function PatientDetailsModal({ patient, history, familyMembers, onClose, onBlock
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-96">
-          {activeTab === 'profile' && (
-            <ProfileTab patient={patient} />
+          {activeTab === 'upcoming' && (
+            <BookingsTab history={{ upcoming: history?.upcoming || [], past: [] }} patient={patient} />
           )}
-          {activeTab === 'bookings' && (
-            <BookingsTab history={history} patient={patient} />
-          )}
-          {activeTab === 'family' && (
-            <FamilyTab familyMembers={familyMembers} patient={patient} onSwitchPatient={onSwitchPatient} />
-          )}
-          {activeTab === 'blocks' && (
-            <BlockHistoryTab patient={patient} />
+          {activeTab === 'past' && (
+            <BookingsTab history={{ upcoming: [], past: history?.past || [], cancellations: history?.cancellations || [] }} patient={patient} />
           )}
         </div>
 
@@ -888,10 +873,11 @@ function isHighRisk(patient) {
   return age >= 65 || chronic;
 }
 
-function RescheduleButton({ patient, appointment }) {
+function RescheduleButton({ patient, appointment, onSuccess }) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [notify, setNotify] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -900,10 +886,12 @@ function RescheduleButton({ patient, appointment }) {
       const token = localStorage.getItem('token');
       await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/reschedule`, {
         appointmentDate: date,
-        appointmentTime: time
+        appointmentTime: time,
+        notify
       }, { headers: { Authorization: `Bearer ${token}` }});
       alert('Rescheduled');
       setOpen(false);
+      onSuccess && onSuccess();
     } catch (e) {
       console.error(e);
       alert('Failed to reschedule');
@@ -916,16 +904,43 @@ function RescheduleButton({ patient, appointment }) {
     <div className="inline-block">
       <button onClick={() => setOpen(true)} className="px-2 py-1 text-blue-600 hover:text-blue-800 text-xs">Reschedule</button>
       {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-4">
-            <h4 className="font-medium mb-3">Reschedule Appointment</h4>
-            <div className="space-y-3">
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full px-3 py-2 border rounded" />
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full px-3 py-2 border rounded" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
+            <div className="px-5 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HiCalendar className="h-5 w-5" />
+                <h4 className="font-semibold">Reschedule Appointment</h4>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white"><HiX className="h-5 w-5" /></button>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="px-3 py-1 text-gray-600">Close</button>
-              <button onClick={submit} disabled={loading || !date || !time} className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50">{loading ? 'Saving...' : 'Save'}</button>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3 text-sm">
+                <div className="p-3 rounded-lg bg-gray-50">
+                  <div className="font-medium text-gray-900">{patient.name}</div>
+                  <div className="text-gray-600">Doctor: {appointment.doctor} • Dept: {appointment.department}</div>
+                  <div className="text-gray-600">Current: {appointment.date ? new Date(appointment.date).toLocaleDateString() : ''}{appointment.time ? `, ${appointment.time}` : ''}</div>
+                </div>
+                <div className="p-4 rounded-lg bg-gray-50 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Select New Date</label>
+                      <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Select New Time</label>
+                      <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={notify} onChange={e=>setNotify(e.target.checked)} className="rounded" />
+                    Notify patient automatically
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 bg-gray-50 flex justify-end gap-2 border-t">
+              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
+              <button onClick={submit} disabled={loading || !date || !time} className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">{loading ? 'Saving...' : 'Save & Reschedule'}</button>
             </div>
           </div>
         </div>
@@ -934,9 +949,10 @@ function RescheduleButton({ patient, appointment }) {
   );
 }
 
-function CancelButton({ patient, appointment }) {
+function CancelButton({ patient, appointment, onSuccess }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [notify, setNotify] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -944,10 +960,12 @@ function CancelButton({ patient, appointment }) {
       setLoading(true);
       const token = localStorage.getItem('token');
       await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/cancel`, {
-        reason
+        reason,
+        notify
       }, { headers: { Authorization: `Bearer ${token}` }});
       alert('Cancelled');
       setOpen(false);
+      onSuccess && onSuccess();
     } catch (e) {
       console.error(e);
       alert('Failed to cancel');
@@ -960,13 +978,211 @@ function CancelButton({ patient, appointment }) {
     <div className="inline-block">
       <button onClick={() => setOpen(true)} className="px-2 py-1 text-red-600 hover:text-red-800 text-xs">Cancel</button>
       {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full p-4">
-            <h4 className="font-medium mb-3">Cancel Appointment</h4>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2 border rounded" rows="3" placeholder="Reason (optional)" />
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="px-3 py-1 text-gray-600">Close</button>
-              <button onClick={submit} disabled={loading} className="px-3 py-1 bg-red-600 text-white rounded disabled:opacity-50">{loading ? 'Cancelling...' : 'Confirm'}</button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
+            <div className="px-5 py-4 bg-gradient-to-r from-rose-600 to-red-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HiBan className="h-5 w-5" />
+                <h4 className="font-semibold">Cancel Booking</h4>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white"><HiX className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-lg bg-gray-50 text-sm text-gray-700">
+                <div className="font-medium text-gray-900">{patient.name}</div>
+                <div>ID: {appointment.id} • {appointment.date ? new Date(appointment.date).toLocaleDateString() : ''}{appointment.time ? `, ${appointment.time}` : ''}</div>
+                <div>Doctor: {appointment.doctor} • Dept: {appointment.department}</div>
+              </div>
+              <div className="p-4 rounded-lg bg-rose-50/50 space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Reason for Cancellation</label>
+                  <textarea value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-rose-500" rows="3" placeholder="Type your reason here..." />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={notify} onChange={e=>setNotify(e.target.checked)} className="rounded" />
+                  Notify patient automatically
+                </label>
+              </div>
+            </div>
+            <div className="px-5 py-4 bg-gray-50 flex justify-end gap-2 border-t">
+              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100">Close</button>
+              <button onClick={submit} disabled={loading || !reason.trim()} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">{loading ? 'Cancelling...' : 'Confirm Cancel'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssignDoctorButton({ patient, current, appointmentId, departments, onSuccess }) {
+  const [open, setOpen] = useState(false);
+  const [doctorId, setDoctorId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [dept, setDept] = useState('');
+  const [slot, setSlot] = useState('');
+  const [date, setDate] = useState('');
+  const [notify, setNotify] = useState(true);
+  const [availableSlots, setAvailableSlots] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get('http://localhost:5001/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } });
+        setDoctors(res.data || []);
+        setDept(() => {
+          const match = (departments || []).find(d => d.name === current.department);
+          return match?._id || '';
+        });
+        // Prefill date with current appointment date if present
+        if (current?.date) {
+          const d = new Date(current.date);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const dd = String(d.getDate()).padStart(2,'0');
+          setDate(`${yyyy}-${mm}-${dd}`);
+        }
+      } catch (e) {
+        setDoctors([]);
+      }
+    })();
+  }, [open]);
+
+  // Fetch available slots whenever doctor or date changes
+  useEffect(() => {
+    const fetchSlots = async () => {
+      try {
+        setAvailableSlots([]);
+        if (!doctorId || !date) return;
+        const token = localStorage.getItem('token');
+        const startDate = date;
+        const endDate = date;
+        const res = await axios.get(`http://localhost:5001/api/admin/doctor-schedules/${doctorId}`, {
+          params: { startDate, endDate },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const schedules = res.data?.schedules || [];
+        if (!schedules.length) { setAvailableSlots([]); return; }
+        const s = schedules[0];
+        const slots = [];
+        const pushRange = (start, end, stepMinutes) => {
+          // Build times between start and end inclusive by step minutes
+          const [sh, sm] = start.split(':').map(Number);
+          const [eh, em] = end.split(':').map(Number);
+          const startMinutes = sh*60 + sm;
+          const endMinutes = eh*60 + em;
+          for (let m = startMinutes; m < endMinutes; m += stepMinutes) {
+            const hh = String(Math.floor(m/60)).padStart(2,'0');
+            const mm2 = String(m%60).padStart(2,'0');
+            slots.push(`${hh}:${mm2}`);
+          }
+        };
+        const step = Number(s.slotDuration || 30);
+        if (s.morningSession?.available !== false) {
+          pushRange(s.morningSession?.start_time || '09:00', s.morningSession?.end_time || '13:00', step);
+        }
+        if (s.afternoonSession?.available !== false) {
+          pushRange(s.afternoonSession?.start_time || '14:00', s.afternoonSession?.end_time || '18:00', step);
+        }
+        setAvailableSlots(slots);
+        // Prefill slot from current appointment if matching
+        if (current?.time && slots.includes(current.time)) {
+          setSlot(current.time);
+        } else {
+          setSlot(slots[0] || '');
+        }
+      } catch (e) {
+        setAvailableSlots([]);
+      }
+    };
+    fetchSlots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorId, date]);
+
+  const submit = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId || 'dummy'}/appointments/${appointmentId}/assign-doctor`, {
+        doctorId,
+        notify,
+        appointmentDate: date,
+        appointmentTime: slot
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      // Note: backend validates ownership by appointment.patient_id, patientId segment isn't used; keep placeholder
+      alert('Doctor assigned');
+      setOpen(false);
+      onSuccess && onSuccess();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to assign doctor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="inline-block">
+      <button onClick={() => setOpen(true)} className="px-2 py-1 text-indigo-600 hover:text-indigo-800 text-xs">Assign Doctor</button>
+      {open && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HiPencil className="h-5 w-5" />
+                <h4 className="font-semibold">Assign Another Doctor</h4>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white"><HiX className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-lg bg-gray-50 text-sm text-gray-700">
+                <div className="font-medium text-gray-900">{patient.name}</div>
+                <div>Current Doctor: {current.doctor}</div>
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Department</label>
+                    <select value={dept} onChange={e=>setDept(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                      <option value="">Select department</option>
+                      {(departments||[]).map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Select New Doctor</label>
+                    <select value={doctorId} onChange={e=>setDoctorId(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                      <option value="">Select doctor</option>
+                      {doctors.filter(d => !dept || d.doctor_info?.department?._id === dept).map(d => (
+                        <option key={d._id} value={d._id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Select Date</label>
+                    <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Available Time Slot</label>
+                    <select value={slot} onChange={e=>setSlot(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                      <option value="">Select time slot</option>
+                      {availableSlots.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={notify} onChange={e=>setNotify(e.target.checked)} className="rounded" />
+                  Notify patient automatically
+                </label>
+              </div>
+            </div>
+            <div className="px-5 py-4 bg-gray-50 flex justify-end gap-2 border-t">
+              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
+              <button onClick={submit} disabled={loading || !doctorId} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{loading ? 'Assigning...' : 'Assign Doctor'}</button>
             </div>
           </div>
         </div>

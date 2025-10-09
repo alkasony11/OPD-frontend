@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { HiCheck, HiX, HiClock, HiCalendar, HiUser, HiExclamation } from 'react-icons/hi';
+import { HiCheck, HiX, HiClock, HiCalendar, HiUser, HiExclamation, HiEye, HiRefresh, HiFilter } from 'react-icons/hi';
 
 export default function LeaveRequests() {
   const [leaves, setLeaves] = useState([]);
@@ -11,6 +11,8 @@ export default function LeaveRequests() {
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [actionType, setActionType] = useState('');
   const [adminComment, setAdminComment] = useState('');
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedLeaveDetails, setSelectedLeaveDetails] = useState(null);
 
   const fetchLeaves = async () => {
     try {
@@ -71,6 +73,46 @@ export default function LeaveRequests() {
     }
   };
 
+  const handleViewDetails = (leave) => {
+    setSelectedLeaveDetails(leave);
+    setShowDetailsModal(true);
+  };
+
+  const formatDateRange = (startDate, endDate, leaveType) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (leaveType === 'half_day') {
+      return start.toLocaleDateString();
+    }
+    
+    if (start.toDateString() === end.toDateString()) {
+      return start.toLocaleDateString();
+    }
+    
+    return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return <HiClock className="h-3 w-3 mr-1" />;
+      case 'approved': return <HiCheck className="h-3 w-3 mr-1" />;
+      case 'rejected': return <HiX className="h-3 w-3 mr-1" />;
+      case 'cancelled': return <HiX className="h-3 w-3 mr-1" />;
+      default: return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -80,8 +122,15 @@ export default function LeaveRequests() {
           <p className="text-gray-600 mt-1">Review and manage doctor leave requests</p>
         </div>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={fetchLeaves}
+            className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <HiRefresh className="h-4 w-4" />
+            <span>Refresh</span>
+          </button>
           <div className="flex items-center space-x-2">
-            <HiCalendar className="h-5 w-5 text-gray-400" />
+            <HiFilter className="h-5 w-5 text-gray-400" />
             <span className="text-sm text-gray-600">Filter by status:</span>
           </div>
           <select 
@@ -92,13 +141,14 @@ export default function LeaveRequests() {
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
             <option value="">All</option>
           </select>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center">
             <HiClock className="h-8 w-8 text-yellow-600" />
@@ -128,6 +178,17 @@ export default function LeaveRequests() {
               <p className="text-sm font-medium text-red-800">Rejected</p>
               <p className="text-2xl font-bold text-red-900">
                 {leaves.filter(l => l.status === 'rejected').length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <HiX className="h-8 w-8 text-gray-600" />
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-800">Cancelled</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {leaves.filter(l => l.status === 'cancelled').length}
               </p>
             </div>
           </div>
@@ -173,7 +234,9 @@ export default function LeaveRequests() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date(s)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Comment</th>
@@ -195,21 +258,33 @@ export default function LeaveRequests() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{new Date(lr.date).toLocaleDateString()}</div>
-                      <div className="text-sm text-gray-500">{new Date(lr.date).toLocaleDateString('en-US', { weekday: 'long' })}</div>
+                      <div className="text-sm text-gray-900">{lr.doctor_id?.doctor_info?.department?.name || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {formatDateRange(lr.start_date, lr.end_date, lr.leave_type)}
+                      </div>
+                      {lr.leave_type === 'half_day' && (
+                        <div className="text-sm text-gray-500 capitalize">
+                          {lr.session} session
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        lr.leave_type === 'full_day' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {lr.leave_type === 'full_day' ? 'Full Day' : 'Half Day'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900 max-w-xs truncate">{lr.reason || 'No reason provided'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        lr.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        lr.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {lr.status === 'pending' && <HiClock className="h-3 w-3 mr-1" />}
-                        {lr.status === 'approved' && <HiCheck className="h-3 w-3 mr-1" />}
-                        {lr.status === 'rejected' && <HiX className="h-3 w-3 mr-1" />}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(lr.status)}`}>
+                        {getStatusIcon(lr.status)}
                         {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
                       </span>
                     </td>
@@ -217,36 +292,43 @@ export default function LeaveRequests() {
                       <div className="text-sm text-gray-900 max-w-xs truncate">{lr.admin_comment || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {lr.status === 'pending' ? (
-                        <div className="flex space-x-2">
-                          <button 
-                            onClick={() => handleApprove(lr)}
-                            disabled={processing === lr._id}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {processing === lr._id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                            ) : (
-                              <HiCheck className="h-3 w-3 mr-1" />
-                            )}
-                            Approve
-                          </button>
-                          <button 
-                            onClick={() => handleReject(lr)}
-                            disabled={processing === lr._id}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {processing === lr._id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                            ) : (
-                              <HiX className="h-3 w-3 mr-1" />
-                            )}
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">No actions available</span>
-                      )}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleViewDetails(lr)}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                          <HiEye className="h-3 w-3 mr-1" />
+                          View
+                        </button>
+                        {lr.status === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handleApprove(lr)}
+                              disabled={processing === lr._id}
+                              className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {processing === lr._id ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                              ) : (
+                                <HiCheck className="h-3 w-3 mr-1" />
+                              )}
+                              Approve
+                            </button>
+                            <button 
+                              onClick={() => handleReject(lr)}
+                              disabled={processing === lr._id}
+                              className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {processing === lr._id ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                              ) : (
+                                <HiX className="h-3 w-3 mr-1" />
+                              )}
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -328,6 +410,159 @@ export default function LeaveRequests() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Details Modal */}
+      {showDetailsModal && selectedLeaveDetails && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+          <div className="relative top-8 mx-auto p-6 md:p-8 w-[700px] max-w-full rounded-xl bg-white shadow-xl border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-semibold text-gray-900">Leave Request Details</h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Doctor Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Doctor Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Name</label>
+                    <p className="text-sm text-gray-900">{selectedLeaveDetails.doctor_id?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                    <p className="text-sm text-gray-900">{selectedLeaveDetails.doctor_id?.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Department</label>
+                    <p className="text-sm text-gray-900">{selectedLeaveDetails.doctor_id?.doctor_info?.department?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone</label>
+                    <p className="text-sm text-gray-900">{selectedLeaveDetails.doctor_id?.phone || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leave Information */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Leave Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Leave Type</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedLeaveDetails.leave_type === 'full_day' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-purple-100 text-purple-800'
+                    }`}>
+                      {selectedLeaveDetails.leave_type === 'full_day' ? 'Full Day' : 'Half Day'}
+                    </span>
+                  </div>
+                  {selectedLeaveDetails.leave_type === 'half_day' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Session</label>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 capitalize">
+                        {selectedLeaveDetails.session} Session
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                    <p className="text-sm text-gray-900">{new Date(selectedLeaveDetails.start_date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">End Date</label>
+                    <p className="text-sm text-gray-900">{new Date(selectedLeaveDetails.end_date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedLeaveDetails.status)}`}>
+                      {getStatusIcon(selectedLeaveDetails.status)}
+                      {selectedLeaveDetails.status.charAt(0).toUpperCase() + selectedLeaveDetails.status.slice(1)}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Requested On</label>
+                    <p className="text-sm text-gray-900">{new Date(selectedLeaveDetails.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-900">{selectedLeaveDetails.reason || 'No reason provided'}</p>
+                </div>
+              </div>
+
+              {/* Admin Comment */}
+              {selectedLeaveDetails.admin_comment && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Admin Comment</label>
+                  <div className="bg-yellow-50 rounded-lg p-3">
+                    <p className="text-sm text-gray-900">{selectedLeaveDetails.admin_comment}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Impact Information */}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <HiExclamation className="h-5 w-5 text-red-600 mt-0.5 mr-3" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-medium mb-1">Impact of Approval:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Doctor's schedule will be automatically updated</li>
+                      <li>All existing appointments will be cancelled</li>
+                      <li>Patients will be notified via email/SMS</li>
+                      <li>Alternative doctors will be suggested</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              {selectedLeaveDetails.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleApprove(selectedLeaveDetails);
+                    }}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  >
+                    <HiCheck className="h-4 w-4" />
+                    <span>Approve</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleReject(selectedLeaveDetails);
+                    }}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                  >
+                    <HiX className="h-4 w-4" />
+                    <span>Reject</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
