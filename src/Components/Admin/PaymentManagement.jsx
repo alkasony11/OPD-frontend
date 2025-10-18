@@ -357,7 +357,15 @@ export default function PaymentManagement() {
         </div>
 
         {/* Payments List */}
-        <div className="space-y-4">
+        <div className="space-y-2">
+          {filteredPayments.length > 0 && (
+            <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold text-gray-500 px-4">
+              <div className="flex items-center">Amount</div>
+              <div className="flex items-center">Doctor</div>
+              <div className="flex items-center">Appointment Date</div>
+              <div className="flex items-center">Department</div>
+            </div>
+          )}
           {filteredPayments.length === 0 ? (
             <div className="text-center py-12">
               <HiCreditCard className="mx-auto h-12 w-12 text-gray-400" />
@@ -365,11 +373,14 @@ export default function PaymentManagement() {
               <p className="mt-1 text-sm text-gray-500">No payments match your current filters.</p>
             </div>
           ) : (
-            filteredPayments.map((payment) => (
+            filteredPayments.map((payment, index) => (
               <div key={payment._id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                      </div>
                       <h3 className="text-lg font-medium text-gray-900">
                         {payment.patientName || 'Unknown Patient'}
                       </h3>
@@ -527,10 +538,6 @@ export default function PaymentManagement() {
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Appointment Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Appointment ID</label>
-                      <p className="mt-1 text-sm text-gray-900">{selectedPayment.appointmentId || 'N/A'}</p>
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700">Doctor</label>
                       <p className="mt-1 text-sm text-gray-900">Dr. {selectedPayment.doctorName || 'N/A'}</p>
                     </div>
@@ -588,17 +595,6 @@ export default function PaymentManagement() {
                 >
                   Close
                 </button>
-                {selectedPayment.status === 'paid' && (
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      handleRefund(selectedPayment);
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-                  >
-                    Process Refund
-                  </button>
-                )}
               </div>
             </div>
           </div>

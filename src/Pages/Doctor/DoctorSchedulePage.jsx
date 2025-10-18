@@ -1,56 +1,78 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiCalendar, HiClock, HiPlus, HiPencil, HiTrash, HiCheck, HiX, HiExclamation } from 'react-icons/hi';
+import { HiArrowLeft, HiCalendar, HiChevronLeft, HiChevronRight, HiX, HiPencil, HiClock, HiExclamation } from 'react-icons/hi';
 import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
 export default function DoctorSchedulePage() {
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
-  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showDefaultHoursModal, setShowDefaultHoursModal] = useState(false);
-  const [showLeaveRequestModal, setShowLeaveRequestModal] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState(null);
-  const [defaultHours, setDefaultHours] = useState({
-    workingHours: { start_time: '09:00', end_time: '17:00' },
-    breakTime: { start_time: '13:00', end_time: '14:00' },
-    slotDuration: 30
-  });
-  const [leaveRequests, setLeaveRequests] = useState([]);
-  const [leaveForm, setLeaveForm] = useState({ date: '', reason: '' });
-
-  const [scheduleForm, setScheduleForm] = useState({
+  const [showScheduleOptions, setShowScheduleOptions] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [newScheduleData, setNewScheduleData] = useState({
     date: '',
     isAvailable: true,
-    workingHours: {
-      start_time: '09:00',
-      end_time: '17:00'
-    },
-    breakTime: {
-      start_time: '13:00',
-      end_time: '14:00'
-    },
+    workingHours: { start_time: '09:00', end_time: '17:00' },
+    breakTime: { start_time: '13:00', end_time: '14:00' },
     slotDuration: 30,
-    maxPatientsPerSlot: 1,
     leaveReason: '',
     notes: ''
   });
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const currentMonth = currentDate.getMonth();
 
   useEffect(() => {
     checkDoctorAuth();
+    fetchSchedules(); // Fetch schedules immediately after auth check
   }, []);
 
   useEffect(() => {
-    if (loading) {
+    fetchSchedules();
+  }, [currentDate]);
+
+  // Listen for schedule updates from admin
+  useEffect(() => {
+    const handleScheduleUpdate = () => {
+      console.log('🔄 Schedule update detected, refreshing...');
       fetchSchedules();
-      fetchAppointments();
-      fetchDefaultHours();
-      fetchLeaveRequests();
-    }
-  }, [selectedDate]);
+      setShowUpdateNotification(true);
+      setTimeout(() => setShowUpdateNotification(false), 3000);
+    };
+
+    // Listen for localStorage changes (cross-tab communication)
+    const handleStorageChange = (e) => {
+      if (e.key === 'scheduleUpdate') {
+        handleScheduleUpdate();
+      }
+    };
+
+    // Listen for postMessage (if opened in popup/iframe)
+    const handleMessage = (e) => {
+      if (e.data && e.data.type === 'SCHEDULE_UPDATED') {
+        handleScheduleUpdate();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
 
   const checkDoctorAuth = () => {
     const userData = localStorage.getItem('user');
@@ -77,9 +99,8 @@ export default function DoctorSchedulePage() {
   const fetchSchedules = async () => {
     try {
       const token = localStorage.getItem('token');
-      const startDate = new Date(selectedDate);
-      const endDate = new Date(selectedDate);
-      endDate.setDate(endDate.getDate() + 30);
+      const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
       const response = await axios.get(
         `http://localhost:5001/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
@@ -88,159 +109,130 @@ export default function DoctorSchedulePage() {
       setSchedules(response.data.schedules || []);
     } catch (error) {
       console.error('Error fetching schedules:', error);
-    }
-  };
-
-  const fetchAppointments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:5001/api/doctor/appointments?date=${selectedDate}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAppointments(response.data.appointments || []);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchLeaveRequests = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        'http://localhost:5001/api/doctor/leave-requests',
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setLeaveRequests(response.data.leaves || []);
-    } catch (error) {
-      console.error('Error fetching leave requests:', error);
-    }
+  const navigateMonth = (direction) => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + direction);
+      return newDate;
+    });
   };
 
-  const fetchDefaultHours = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        'http://localhost:5001/api/doctor/default-hours',
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setDefaultHours(response.data);
-    } catch (error) {
-      console.error('Error fetching default hours:', error);
-    }
+  const handleScheduleClick = (dayInfo) => {
+    if (dayInfo.isPastDate || !dayInfo.schedule) return;
+    
+    console.log('Selected schedule data:', dayInfo.schedule);
+    setSelectedSchedule(dayInfo.schedule);
+    setShowScheduleOptions(true);
   };
 
-  const handleSaveSchedule = async () => {
+  const handleCancelSchedule = async () => {
+    if (!cancelReason.trim()) {
+      alert('Please provide a reason for cancellation');
+      return;
+    }
+
+    if (!selectedSchedule || !selectedSchedule.id) {
+      alert('Schedule information is missing. Please try again.');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      const url = editingSchedule 
-        ? `http://localhost:5001/api/doctor/schedules/${editingSchedule.id}`
-        : 'http://localhost:5001/api/doctor/schedules';
+      const requestData = {
+        type: 'cancel',
+        scheduleId: selectedSchedule.id,
+        reason: cancelReason,
+        date: selectedSchedule.date
+      };
       
-      const method = editingSchedule ? 'PUT' : 'POST';
+      console.log('🚀 Sending schedule request:', requestData);
+      console.log('🚀 Token exists:', !!token);
       
-      await axios({
-        method,
-        url,
-        data: scheduleForm,
+      const response = await axios.post('http://localhost:5001/api/doctor/schedule-requests', requestData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setShowScheduleModal(false);
-      setEditingSchedule(null);
-      resetScheduleForm();
+      console.log('✅ Schedule request response:', response.data);
+
+      alert('Schedule cancellation request submitted to admin');
+      setShowCancelModal(false);
+      setShowScheduleOptions(false);
+      setCancelReason('');
       fetchSchedules();
-      alert('Schedule saved successfully!');
     } catch (error) {
-      console.error('Error saving schedule:', error);
-      alert('Error saving schedule: ' + (error.response?.data?.message || 'Unknown error'));
+      console.error('Error submitting cancellation request:', error);
+      console.error('Error details:', error.response?.data);
+      alert('Failed to submit cancellation request: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId) => {
-    if (window.confirm('Are you sure you want to delete this schedule?')) {
+  const handleReschedule = () => {
+    setNewScheduleData({
+      ...newScheduleData,
+      date: '' // Clear the date so doctor can enter the new date
+    });
+    setShowRescheduleModal(true);
+    setShowScheduleOptions(false);
+  };
+
+  const handleSaveReschedule = async () => {
+    if (!selectedSchedule || !selectedSchedule.id) {
+      alert('Schedule information is missing. Please try again.');
+      return;
+    }
+
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/doctor/schedules/${scheduleId}`, {
+      const requestData = {
+        type: 'reschedule',
+        scheduleId: selectedSchedule.id,
+        date: selectedSchedule.date, // Original date being rescheduled
+        newSchedule: newScheduleData,
+        reason: `Reschedule request from ${selectedSchedule.date} to ${newScheduleData.date}`
+      };
+      
+      console.log('🚀 Sending reschedule request:', requestData);
+      console.log('🚀 Token exists:', !!token);
+      
+      const response = await axios.post('http://localhost:5001/api/doctor/schedule-requests', requestData, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        fetchSchedules();
-        alert('Schedule deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting schedule:', error);
-        alert('Error deleting schedule');
-      }
-    }
-  };
+      
+      console.log('✅ Reschedule request response:', response.data);
 
-  const resetScheduleForm = () => {
-    setScheduleForm({
+      alert('Reschedule request submitted to admin');
+      setShowRescheduleModal(false);
+      setNewScheduleData({
       date: '',
       isAvailable: true,
-      workingHours: {
-        start_time: '09:00',
-        end_time: '17:00'
-      },
-      breakTime: {
-        start_time: '13:00',
-        end_time: '14:00'
-      },
+        workingHours: { start_time: '09:00', end_time: '17:00' },
+        breakTime: { start_time: '13:00', end_time: '14:00' },
       slotDuration: 30,
-      maxPatientsPerSlot: 1,
       leaveReason: '',
       notes: ''
     });
-  };
-
-  const openEditModal = (schedule) => {
-    setEditingSchedule(schedule);
-    setScheduleForm({
-      date: schedule.date.split('T')[0],
-      isAvailable: schedule.isAvailable,
-      workingHours: schedule.workingHours,
-      breakTime: schedule.breakTime,
-      slotDuration: schedule.slotDuration,
-      maxPatientsPerSlot: schedule.maxPatientsPerSlot,
-      leaveReason: schedule.leaveReason || '',
-      notes: schedule.notes || ''
-    });
-    setShowScheduleModal(true);
-  };
-
-  const openAddModal = () => {
-    setEditingSchedule(null);
-    resetScheduleForm();
-    setScheduleForm(prev => ({ ...prev, date: selectedDate }));
-    setShowScheduleModal(true);
-  };
-
-  const handleSaveDefaultHours = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:5001/api/doctor/default-hours',
-        defaultHours,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setShowDefaultHoursModal(false);
-      alert('Default working hours updated successfully!');
+      fetchSchedules();
     } catch (error) {
-      console.error('Error saving default hours:', error);
-      alert('Error saving default hours: ' + (error.response?.data?.message || 'Unknown error'));
+      console.error('Error submitting reschedule request:', error);
+      console.error('Error details:', error.response?.data);
+      alert('Failed to submit reschedule request: ' + (error.response?.data?.message || error.message));
     }
   };
 
   // Generate calendar days for current month
   const generateCalendarDays = () => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
     const days = [];
     
@@ -254,15 +246,15 @@ export default function DoctorSchedulePage() {
       const date = new Date(currentYear, currentMonth, day);
       const dateString = date.toISOString().split('T')[0];
       const schedule = schedules.find(s => s.date.split('T')[0] === dateString);
-      const appointmentCount = appointments.filter(a => a.booking_date.split('T')[0] === dateString).length;
+      const isPastDate = dateString < today; // Check if this date is in the past
       
       days.push({
         day,
         date: dateString,
-        isToday: dateString === new Date().toISOString().split('T')[0],
+        isToday: dateString === today,
         isSelected: dateString === selectedDate,
-        schedule,
-        appointmentCount
+        schedule: isPastDate ? null : schedule, // Only show schedule for today and future dates
+        isPastDate
       });
     }
     
@@ -277,90 +269,106 @@ export default function DoctorSchedulePage() {
     );
   }
 
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Update Notification */}
+      {showUpdateNotification && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center space-x-2">
+          <HiClock className="h-5 w-5" />
+          <span>Schedule updated successfully!</span>
+        </div>
+      )}
+      
       <DoctorSidebar />
       <div className="flex-1 ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
+        {/* Professional Header */}
+        <div className="bg-white shadow-lg border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 <button
                   onClick={() => navigate('/doctor/dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
                 >
-                  <HiArrowLeft className="h-5 w-5" />
-                  <span>Back to Dashboard</span>
+                  <HiArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Schedule Management</h1>
-                  <p className="text-gray-600">Manage your working schedule and availability</p>
-        </div>
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                    <HiClock className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Schedule Management</h1>
+                    <p className="text-base sm:text-lg text-gray-600 mt-1">Manage your working schedule and availability</p>
+                  </div>
+                </div>
               </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDefaultHoursModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-              >
-                <HiClock className="h-4 w-4" />
-                <span>Default Hours</span>
-              </button>
-              <button
-                onClick={() => {
-                  setLeaveForm({ date: selectedDate, reason: '' });
-                  setShowLeaveRequestModal(true);
-                }}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center space-x-2"
-              >
-                <HiExclamation className="h-4 w-4" />
-                <span>Request Leave</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-xl">
+                  <HiClock className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-700">Current Month: {months[currentMonth]}</span>
+                </div>
+              </div>
             </div>
           </div>
-            </div>
-          </div>
+        </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Calendar */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex justify-between items-center mb-6">
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+            {/* Calendar Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Schedule Calendar</h2>
-                  <div className="flex items-center space-x-4 mt-2 text-xs">
-                    <div className="flex items-center space-x-1">
-                      <div className="w-3 h-3 bg-green-200 rounded"></div>
-                      <span>Available</span>
+                  <div className="flex items-center space-x-6 mt-3 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-200 rounded-full"></div>
+                      <span className="text-gray-600">Available</span>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-3 h-3 bg-red-200 rounded"></div>
-                      <span>On Leave</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-200 rounded-full"></div>
+                      <span className="text-gray-600">On Leave</span>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-3 h-3 bg-yellow-200 rounded"></div>
-                      <span>Today</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-yellow-200 rounded-full"></div>
+                      <span className="text-gray-600">Today</span>
               </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-3 h-3 bg-blue-200 rounded"></div>
-                      <span>Selected</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-blue-200 rounded-full"></div>
+                      <span className="text-gray-600">Selected</span>
               </div>
             </div>
                 </div>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => navigateMonth(-1)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <HiChevronLeft className="h-5 w-5 text-gray-600" />
+                  </button>
+                  <h3 className="text-lg font-semibold min-w-[200px] text-center text-gray-900">
+                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  </h3>
                 <button
-                  onClick={openAddModal}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                    onClick={() => navigateMonth(1)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <HiPlus className="h-4 w-4" />
-                  <span>Add Schedule</span>
+                    <HiChevronRight className="h-5 w-5 text-gray-600" />
                 </button>
+                </div>
+              </div>
           </div>
 
               {/* Calendar Grid */}
+            <div className="p-6">
               <div className="grid grid-cols-7 gap-1 mb-4">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                  <div key={day} className="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50 rounded-lg">
                     {day}
                   </div>
                 ))}
@@ -370,43 +378,56 @@ export default function DoctorSchedulePage() {
                 {generateCalendarDays().map((dayInfo, index) => (
                   <div
                     key={index}
-                    className={`min-h-[80px] p-2 border rounded cursor-pointer transition-colors ${
+                    className={`min-h-[100px] p-3 border rounded-lg transition-all duration-200 ${
                       !dayInfo ? 'bg-gray-50' : 
-                      dayInfo.isSelected ? 'bg-blue-100 border-blue-500' :
+                      dayInfo.isPastDate ? 'bg-gray-100 border-gray-300 opacity-60' :
+                      dayInfo.isSelected ? 'bg-blue-100 border-blue-500 shadow-md' :
                       dayInfo.isToday ? 'bg-yellow-50 border-yellow-300' :
-                      dayInfo.schedule?.isAvailable ? 'bg-green-50 border-green-200 hover:bg-green-100' :
+                      dayInfo.schedule?.isAvailable ? 'bg-green-50 border-green-200 hover:bg-green-100 hover:shadow-sm' :
                       dayInfo.schedule ? 'bg-red-50 border-red-200' :
-                      'bg-white border-gray-200 hover:bg-gray-50'
+                      'bg-white border-gray-200 hover:bg-gray-50 hover:shadow-sm'
                     }`}
-                    onClick={() => dayInfo && setSelectedDate(dayInfo.date)}
+                    onClick={() => {
+                      if (dayInfo && !dayInfo.isPastDate) {
+                        setSelectedDate(dayInfo.date);
+                        if (dayInfo.schedule) {
+                          handleScheduleClick(dayInfo);
+                        }
+                      }
+                    }}
                   >
                     {dayInfo && (
                       <>
-                        <div className="text-sm font-medium text-gray-900">{dayInfo.day}</div>
-                        {dayInfo.schedule && (
-                          <div className="mt-1">
-                            <div className={`text-xs px-1 py-0.5 rounded ${
+                        <div className={`text-sm font-medium mb-2 ${
+                          dayInfo.isPastDate ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
+                          {dayInfo.day}
+                        </div>
+                        {dayInfo.isPastDate ? (
+                          <div className="text-xs text-gray-400 text-center">
+                            Past Date
+                          </div>
+                        ) : dayInfo.schedule ? (
+                          <div className="space-y-1">
+                            <div className={`text-xs px-2 py-1 rounded-full text-center ${
                               dayInfo.schedule.isAvailable ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
                             }`}>
                               {dayInfo.schedule.isAvailable ? 'Available' : 'On Leave'}
                             </div>
                             {dayInfo.schedule.isAvailable && dayInfo.schedule.workingHours && (
-                              <div className="text-xs text-gray-600 mt-1">
+                              <div className="text-xs text-gray-600 text-center">
                                 {dayInfo.schedule.workingHours.start_time}-{dayInfo.schedule.workingHours.end_time}
                               </div>
                             )}
                             {!dayInfo.schedule.isAvailable && dayInfo.schedule.leaveReason && (
-                              <div className="text-xs text-red-600 mt-1 truncate" title={dayInfo.schedule.leaveReason}>
+                              <div className="text-xs text-red-600 text-center truncate" title={dayInfo.schedule.leaveReason}>
                                 {dayInfo.schedule.leaveReason}
                               </div>
                             )}
-                            {dayInfo.appointmentCount > 0 && (
-                              <div className={`text-xs mt-1 ${
-                                dayInfo.schedule.isAvailable ? 'text-blue-600' : 'text-red-600'
-                              }`}>
-                                {dayInfo.appointmentCount} {dayInfo.schedule.isAvailable ? 'appointments' : 'cancelled'}
                               </div>
-                            )}
+                        ) : (
+                          <div className="text-xs text-gray-400 text-center">
+                            No Schedule
                           </div>
                         )}
                       </>
@@ -416,291 +437,247 @@ export default function DoctorSchedulePage() {
               </div>
             </div>
           </div>
+              </div>
+              </div>
 
-          {/* Schedule Details & Appointments */}
-          <div className="space-y-6">
-            {/* Default Hours Summary */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Default Working Hours</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Working Hours:</span>
-                  <span className="text-sm font-medium">{defaultHours.workingHours.start_time} - {defaultHours.workingHours.end_time}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Break Time:</span>
-                  <span className="text-sm font-medium">{defaultHours.breakTime.start_time} - {defaultHours.breakTime.end_time}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Slot Duration:</span>
-                  <span className="text-sm font-medium">{defaultHours.slotDuration} minutes</span>
-              </div>
-              </div>
+      {/* Schedule Options Modal */}
+      {showScheduleOptions && selectedSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Schedule Options</h3>
               <button
-                onClick={() => setShowDefaultHoursModal(true)}
-                className="mt-3 text-blue-600 hover:text-blue-800 text-sm"
+                onClick={() => setShowScheduleOptions(false)}
+                className="text-gray-400 hover:text-gray-600"
               >
-                Update Default Hours
+                <HiX className="h-5 w-5" />
               </button>
         </div>
 
-            {/* Selected Date Schedule */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Schedule for {new Date(selectedDate).toLocaleDateString()}
-              </h3>
-              
-              {(() => {
-                const schedule = schedules.find(s => s.date.split('T')[0] === selectedDate);
-                if (!schedule) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 mb-4">No schedule set for this date</p>
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Date:</strong> {new Date(selectedSchedule.date).toLocaleDateString()}
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Status:</strong> 
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                  selectedSchedule.isAvailable ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
+                }`}>
+                  {selectedSchedule.isAvailable ? 'Available' : 'On Leave'}
+                </span>
+              </p>
+              {selectedSchedule.workingHours && (
+                <p className="text-sm text-gray-600">
+                  <strong>Hours:</strong> {selectedSchedule.workingHours.start_time} - {selectedSchedule.workingHours.end_time}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-3">
                       <button
-                        onClick={openAddModal}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                      >
-                        Add Schedule
+                onClick={() => {
+                  setShowCancelModal(true);
+                  setShowScheduleOptions(false);
+                }}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <HiX className="h-4 w-4" />
+                <span>Cancel This Date</span>
                       </button>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        schedule.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {schedule.isAvailable ? 'Available' : 'Unavailable'}
-                      </span>
-                      <div className="space-x-2">
+              
                         <button
-                          onClick={() => openEditModal(schedule)}
-                          className="text-blue-600 hover:text-blue-900"
+                onClick={handleReschedule}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           <HiPencil className="h-4 w-4" />
+                <span>Reschedule</span>
                         </button>
+              
                         <button
-                          onClick={() => handleDeleteSchedule(schedule.id)}
-                          className="text-red-600 hover:text-red-900"
+                onClick={() => setShowScheduleOptions(false)}
+                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                         >
-                          <HiTrash className="h-4 w-4" />
+                Close
                         </button>
                       </div>
                     </div>
-                    
-                    {schedule.isAvailable && (
-                      <>
-                        <div>
-                          <p className="text-sm text-gray-600">Working Hours</p>
-                          <p className="font-medium">{schedule.workingHours.start_time} - {schedule.workingHours.end_time}</p>
                         </div>
-                            <div>
-                          <p className="text-sm text-gray-600">Break Time</p>
-                          <p className="font-medium">{schedule.breakTime.start_time} - {schedule.breakTime.end_time}</p>
-                            </div>
-                            <div>
-                          <p className="text-sm text-gray-600">Slot Duration</p>
-                          <p className="font-medium">{schedule.slotDuration} minutes</p>
+      )}
+
+      {/* Cancel Schedule Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Cancel Schedule</h3>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4 p-4 bg-red-50 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <HiExclamation className="h-5 w-5 text-red-600" />
+                <span className="text-sm font-medium text-red-800">Cancel Schedule Request</span>
                         </div>
-                      </>
-                    )}
-                    
-                    {!schedule.isAvailable && (
-                      <>
-                        {schedule.leaveReason && (
-                          <div>
-                            <p className="text-sm text-gray-600">Leave Reason</p>
-                            <p className="font-medium">{schedule.leaveReason}</p>
-                        </div>
-                        )}
-                        <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                          <div className="flex">
-                            <HiExclamation className="h-5 w-5 text-red-400" />
-                            <div className="ml-3">
                           <p className="text-sm text-red-700">
-                                Doctor is on leave. All tokens for this date are automatically cancelled.
+                This will submit a cancellation request to the admin for review.
                               </p>
                             </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {schedule.notes && (
-                      <div>
-                        <p className="text-sm text-gray-600">Notes</p>
-                        <p className="font-medium">{schedule.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Cancellation *
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Please provide a reason for cancelling this schedule..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                rows={4}
+                required
+              />
             </div>
 
-            {/* Leave Requests */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Leave Requests</h3>
-              {leaveRequests.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No leave requests</p>
-              ) : (
-                <div className="space-y-3">
-                  {leaveRequests.map((lr) => (
-                    <div key={lr._id} className="border rounded-lg p-3 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{new Date(lr.date).toLocaleDateString()}</p>
-                        {lr.reason && <p className="text-sm text-gray-600">Reason: {lr.reason}</p>}
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        lr.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        lr.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {lr.status}
-                      </span>
-                    </div>
-                  ))}
-                  </div>
-                )}
-            </div>
-
-            {/* Today's Appointments */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Appointments for {new Date(selectedDate).toLocaleDateString()}
-              </h3>
-              
-              {appointments.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No appointments for this date</p>
-              ) : (
-                <div className="space-y-3">
-                  {appointments.map((appointment) => (
-                    <div key={appointment._id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{appointment.patient_name}</p>
-                          <p className="text-sm text-gray-600">{appointment.time_slot}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          appointment.status === 'booked' ? 'bg-green-100 text-green-800' :
-                          appointment.status === 'in_queue' ? 'bg-blue-100 text-blue-800' :
-                          appointment.status === 'consulted' ? 'bg-purple-100 text-purple-800' :
-                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          appointment.status === 'missed' ? 'bg-orange-100 text-orange-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                            {appointment.status}
-                          </span>
-                        </div>
-                          {appointment.symptoms && (
-                        <p className="text-sm text-gray-600 mt-2">Symptoms: {appointment.symptoms}</p>
-                      )}
-                      {appointment.status === 'cancelled' && appointment.cancellation_reason && (
-                        <p className="text-sm text-red-600 mt-2">Cancelled: {appointment.cancellation_reason}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                          )}
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCancelSchedule}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Submit Request
+              </button>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
                         </div>
                       </div>
         </div>
-      </div>
+      )}
 
-      {/* Schedule Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              {editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
-            </h3>
+      {/* Reschedule Modal */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Reschedule Request</h3>
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <HiX className="h-5 w-5" />
+              </button>
+      </div>
             
             <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date
+                  </label>
                 <input
                   type="date"
-                  value={scheduleForm.date}
-                  onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={newScheduleData.date}
+                    onChange={(e) => setNewScheduleData({...newScheduleData, date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
                 />
               </div>
 
               <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={scheduleForm.isAvailable}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, isAvailable: e.target.checked }))}
-                    className="mr-2"
-                  />
-                  Available
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
                 </label>
+                  <select
+                    value={newScheduleData.isAvailable ? 'available' : 'leave'}
+                    onChange={(e) => setNewScheduleData({...newScheduleData, isAvailable: e.target.value === 'available'})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="available">Available</option>
+                    <option value="leave">On Leave</option>
+                  </select>
+                </div>
               </div>
 
-              {scheduleForm.isAvailable ? (
+              {newScheduleData.isAvailable && (
                 <>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Start Time
+                      </label>
                       <input
                         type="time"
-                        value={scheduleForm.workingHours.start_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          workingHours: { ...prev.workingHours, start_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={newScheduleData.workingHours.start_time}
+                        onChange={(e) => setNewScheduleData({
+                          ...newScheduleData,
+                          workingHours: {...newScheduleData.workingHours, start_time: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">End Time</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        End Time
+                      </label>
                       <input
                         type="time"
-                        value={scheduleForm.workingHours.end_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          workingHours: { ...prev.workingHours, end_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={newScheduleData.workingHours.end_time}
+                        onChange={(e) => setNewScheduleData({
+                          ...newScheduleData,
+                          workingHours: {...newScheduleData.workingHours, end_time: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Break Start</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Break Start Time
+                      </label>
                       <input
                         type="time"
-                        value={scheduleForm.breakTime.start_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          breakTime: { ...prev.breakTime, start_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={newScheduleData.breakTime.start_time}
+                        onChange={(e) => setNewScheduleData({
+                          ...newScheduleData,
+                          breakTime: {...newScheduleData.breakTime, start_time: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Break End</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Break End Time
+                      </label>
                       <input
                         type="time"
-                        value={scheduleForm.breakTime.end_time}
-                        onChange={(e) => setScheduleForm(prev => ({
-                          ...prev,
-                          breakTime: { ...prev.breakTime, end_time: e.target.value }
-                        }))}
-                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={newScheduleData.breakTime.end_time}
+                        onChange={(e) => setNewScheduleData({
+                          ...newScheduleData,
+                          breakTime: {...newScheduleData.breakTime, end_time: e.target.value}
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Slot Duration (minutes)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Slot Duration (minutes)
+                    </label>
                     <select
-                      value={scheduleForm.slotDuration}
-                      onChange={(e) => setScheduleForm(prev => ({ ...prev, slotDuration: parseInt(e.target.value) }))}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={newScheduleData.slotDuration}
+                      onChange={(e) => setNewScheduleData({...newScheduleData, slotDuration: parseInt(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value={15}>15 minutes</option>
                       <option value={30}>30 minutes</option>
@@ -709,218 +686,54 @@ export default function DoctorSchedulePage() {
                     </select>
                   </div>
                 </>
-              ) : (
+              )}
+
+              {!newScheduleData.isAvailable && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Leave Reason</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Leave Reason
+                  </label>
                   <input
                     type="text"
-                    value={scheduleForm.leaveReason}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, leaveReason: e.target.value }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                    placeholder="Reason for unavailability"
+                    value={newScheduleData.leaveReason}
+                    onChange={(e) => setNewScheduleData({...newScheduleData, leaveReason: e.target.value})}
+                    placeholder="Reason for leave..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   </div>
                 )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Notes
+                </label>
                 <textarea
-                  value={scheduleForm.notes}
-                  onChange={(e) => setScheduleForm(prev => ({ ...prev, notes: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                  value={newScheduleData.notes}
+                  onChange={(e) => setNewScheduleData({...newScheduleData, notes: e.target.value})}
+                  placeholder="Any additional notes for the reschedule request..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   rows={3}
-                  placeholder="Additional notes"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex space-x-3 mt-6">
               <button
-                onClick={() => {
-                  setShowScheduleModal(false);
-                  setEditingSchedule(null);
-                  resetScheduleForm();
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                onClick={handleSaveReschedule}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Cancel
+                Submit Reschedule Request
               </button>
               <button
-                onClick={handleSaveSchedule}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={() => setShowRescheduleModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
               >
-                Save Schedule
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Default Hours Modal */}
-      {showDefaultHoursModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Set Default Working Hours</h3>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                  <input
-                    type="time"
-                    value={defaultHours.workingHours.start_time}
-                    onChange={(e) => setDefaultHours(prev => ({
-                      ...prev,
-                      workingHours: { ...prev.workingHours, start_time: e.target.value }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">End Time</label>
-                  <input
-                    type="time"
-                    value={defaultHours.workingHours.end_time}
-                    onChange={(e) => setDefaultHours(prev => ({
-                      ...prev,
-                      workingHours: { ...prev.workingHours, end_time: e.target.value }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Break Start</label>
-                  <input
-                    type="time"
-                    value={defaultHours.breakTime.start_time}
-                    onChange={(e) => setDefaultHours(prev => ({
-                      ...prev,
-                      breakTime: { ...prev.breakTime, start_time: e.target.value }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Break End</label>
-                  <input
-                    type="time"
-                    value={defaultHours.breakTime.end_time}
-                    onChange={(e) => setDefaultHours(prev => ({
-                      ...prev,
-                      breakTime: { ...prev.breakTime, end_time: e.target.value }
-                    }))}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Slot Duration (minutes)</label>
-                <select
-                  value={defaultHours.slotDuration}
-                  onChange={(e) => setDefaultHours(prev => ({ ...prev, slotDuration: parseInt(e.target.value) }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>60 minutes</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowDefaultHoursModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveDefaultHours}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Save Default Hours
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Leave Request Modal */}
-      {showLeaveRequestModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Request Leave</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
-                <input
-                  type="date"
-                  value={leaveForm.date}
-                  onChange={(e) => setLeaveForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Reason</label>
-                <input
-                  type="text"
-                  value={leaveForm.reason}
-                  onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  placeholder="e.g., Medical leave, Vacation"
-                />
-              </div>
-              <div className="text-xs text-gray-500">
-                Your request will be reviewed by the admin. If approved, bookings for that date will be disabled and existing tokens cancelled.
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowLeaveRequestModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!leaveForm.date) { alert('Please select a date'); return; }
-                  try {
-                    const token = localStorage.getItem('token');
-                  await axios.post(
-                    'http://localhost:5001/api/doctor/leave-requests',
-                    { 
-                      leave_type: 'full_day',
-                      start_date: leaveForm.date,
-                      end_date: leaveForm.date,
-                      reason: leaveForm.reason 
-                    },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  );
-                    setShowLeaveRequestModal(false);
-                    setLeaveForm({ date: '', reason: '' });
-                    fetchLeaveRequests();
-                    alert('Leave request submitted');
-                  } catch (error) {
-                    console.error('Submit leave request error:', error);
-                    alert('Error submitting leave request');
-                  }
-                }}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-              >
-                Submit Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
     </div>
   );
 }

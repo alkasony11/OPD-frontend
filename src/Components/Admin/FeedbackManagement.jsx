@@ -281,11 +281,14 @@ export default function FeedbackManagement() {
               <p className="mt-1 text-sm text-gray-500">No feedback matches your current filters.</p>
             </div>
           ) : (
-            filteredFeedbacks.map((feedback) => (
+            filteredFeedbacks.map((feedback, index) => (
               <div key={feedback._id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                      </div>
                       <h3 className="text-lg font-medium text-gray-900">
                         {feedback.patient_id?.name || feedback.guest_name || 'Unknown'}
                       </h3>

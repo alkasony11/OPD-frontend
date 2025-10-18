@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import {
@@ -13,16 +13,14 @@ import {
   MapPinIcon,
   HeartIcon,
   ExclamationTriangleIcon,
-  CogIcon,
-  ShieldCheckIcon,
-  BellIcon,
-  GlobeAltIcon,
   UserGroupIcon,
-  XMarkIcon
+  XMarkIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 
 const ManageAccount = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
@@ -34,6 +32,9 @@ const ManageAccount = () => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const [showMessage, setShowMessage] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
   // Form states
   const [profileData, setProfileData] = useState({
@@ -64,27 +65,43 @@ const ManageAccount = () => {
     chronicConditions: ''
   });
 
-  const [accountSettings, setAccountSettings] = useState({
-    notifications: {
-      email: true,
-      sms: true,
-      whatsapp: false
-    },
-    privacy: {
-      familyAccess: true,
-      bookingHistory: true
-    },
-    preferences: {
-      preferredDoctor: '',
-      preferredDepartment: '',
-      language: 'en'
-    }
-  });
 
   useEffect(() => {
     fetchUserData();
     fetchFamilyMembers();
   }, []);
+
+  // Handle location state for profile completion messages
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessageText(location.state.message);
+      setShowMessage(true);
+      setIsProfileIncomplete(location.state.isProfileIncomplete || false);
+      
+      // Don't auto-hide message - keep it until profile is complete
+    }
+  }, [location.state]);
+
+  // Check if profile is complete based on required fields
+  const isProfileComplete = () => {
+    if (!user) return false;
+    
+    // Check required fields: phone, dob, gender
+    const hasPhone = user.phone && user.phone.trim() !== '';
+    const hasDob = user.dob && user.dob !== '';
+    const hasGender = user.gender && user.gender.trim() !== '';
+    
+    return hasPhone && hasDob && hasGender;
+  };
+
+  // Update message visibility when profile data changes
+  useEffect(() => {
+    if (showMessage && isProfileIncomplete && isProfileComplete()) {
+      // Profile is now complete, hide the message
+      setShowMessage(false);
+      setIsProfileIncomplete(false);
+    }
+  }, [user, showMessage, isProfileIncomplete]);
 
   const fetchUserData = async () => {
     try {
@@ -517,61 +534,11 @@ const ManageAccount = () => {
     }
   };
 
-  const handleAccountSettingsUpdate = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      await axios.put('http://localhost:5001/api/patient/account-settings', accountSettings, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      Swal.fire('Success', 'Account settings updated successfully!', 'success');
-    } catch (error) {
-      console.error('Error updating account settings:', error);
-      Swal.fire('Error', 'Failed to update account settings', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeactivateAccount = async () => {
-    const result = await Swal.fire({
-      title: 'Deactivate Account',
-      text: 'Are you sure you want to deactivate your account? You can reactivate it later by contacting support.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, deactivate'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        await axios.put('http://localhost:5001/api/patient/deactivate-account', {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        Swal.fire('Account Deactivated', 'Your account has been deactivated. Contact support to reactivate.', 'success');
-        localStorage.clear();
-        navigate('/login');
-      } catch (error) {
-        console.error('Error deactivating account:', error);
-        Swal.fire('Error', 'Failed to deactivate account', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: UserCircleIcon },
     { id: 'family', name: 'Family Members', icon: UserGroupIcon },
-    { id: 'medical', name: 'Medical Details', icon: HeartIcon },
-    { id: 'settings', name: 'Account Settings', icon: CogIcon }
+    { id: 'medical', name: 'Medical Details', icon: HeartIcon }
   ];
 
   return (
@@ -581,6 +548,38 @@ const ManageAccount = () => {
           <h1 className="text-3xl font-bold text-gray-900">Manage Account</h1>
           <p className="mt-2 text-gray-600">Update your personal information and account settings</p>
         </div>
+
+        {/* Profile Completion Message */}
+        {showMessage && (
+          <div className={`mb-6 p-4 rounded-lg border-l-4 ${
+            isProfileIncomplete 
+              ? 'bg-blue-50 border-blue-400 text-blue-800' 
+              : 'bg-green-50 border-green-400 text-green-800'
+          }`}>
+            <div className="flex items-start">
+              <InformationCircleIcon className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">{messageText}</p>
+                {isProfileIncomplete && (
+                  <div className="text-xs mt-2 opacity-90">
+                    <p className="mb-1">Please complete the following required fields:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {(!user?.phone || user.phone.trim() === '') && (
+                        <li>Phone Number</li>
+                      )}
+                      {(!user?.dob || user.dob === '') && (
+                        <li>Date of Birth</li>
+                      )}
+                      {(!user?.gender || user.gender.trim() === '') && (
+                        <li>Gender</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-sm">
           {/* Tab Navigation */}
@@ -892,131 +891,6 @@ const ManageAccount = () => {
               </div>
             )}
 
-            {/* Account Settings Tab */}
-            {activeTab === 'settings' && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Security</h3>
-                  <button
-                    onClick={handlePasswordChange}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
-                  >
-                    Change Password
-                  </button>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <EnvelopeIcon className="h-5 w-5 text-gray-400 mr-3" />
-                        <span>Email Notifications</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={accountSettings.notifications.email}
-                        onChange={(e) => setAccountSettings(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, email: e.target.checked }
-                        }))}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <PhoneIcon className="h-5 w-5 text-gray-400 mr-3" />
-                        <span>SMS Notifications</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={accountSettings.notifications.sms}
-                        onChange={(e) => setAccountSettings(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, sms: e.target.checked }
-                        }))}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <BellIcon className="h-5 w-5 text-gray-400 mr-3" />
-                        <span>WhatsApp Notifications</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={accountSettings.notifications.whatsapp}
-                        onChange={(e) => setAccountSettings(prev => ({
-                          ...prev,
-                          notifications: { ...prev.notifications, whatsapp: e.target.checked }
-                        }))}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Privacy Settings</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <UserGroupIcon className="h-5 w-5 text-gray-400 mr-3" />
-                        <span>Allow Family Access to Booking History</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={accountSettings.privacy.familyAccess}
-                        onChange={(e) => setAccountSettings(prev => ({
-                          ...prev,
-                          privacy: { ...prev.privacy, familyAccess: e.target.checked }
-                        }))}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Preferences</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
-                      <select
-                        value={accountSettings.preferences.language}
-                        onChange={(e) => setAccountSettings(prev => ({
-                          ...prev,
-                          preferences: { ...prev.preferences, language: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="en">English</option>
-                        <option value="hi">Hindi</option>
-                        <option value="ta">Tamil</option>
-                        <option value="te">Telugu</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between">
-                  <button
-                    onClick={handleAccountSettingsUpdate}
-                    disabled={loading}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {loading ? 'Updating...' : 'Update Settings'}
-                  </button>
-                  
-                  <button
-                    onClick={handleDeactivateAccount}
-                    className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700"
-                  >
-                    Deactivate Account
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

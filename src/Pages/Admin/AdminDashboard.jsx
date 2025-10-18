@@ -20,6 +20,8 @@ import FeedbackManagement from '../../Components/Admin/FeedbackManagement';
 import FamilyMemberManagement from '../../Components/Admin/FamilyMemberManagement';
 import PaymentManagement from '../../Components/Admin/PaymentManagement';
 import CommunicationManagement from '../../Components/Admin/CommunicationManagement';
+import ScheduleRequests from '../../Components/Admin/ScheduleRequests';
+import PatientProfile from './PatientProfile';
 // New Patient Category views
 import PatientCategoryRegistered from '../../Components/Admin/PatientCategory/RegisteredPatientsDashboard';
 import PatientCategoryManagement from '../../Components/Admin/PatientCategory/PatientManagementView';
@@ -49,7 +51,6 @@ export default function AdminDashboard() {
       const parsedUser = JSON.parse(userData);
       console.log('Admin dashboard - User role:', parsedUser.role);
       console.log('Admin dashboard - User email:', parsedUser.email);
-      console.log('Admin dashboard - Admin email from env:', import.meta.env.VITE_ADMIN_EMAIL);
 
       // Check both role field and admin email
       const isAdmin = parsedUser.role === 'admin' || parsedUser.email === import.meta.env.VITE_ADMIN_EMAIL;
@@ -169,6 +170,8 @@ export default function AdminDashboard() {
         return <DoctorManagement />;
       case '/admin/doctor-schedules':
         return <DoctorScheduleManagement />;
+      case '/admin/schedule-requests':
+        return <ScheduleRequests />;
       case '/admin/patients':
         return <PatientManagement />;
       case '/admin/family-members':
@@ -235,6 +238,10 @@ export default function AdminDashboard() {
           </div>
         );
       default:
+        // Handle dynamic patient profile routes
+        if (path.startsWith('/admin/patient/')) {
+          return <PatientProfile />;
+        }
         return (
           <>
             <DashboardStats />
@@ -254,6 +261,7 @@ export default function AdminDashboard() {
       case '/admin/users': return 'User Management';
       case '/admin/doctors': return 'Doctor Management';
       case '/admin/doctor-schedules': return 'Doctor Schedule Management';
+      case '/admin/schedule-requests': return 'Schedule Requests';
       case '/admin/patients': return 'Patient Management';
       case '/admin/family-members': return 'Family Member Management';
       case '/admin/payments': return 'Payment Management';

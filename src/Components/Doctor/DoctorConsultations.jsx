@@ -15,39 +15,33 @@ import {
   HiChevronUp
 } from 'react-icons/hi';
 import axios from 'axios';
-import DiagnosisModal from './DiagnosisModal';
+import DiagnosisModal from '../Admin/DiagnosisModal';
 
-export default function AppointmentManagement() {
+export default function DoctorConsultations() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('booked');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [departments, setDepartments] = useState([]);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchAppointments();
-    fetchDepartments();
-  }, [selectedDepartment, selectedStatus, currentPage]);
+    fetchDoctorAppointments();
+  }, [selectedStatus, currentPage]);
 
-  const fetchAppointments = async () => {
+  const fetchDoctorAppointments = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      let url = '/api/admin/appointments?';
+      let url = '/api/doctor/appointments?';
       const params = new URLSearchParams();
       
-      if (selectedDepartment !== 'all') {
-        params.append('department', selectedDepartment);
-      }
       if (selectedStatus !== 'all') {
-        params.append('status', selectedStatus);
+        params.append('filter', selectedStatus);
       }
       if (searchTerm) {
         params.append('search', searchTerm);
@@ -62,21 +56,9 @@ export default function AppointmentManagement() {
       setAppointments(response.data.appointments || []);
       setTotalPages(Math.ceil((response.data.total || 0) / 20));
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Error fetching doctor appointments:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/admin/departments', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setDepartments(response.data.departments || []);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
     }
   };
 
@@ -88,7 +70,7 @@ export default function AppointmentManagement() {
   const handleDiagnosisSaved = () => {
     setShowDiagnosisModal(false);
     setSelectedAppointment(null);
-    fetchAppointments(); // Refresh the list
+    fetchDoctorAppointments(); // Refresh the list
   };
 
   const getStatusColor = (status) => {
@@ -124,8 +106,7 @@ export default function AppointmentManagement() {
   const filteredAppointments = appointments.filter(appointment => {
     const matchesSearch = !searchTerm || 
       appointment.patient_id?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.token_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.doctor_id?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      appointment.token_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesSearch;
   });
@@ -134,9 +115,9 @@ export default function AppointmentManagement() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Appointment Management</h1>
-        <p className="text-gray-600">Manage and attend patient appointments across all departments</p>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Consultations</h1>
+        <p className="text-gray-600">Manage and conduct consultations with your patients</p>
+      </div>
 
       {/* Filters and Search */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -146,12 +127,12 @@ export default function AppointmentManagement() {
             <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by patient name, token, or doctor..."
+              placeholder="Search by patient name or token..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-      </div>
+          </div>
 
           {/* Filter Toggle */}
           <button
@@ -165,7 +146,7 @@ export default function AppointmentManagement() {
 
           {/* Refresh */}
           <button
-            onClick={fetchAppointments}
+            onClick={fetchDoctorAppointments}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <HiRefresh className="h-5 w-5" />
@@ -177,27 +158,8 @@ export default function AppointmentManagement() {
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Department Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Department
-                </label>
-                <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Departments</option>
-                  {departments.map((dept) => (
-                    <option key={dept._id} value={dept.name}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-      </div>
-
               {/* Status Filter */}
-            <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
                 </label>
@@ -206,17 +168,17 @@ export default function AppointmentManagement() {
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="all">All Status</option>
-                  <option value="booked">Booked</option>
+                  <option value="all">All Appointments</option>
+                  <option value="booked">Booked (Ready for Consultation)</option>
                   <option value="consulted">Consulted</option>
                   <option value="cancelled">Cancelled</option>
                   <option value="missed">Missed</option>
                 </select>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-            </div>
+        )}
+      </div>
 
       {/* Appointments List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -224,24 +186,23 @@ export default function AppointmentManagement() {
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-2 text-gray-600">Loading appointments...</p>
-                </div>
+          </div>
         ) : filteredAppointments.length === 0 ? (
           <div className="p-8 text-center">
             <HiCalendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No appointments found</p>
-                  </div>
-                ) : (
-                  <>
+          </div>
+        ) : (
+          <>
             {/* Table Header */}
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-700">
                 <div className="col-span-2">Token</div>
-                <div className="col-span-2">Patient</div>
-                <div className="col-span-2">Doctor</div>
-                <div className="col-span-2">Department</div>
+                <div className="col-span-3">Patient</div>
                 <div className="col-span-2">Date & Time</div>
+                <div className="col-span-2">Symptoms</div>
                 <div className="col-span-1">Status</div>
-                <div className="col-span-1">Actions</div>
+                <div className="col-span-2">Actions</div>
               </div>
             </div>
 
@@ -258,7 +219,7 @@ export default function AppointmentManagement() {
                     </div>
 
                     {/* Patient */}
-                    <div className="col-span-2">
+                    <div className="col-span-3">
                       <div className="flex items-center space-x-2">
                         <HiUser className="h-4 w-4 text-gray-400" />
                         <div>
@@ -270,22 +231,8 @@ export default function AppointmentManagement() {
                               `(${appointment.family_member_id.relation})`
                             }
                           </p>
-            </div>
-          </div>
-        </div>
-
-                    {/* Doctor */}
-                    <div className="col-span-2">
-                      <p className="font-medium text-gray-900">
-                        Dr. {appointment.doctor_id?.name || 'N/A'}
-                      </p>
-              </div>
-
-                    {/* Department */}
-                    <div className="col-span-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        {appointment.department || 'N/A'}
-                      </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Date & Time */}
@@ -300,8 +247,15 @@ export default function AppointmentManagement() {
                             <HiClock className="h-3 w-3 mr-1" />
                             {appointment.time_slot}
                           </p>
-                          </div>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Symptoms */}
+                    <div className="col-span-2">
+                      <p className="text-sm text-gray-900">
+                        {appointment.symptoms || 'Not provided'}
+                      </p>
                     </div>
 
                     {/* Status */}
@@ -313,14 +267,14 @@ export default function AppointmentManagement() {
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       {appointment.status === 'booked' ? (
                         <button
                           onClick={() => handleAttendAppointment(appointment)}
                           className="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
                         >
                           <HiCheckCircle className="h-4 w-4 mr-1" />
-                          Attend
+                          Start Consultation
                         </button>
                       ) : appointment.status === 'consulted' ? (
                         <button
@@ -328,16 +282,16 @@ export default function AppointmentManagement() {
                           className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           <HiEye className="h-4 w-4 mr-1" />
-                          View
+                          View Consultation
                         </button>
                       ) : (
                         <span className="text-gray-400 text-sm">-</span>
                       )}
                     </div>
                   </div>
-                          </div>
-                        ))}
-                      </div>
+                </div>
+              ))}
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -366,8 +320,8 @@ export default function AppointmentManagement() {
               </div>
             )}
           </>
-              )}
-            </div>
+        )}
+      </div>
 
       {/* Diagnosis Modal */}
       {showDiagnosisModal && selectedAppointment && (

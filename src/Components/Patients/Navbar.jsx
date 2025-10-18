@@ -1,6 +1,6 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiMenu, HiX, HiUser, HiLogout, HiCog, HiChevronDown, HiCalendar, HiClipboardList, HiVideoCamera } from 'react-icons/hi';
+import { HiMenu, HiX, HiUser, HiLogout, HiChevronDown, HiCalendar, HiClipboardList, HiVideoCamera } from 'react-icons/hi';
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
 
@@ -92,7 +92,7 @@ export default function Navbar() {
     };
 
     fetchLatestUserData();
-  }, [isLoggedIn, userProfileVersion]);
+  }, [isLoggedIn]); // Removed userProfileVersion from dependencies to prevent infinite loop
 
   // Update active section based on current location
   useEffect(() => {

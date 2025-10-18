@@ -56,25 +56,32 @@ export const useClerkAuth = () => {
 
             // Handle role-based redirection with delay to ensure state is updated
             setTimeout(() => {
+              console.log('User role from backend:', userRole);
+              console.log('Current location:', location.pathname);
+              
               if (userRole === 'admin') {
                 console.log('Admin user detected, redirecting to admin dashboard');
                 navigate('/admin/dashboard');
               } else if (userRole === 'doctor') {
                 console.log('Doctor user detected, redirecting to doctor dashboard');
                 navigate('/doctor/dashboard');
-              } else if ((isNewUser || !isProfileComplete) && location.pathname !== '/profile') {
-                console.log('Redirecting new/incomplete user to profile page');
-                navigate('/profile', {
+              } else if ((isNewUser || !isProfileComplete) && location.pathname !== '/manage-account') {
+                console.log('Redirecting new/incomplete user to manage-account page');
+                navigate('/manage-account', {
                   state: {
                     message: isNewUser
                       ? 'Welcome! Please complete your profile to get started.'
-                      : 'Please complete your profile information.'
+                      : 'Please complete your profile information to continue.',
+                    isProfileIncomplete: !isProfileComplete,
+                    isNewUser: isNewUser
                   }
                 });
               } else if (userRole === 'patient' && location.pathname !== '/') {
                 // Redirect patient users to home page if they're not already there
                 console.log('Patient user detected, redirecting to home page');
                 navigate('/');
+              } else {
+                console.log('No specific redirection needed for role:', userRole);
               }
             }, 100); // Small delay to ensure state is properly updated
           }
@@ -85,6 +92,28 @@ export const useClerkAuth = () => {
           if (error.response?.status >= 500) {
             console.log('Server error during sync, allowing login with Clerk data only');
             setIsLoggedIn(true);
+            
+            // Fallback: Check if we have existing user data in localStorage
+            const existingUser = localStorage.getItem('user');
+            if (existingUser) {
+              try {
+                const userData = JSON.parse(existingUser);
+                console.log('Using existing user data for fallback:', userData);
+                
+                // Redirect based on existing user role
+                setTimeout(() => {
+                  if (userData.role === 'admin') {
+                    navigate('/admin/dashboard');
+                  } else if (userData.role === 'doctor') {
+                    navigate('/doctor/dashboard');
+                  } else if (userData.role === 'patient') {
+                    navigate('/');
+                  }
+                }, 100);
+              } catch (parseError) {
+                console.error('Error parsing existing user data:', parseError);
+              }
+            }
           } else if (error.response?.status === 401) {
             console.log('Authentication error during sync, signing out');
             try {
@@ -96,6 +125,28 @@ export const useClerkAuth = () => {
           } else {
             console.log('Other error during sync, allowing login');
             setIsLoggedIn(true);
+            
+            // Fallback: Check if we have existing user data in localStorage
+            const existingUser = localStorage.getItem('user');
+            if (existingUser) {
+              try {
+                const userData = JSON.parse(existingUser);
+                console.log('Using existing user data for fallback:', userData);
+                
+                // Redirect based on existing user role
+                setTimeout(() => {
+                  if (userData.role === 'admin') {
+                    navigate('/admin/dashboard');
+                  } else if (userData.role === 'doctor') {
+                    navigate('/doctor/dashboard');
+                  } else if (userData.role === 'patient') {
+                    navigate('/');
+                  }
+                }, 100);
+              } catch (parseError) {
+                console.error('Error parsing existing user data:', parseError);
+              }
+            }
           }
         }
       } else if (userLoaded && !isSignedIn) {

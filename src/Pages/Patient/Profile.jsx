@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useContext } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../App';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoggedIn } = useContext(AuthContext);
 
   useEffect(() => {
@@ -12,8 +13,14 @@ export default function Profile() {
       return;
     }
 
-    // Redirect to the new Manage Account page
-    navigate('/manage-account', { replace: true });
+    // Redirect to manage-account for profile completion
+    navigate('/manage-account', { 
+      replace: true,
+      state: {
+        message: 'Please complete your profile information.',
+        isProfileIncomplete: true
+      }
+    });
   }, [isLoggedIn, navigate]);
 
   return (

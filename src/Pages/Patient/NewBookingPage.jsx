@@ -43,6 +43,7 @@ export default function NewBookingPage() {
   });
   const [loading, setLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [showAlternativeDoctors, setShowAlternativeDoctors] = useState(false);
   
   // Data states
   const [departments, setDepartments] = useState([]);
@@ -50,6 +51,8 @@ export default function NewBookingPage() {
   const [availableDates, setAvailableDates] = useState([]);
   const [availableSessions, setAvailableSessions] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
+  const [familyMembersLoading, setFamilyMembersLoading] = useState(false);
+  const [availabilityRefreshing, setAvailabilityRefreshing] = useState(false);
   const [symptomAnalysis, setSymptomAnalysis] = useState(null);
   const [rescheduleFor, setRescheduleFor] = useState(null); // appointment id if rescheduling
 
@@ -121,13 +124,25 @@ export default function NewBookingPage() {
     age: '',
     gender: 'male',
     relation: 'spouse',
-    phone: ''
+    phone: '',
+    bloodGroup: '',
+    allergies: '',
+    chronicConditions: ''
   });
 
   useEffect(() => {
     if (token) {
       fetchDepartments();
-      fetchFamilyMembers();
+      
+      // Simplified approach: fetch family members immediately with a small delay
+      // to ensure user data is available
+      const fetchDataWithDelay = () => {
+        setTimeout(() => {
+          fetchFamilyMembers();
+        }, 100); // Small delay to ensure user data is loaded
+      };
+      
+      fetchDataWithDelay();
       
       // Check for video consultation type
       const params = new URLSearchParams(location.search);
@@ -231,22 +246,44 @@ export default function NewBookingPage() {
     }
   }, [token]);
 
-  // Also fetch family members when user changes (for Clerk auth)
+  // Listen for localStorage changes to detect when user data becomes available
   useEffect(() => {
-    if (user && token) {
-      fetchFamilyMembers();
-    }
-  }, [user, token]);
+    const handleStorageChange = (e) => {
+      if (e.key === 'user' && e.newValue && token) {
+        console.log('User data updated in localStorage, fetching family members');
+        try {
+          const userData = JSON.parse(e.newValue);
+          if (userData && userData.name) {
+            fetchFamilyMembers();
+          }
+        } catch (error) {
+          console.error('Error parsing updated user data:', error);
+        }
+      }
+    };
 
-  // Additional effect to ensure family members are loaded after a short delay
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [token]);
+
+  // Periodic refresh of availability data to prevent stale data
   useEffect(() => {
-    if (token && familyMembers.length === 0) {
-      const timer = setTimeout(() => {
-        fetchFamilyMembers();
-      }, 1000);
-      return () => clearTimeout(timer);
+    if (bookingData.departmentId && bookingData.appointmentDate && currentStep >= 5) {
+      const refreshInterval = setInterval(() => {
+        console.log('Refreshing availability data to prevent stale data');
+        fetchRealSessionData(bookingData.departmentId, bookingData.appointmentDate, true);
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(refreshInterval);
     }
-  }, [token, familyMembers.length]);
+  }, [bookingData.departmentId, bookingData.appointmentDate, currentStep]);
+
+  // Cleanup effect to clear family members on unmount
+  useEffect(() => {
+    return () => {
+      setFamilyMembers([]);
+    };
+  }, []);
 
   const fetchDepartments = async () => {
     try {
@@ -377,9 +414,14 @@ export default function NewBookingPage() {
     }
   };
 
-  const fetchRealSessionData = async (departmentId, date) => {
+  const fetchRealSessionData = async (departmentId, date, showRefreshIndicator = false) => {
     try {
-      setLoading(true);
+      if (showRefreshIndicator) {
+        setAvailabilityRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
       const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/availability/${date}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -391,7 +433,11 @@ export default function NewBookingPage() {
       // Fallback to empty sessions if API fails
       setAvailableSessions([]);
     } finally {
-      setLoading(false);
+      if (showRefreshIndicator) {
+        setAvailabilityRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -503,30 +549,51 @@ export default function NewBookingPage() {
     try {
       if (!token) {
         console.warn('No token available for fetching family members');
+        // Clear family members if no token
+        setFamilyMembers([]);
+        setFamilyMembersLoading(false);
         return;
       }
-      const response = await axios.get('http://localhost:5001/api/patient/family-members', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const members = response.data.familyMembers || [];
       
-      // Add self as first option - get name from stored user data
+      setFamilyMembersLoading(true);
+      // Clear existing family members first to prevent cross-contamination
+      setFamilyMembers([]);
+      
+      // Get user name from multiple sources with fallback - do this first
+      let userName = 'You';
+      let patientId = 'P001';
+      
+      // First try localStorage (most reliable after Clerk sync)
       const currentUser = getCurrentUser();
-      const userName = currentUser?.name || (user?.firstName + ' ' + user?.lastName) || 'You';
+      if (currentUser?.name) {
+        userName = currentUser.name;
+        patientId = currentUser.patientId || 'P001';
+      } else if (user?.firstName || user?.lastName) {
+        // Fallback to Clerk user data
+        userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      } else if (user?.fullName) {
+        // Try fullName from Clerk
+        userName = user.fullName;
+      }
       
+      // Fallback if still no name
+      if (!userName || userName.trim() === '') {
+        userName = 'You';
+      }
+      
+      // Create self member first
       const selfMember = {
         id: 'self',
-        patientId: currentUser?.patientId || 'P001',
+        patientId: patientId,
         name: userName,
         relation: 'self',
         age: 'Adult',
         gender: 'N/A'
       };
       
-      // Filter out any existing 'self' members to avoid duplicates
-      const filteredMembers = members.filter(member => member.relation !== 'self');
-      setFamilyMembers([selfMember, ...filteredMembers]);
-
+      // Set self member immediately to show user data
+      setFamilyMembers([selfMember]);
+      
       // Ensure default selection reflects the logged-in user visibly
       setBookingData(prev => ({
         ...prev,
@@ -534,20 +601,63 @@ export default function NewBookingPage() {
         familyMemberName: userName,
         familyMemberPatientId: selfMember.patientId
       }));
+      
+      // Now fetch additional family members from API
+      try {
+        const familyResponse = await axios.get('http://localhost:5001/api/patient/family-members', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log('=== FRONTEND FAMILY MEMBERS DEBUG ===');
+        console.log('API Response:', familyResponse.data);
+        console.log('Family Members from API:', familyResponse.data.familyMembers);
+        
+        const members = familyResponse.data.familyMembers || [];
+        
+        // Filter out any existing 'self' members to avoid duplicates
+        const filteredMembers = members.filter(member => member.relation !== 'self');
+        const finalFamilyMembers = [selfMember, ...filteredMembers];
+        
+        console.log('Self Member:', selfMember);
+        console.log('Filtered Members:', filteredMembers);
+        console.log('Final Family Members List:', finalFamilyMembers);
+        
+        setFamilyMembers(finalFamilyMembers);
+      } catch (apiError) {
+        console.error('Error fetching additional family members from API:', apiError);
+        // Keep the self member that was already set
+      }
+      
     } catch (error) {
-      console.error('Error fetching family members:', error);
-      // Set a fallback self member even if API fails
+      console.error('Error in fetchFamilyMembers:', error);
+      // Set a fallback self member even if everything fails
+      let userName = 'You';
+      let patientId = 'P001';
+      
+      // First try localStorage (most reliable after Clerk sync)
       const currentUser = getCurrentUser();
-      const userName = currentUser?.name || (user?.firstName + ' ' + user?.lastName) || 'You';
+      if (currentUser?.name) {
+        userName = currentUser.name;
+        patientId = currentUser.patientId || 'P001';
+      } else if (user?.firstName || user?.lastName) {
+        // Fallback to Clerk user data
+        userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      } else if (user?.fullName) {
+        // Try fullName from Clerk
+        userName = user.fullName;
+      }
+      
       const selfMember = {
         id: 'self',
-        patientId: currentUser?.patientId || 'P001',
+        patientId: patientId,
         name: userName,
         relation: 'self',
         age: 'Adult',
         gender: 'N/A'
       };
       setFamilyMembers([selfMember]);
+    } finally {
+      setFamilyMembersLoading(false);
     }
   };
 
@@ -640,10 +750,24 @@ export default function NewBookingPage() {
   };
 
   const handleSessionSelect = async (session) => {
+    // First refresh the session data to ensure we have the latest availability
+    await fetchRealSessionData(bookingData.departmentId, bookingData.appointmentDate);
+    
+    // Find the updated session with current availability
+    const updatedSessions = await axios.get(`http://localhost:5001/api/patient/departments/${bookingData.departmentId}/availability/${bookingData.appointmentDate}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    const currentSession = updatedSessions.data.sessions?.find(s => s.startTime === session.startTime);
+    if (!currentSession || currentSession.doctorCount === 0) {
+      setBookingError('This time slot is no longer available. Please select another time.');
+      return;
+    }
+    
     const newData = {
       ...bookingData,
-      selectedSession: session,
-      appointmentTime: session.startTime // Store session start time
+      selectedSession: currentSession,
+      appointmentTime: currentSession.startTime // Store session start time
     };
     saveBookingData(newData);
     
@@ -654,11 +778,11 @@ export default function NewBookingPage() {
         axios.get(`http://localhost:5001/api/patient/doctors/${newData.departmentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        session.availableDoctors
-          ? Promise.resolve({ data: { doctors: session.availableDoctors } })
+        currentSession.availableDoctors
+          ? Promise.resolve({ data: { doctors: currentSession.availableDoctors } })
           : axios.get(`http://localhost:5001/api/patient/departments/${newData.departmentId}/available-doctors`, {
               headers: { Authorization: `Bearer ${token}` },
-              params: { date: newData.appointmentDate, time: session.startTime }
+              params: { date: newData.appointmentDate, time: currentSession.startTime }
             }).catch(() => ({ data: { doctors: [] } }))
       ]);
 
@@ -762,7 +886,16 @@ export default function NewBookingPage() {
         return [...prev.slice(0, 1), ...filteredPrev, memberWithDefaults];
       });
       
-      setNewMember({ name: '', age: '', gender: 'male', relation: 'spouse', phone: '' });
+      setNewMember({ 
+        name: '', 
+        age: '', 
+        gender: 'male', 
+        relation: 'spouse', 
+        phone: '',
+        bloodGroup: '',
+        allergies: '',
+        chronicConditions: ''
+      });
       setShowAddMember(false);
       alert('Family member added successfully!');
     } catch (error) {
@@ -775,52 +908,58 @@ export default function NewBookingPage() {
     try {
       setLoading(true);
       setBookingError('');
-      // Validate required fields before calling API
+      
+      // Validate required fields before proceeding to payment
       if (!bookingData.departmentId || !bookingData.doctorId || !bookingData.appointmentDate || !bookingData.appointmentTime) {
         setBookingError('Please select department, doctor, date and time before confirming.');
         setLoading(false);
         return;
       }
 
-      const appointmentData = {
-        doctorId: bookingData.doctorId,
-        departmentId: bookingData.departmentId,
-        appointmentDate: bookingData.appointmentDate,
-        appointmentTime: bookingData.appointmentTime,
-        symptoms: bookingData.symptoms,
-        familyMemberId: bookingData.familyMemberId === 'self' ? null : bookingData.familyMemberId,
-        paymentMethod: bookingData.paymentMethod,
-        appointmentType: bookingData.appointmentType
-      };
-
-      let response;
-      if (rescheduleFor) {
-        response = await axios.post(`http://localhost:5001/api/patient/appointments/${rescheduleFor}/reschedule`, {
-          doctorId: bookingData.doctorId,
-          newDate: bookingData.appointmentDate,
-          newTime: bookingData.appointmentTime
-        }, { headers: { Authorization: `Bearer ${token}` } });
-      } else {
-        response = await axios.post('http://localhost:5001/api/patient/book-appointment', appointmentData, {
+      // Double-check slot availability before proceeding to payment
+      try {
+        const availabilityCheck = await axios.get(`http://localhost:5001/api/patient/doctors/${bookingData.doctorId}/availability/${bookingData.appointmentDate}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        const availableSlots = availabilityCheck.data.slots || [];
+        const isSlotStillAvailable = availableSlots.some(slot => slot.time === bookingData.appointmentTime && slot.available);
+        
+        if (!isSlotStillAvailable) {
+          setBookingError('This time slot is no longer available. Please select another time or try a different doctor.');
+          setLoading(false);
+          
+          // Refresh the availability data to show current state
+          await fetchRealSessionData(bookingData.departmentId, bookingData.appointmentDate);
+          return;
+        }
+      } catch (availabilityError) {
+        console.error('Error checking slot availability:', availabilityError);
+        // Continue with payment flow - backend will handle the final check during payment
       }
 
+      // Don't save to database yet - just proceed to payment step
+      // Database will be saved only after successful payment
       setBookingData(prev => ({
         ...prev,
-        appointmentId: response.data?.appointment?.id,
-        paymentStatus: response.data?.appointment?.paymentStatus || 'pending',
-        tokenNumber: response.data?.appointment?.tokenNumber || response.data?.tokenNumber,
-        estimatedWaitTime: response.data?.appointment?.estimatedWaitTime,
-        meetingLink: response.data?.appointment?.meetingLink || response.data?.appointment?.meeting_link || null
+        paymentStatus: 'pending'
       }));
 
       saveCurrentStep(7);
 
-      // Note: Payment is triggered by user via Confirm Payment button on this step
+      // Payment will be handled by the PaymentStep component
     } catch (error) {
-      console.error('Error booking appointment:', error);
-      setBookingError(error.response?.data?.message || 'Unable to book appointment');
+      console.error('Error preparing appointment:', error);
+      const errorMessage = error.response?.data?.message || 'Unable to prepare appointment';
+      const sessionCapacity = error.response?.data?.sessionCapacity;
+      
+      if (sessionCapacity) {
+        setBookingError(`${errorMessage}\n\nSession Details:\n• ${sessionCapacity.session} session (${sessionCapacity.sessionTime})\n• Current bookings: ${sessionCapacity.current}/${sessionCapacity.max} patients\n\nSuggestions:\n• Try a different time slot\n• Choose another doctor in the same department\n• Book for a different date`);
+        setShowAlternativeDoctors(true);
+      } else {
+        setBookingError(errorMessage);
+        setShowAlternativeDoctors(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -914,7 +1053,7 @@ export default function NewBookingPage() {
               setNewMember={setNewMember}
               onAddMember={handleAddFamilyMember}
               onRefresh={fetchFamilyMembers}
-              loading={loading}
+              loading={familyMembersLoading}
             />
           )}
 
@@ -1013,6 +1152,12 @@ export default function NewBookingPage() {
           {/* Step 5: Select Session */}
           {currentStep === 5 && (
             <>
+              {availabilityRefreshing && (
+                <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                  Refreshing availability data...
+                </div>
+              )}
               {!!bookingError && (
                 <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
                   {bookingError}
@@ -1056,21 +1201,47 @@ export default function NewBookingPage() {
                 onSelect={async (doctor) => {
                   try {
                     const token = localStorage.getItem('token');
+                    
+                    // Build query parameters, handling 'self' case properly
                     const params = new URLSearchParams({
                       date: bookingData.appointmentDate,
-                      doctorId: doctor.id,
-                      familyMemberId: bookingData.familyMemberId
+                      doctorId: doctor.id
                     });
-                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+                    
+                    // Only add familyMemberId if it's not 'self' and not null/undefined
+                    if (bookingData.familyMemberId && bookingData.familyMemberId !== 'self') {
+                      params.append('familyMemberId', bookingData.familyMemberId);
+                    }
+                    
+                    console.log('Checking conflict with params:', params.toString());
+                    
+                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { 
+                      headers: { Authorization: `Bearer ${token}` },
+                      timeout: 10000 // 10 second timeout
+                    });
+                    
                     if (res.data?.conflict) {
                       setBookingError(res.data.message || 'You already have an appointment with this doctor on this date');
                       return; // block selecting same doctor for same date
                     }
+                    
                     setBookingError('');
                     handleDoctorSelect(doctor);
                   } catch (e) {
-                    // If the check fails, be conservative and block selection
-                    setBookingError('Unable to verify availability. Please try again.');
+                    console.error('Conflict check error:', e);
+                    
+                    // Provide more specific error messages based on the error type
+                    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+                      setBookingError('Request timed out. Please check your connection and try again.');
+                    } else if (e.response?.status === 500) {
+                      setBookingError('Server error during availability check. Please try again.');
+                    } else if (e.response?.status === 400) {
+                      setBookingError('Invalid request parameters. Please refresh and try again.');
+                    } else if (e.response?.status === 401) {
+                      setBookingError('Authentication error. Please log in again.');
+                    } else {
+                      setBookingError('Unable to verify availability. Please try again.');
+                    }
                   }
                 }}
                 onAutoAssign={handleAutoAssign}
@@ -1082,13 +1253,57 @@ export default function NewBookingPage() {
 
           {/* Show errors (including on step 7 before booking) */}
           {!!bookingError && (
-            <div className="mt-4 mb-4 p-3 bg-yellow-100 text-yellow-800 rounded">
-              {bookingError}
+            <div className="mt-4 mb-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-200">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-600 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-yellow-800 mb-2">Booking Not Available</h3>
+                  <div className="text-sm text-yellow-700 whitespace-pre-line mb-3">
+                    {bookingError}
+                  </div>
+                  
+                  {showAlternativeDoctors && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowAlternativeDoctors(false);
+                          setBookingError('');
+                          saveCurrentStep(6); // Go back to doctor selection
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-yellow-300 text-sm font-medium rounded-md text-yellow-800 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                      >
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Try Different Doctor
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setBookingError('');
+                          // Refresh the current page data
+                          window.location.reload();
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      >
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh Page
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {/* Step 7: Confirm & Book */}
-          {currentStep === 7 && !bookingData.tokenNumber && (
+          {currentStep === 7 && bookingData.paymentStatus !== 'pending' && !bookingData.tokenNumber && (
             <PreBookingConfirmation
               bookingData={bookingData}
               onConfirm={handleBookAppointment}
@@ -1096,42 +1311,40 @@ export default function NewBookingPage() {
             />
           )}
 
-          {/* Step 7: Booking Confirmed + Payment */}
-          {currentStep === 7 && bookingData.tokenNumber && (
-            <div className="space-y-6">
-              {bookingData.paymentStatus !== 'paid' && (
-                <PaymentStep
-                  bookingData={bookingData}
-                  setBookingData={setBookingData}
-                  bookingError={bookingError}
-                  onClearError={() => setBookingError('')}
-                  onPaid={() => setBookingData(prev => ({ ...prev, paymentStatus: 'paid' }))}
-                />
-              )}
-              {bookingData.paymentStatus === 'paid' && (
-                <BookingSuccess
-                  bookingData={bookingData}
-                  user={user}
-                  onNewBooking={() => {
-                    setCurrentStep(1);
-                    setBookingData({
-                      departmentId: '',
-                      departmentName: '',
-                      doctorId: '',
-                      doctorName: '',
-                      appointmentDate: '',
-                      appointmentTime: '',
-                      symptoms: '',
-                      familyMemberId: 'self',
-                      familyMemberName: '',
-                      familyMemberPatientId: '',
-                      paymentMethod: 'card'
-                    });
-                    setSymptomAnalysis(null);
-                  }}
-                />
-              )}
-            </div>
+          {/* Step 7: Payment Step */}
+          {currentStep === 7 && bookingData.paymentStatus === 'pending' && (
+            <PaymentStep
+              bookingData={bookingData}
+              setBookingData={setBookingData}
+              bookingError={bookingError}
+              onClearError={() => setBookingError('')}
+              onPaid={() => setBookingData(prev => ({ ...prev, paymentStatus: 'paid' }))}
+            />
+          )}
+
+          {/* Step 7: Booking Confirmed + Success */}
+          {currentStep === 7 && bookingData.paymentStatus === 'paid' && bookingData.tokenNumber && (
+            <BookingSuccess
+              bookingData={bookingData}
+              user={user}
+              onNewBooking={() => {
+                setCurrentStep(1);
+                setBookingData({
+                  departmentId: '',
+                  departmentName: '',
+                  doctorId: '',
+                  doctorName: '',
+                  appointmentDate: '',
+                  appointmentTime: '',
+                  symptoms: '',
+                  familyMemberId: 'self',
+                  familyMemberName: '',
+                  familyMemberPatientId: '',
+                  paymentMethod: 'card'
+                });
+                setSymptomAnalysis(null);
+              }}
+            />
           )}
         </div>
       </div>
@@ -1183,7 +1396,13 @@ function PatientSelection({
       
       {/* Family Members */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {familyMembers.map((member, index) => (
+        {loading ? (
+          <div className="col-span-2 flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+            <span className="ml-3 text-gray-600">Loading patients...</span>
+          </div>
+        ) : (
+          familyMembers.map((member, index) => (
           <div
             key={member.id || `member-${index}`}
             onClick={() => onSelect(member)}
@@ -1213,19 +1432,14 @@ function PatientSelection({
               )}
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Add Family Member */}
       <div className="border-t pt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Family Members</h3>
-          <button
-            onClick={onRefresh}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            Refresh
-          </button>
         </div>
         {!showAddMember ? (
           <button
@@ -1500,7 +1714,7 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
           disabled={loading}
           className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Booking...' : 'Confirm Booking'}
+          {loading ? 'Processing...' : 'Confirm Payment'}
         </button>
       </div>
     </div>
@@ -1574,12 +1788,6 @@ function BookingSuccess({ bookingData, onNewBooking, user }) {
               {bookingData.appointmentType === 'video' ? 'Video Consultation' : 'In-Person Visit'}
             </span>
           </div>
-          {bookingData.estimatedWaitTime && (
-            <div className="flex justify-between">
-              <span className="text-green-700">Estimated Wait:</span>
-              <span className="font-medium text-green-900">{bookingData.estimatedWaitTime} minutes</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1671,15 +1879,44 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
         order_id: order.id,
         handler: async function (response) {
           try {
+            // First create the appointment in the database
+            const appointmentData = {
+              doctorId: bookingData.doctorId,
+              departmentId: bookingData.departmentId,
+              appointmentDate: bookingData.appointmentDate,
+              appointmentTime: bookingData.appointmentTime,
+              symptoms: bookingData.symptoms,
+              familyMemberId: bookingData.familyMemberId === 'self' ? null : bookingData.familyMemberId,
+              paymentMethod: bookingData.paymentMethod,
+              appointmentType: bookingData.appointmentType
+            };
+
+            const appointmentResponse = await axios.post('http://localhost:5001/api/patient/book-appointment', appointmentData, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            // Then mark payment as paid
             await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
-              appointmentId: bookingData.appointmentId,
+              appointmentId: appointmentResponse.data?.appointment?.id,
               amount,
               method: bookingData.paymentMethod || 'card',
               reference: response.razorpay_payment_id
             }, { headers: { Authorization: `Bearer ${token}` } });
+
+            // Update booking data with appointment details
+            setBookingData(prev => ({
+              ...prev,
+              appointmentId: appointmentResponse.data?.appointment?.id,
+              paymentStatus: 'paid',
+              tokenNumber: appointmentResponse.data?.appointment?.tokenNumber || appointmentResponse.data?.tokenNumber,
+              estimatedWaitTime: appointmentResponse.data?.appointment?.estimatedWaitTime,
+              meetingLink: appointmentResponse.data?.appointment?.meetingLink || appointmentResponse.data?.appointment?.meeting_link || null
+            }));
+
             onPaid();
           } catch (e) {
-            setError('Failed to verify payment');
+            console.error('Error creating appointment or verifying payment:', e);
+            setError('Failed to create appointment or verify payment. Please contact support.');
           }
         },
         prefill: {

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useSignIn, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
-import Swal from 'sweetalert2';
+// Removed SweetAlert2 import - no more alerts on login
 import { AuthContext } from '../App';
 import { HiArrowLeft } from 'react-icons/hi';
 import { useLoginValidation } from '../hooks/useFormValidation';
@@ -33,6 +33,7 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false); 
   const [serverError, setServerError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+  // Removed auth method checking - users can use either login method
 
   // Check if user is already logged in and redirect them
   useEffect(() => {
@@ -67,6 +68,11 @@ export default function Login() {
     }
   }, [navigate, setIsLoggedIn]);
 
+  // Handle email input change - no auth method checking needed
+  const handleEmailChange = (e) => {
+    handleChange(e);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -86,12 +92,6 @@ export default function Login() {
     try {
       const response = await axios.post('http://localhost:5001/api/auth/login', formData);
       if (response.data?.user && (response.data.user.status === 'inactive' || response.data.user.isActive === false)) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Account Deactivated',
-          html: '<div style="text-align:center">Your account has been deactivated by the administrator.<br/>Please contact support for assistance.</div>',
-          confirmButtonText: 'OK'
-        });
         setServerError('Your account has been deactivated by the administrator. Please contact support.');
         return;
       }
@@ -102,35 +102,25 @@ export default function Login() {
       // Use the redirectTo from backend response
       const redirectUrl = response.data.redirectTo || '/';
       
-      // Show role-specific welcome message
-      const roleMessages = {
-        admin: 'Welcome Admin!',
-        doctor: 'Welcome Doctor!',
-        receptionist: 'Welcome!',
-        patient: 'Login successful!'
-      };
-      
-      await Swal.fire({ icon: 'success', title: roleMessages[response.data.user.role] || 'Login successful!' });
+      // Login successful - redirect without alert
       navigate(redirectUrl);
       setRedirectPath('/');
     } catch (err) {
       const status = err.response?.status;
       const errorMessage = err.response?.data?.message || 'Login failed';
-      if (status === 403 || /deactivated/i.test(errorMessage)) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Account Deactivated',
-          html: '<div style="text-align:center">Your account has been deactivated by the administrator.<br/>Please contact support for assistance.</div>'
-        });
-      }
+      const authMethod = err.response?.data?.authMethod;
       
-      // Handle specific field errors
-      if (errorMessage.toLowerCase().includes('email')) {
-        setFieldError('email', errorMessage);
-      } else if (errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials')) {
-        setFieldError('password', 'Invalid email or password');
+      if (status === 403 || /deactivated/i.test(errorMessage)) {
+        setServerError('Your account has been deactivated by the administrator. Please contact support.');
       } else {
-        setServerError(errorMessage);
+        // Handle specific field errors
+        if (errorMessage.toLowerCase().includes('email')) {
+          setFieldError('email', errorMessage);
+        } else if (errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials')) {
+          setFieldError('password', 'Invalid email or password');
+        } else {
+          setServerError(errorMessage);
+        }
       }
     } finally {
       setLoading(false);
@@ -210,7 +200,7 @@ export default function Login() {
               name="email"
               type="email"
               value={formData.email}
-              onChange={handleChange}
+              onChange={handleEmailChange}
               onBlur={handleBlur}
               onFocus={handleFocus}
               error={errors.email}
@@ -219,6 +209,8 @@ export default function Login() {
               placeholder="Enter your email"
               autoComplete="email"
             />
+            
+            {/* Removed auth method checking UI - users can use either login method */}
             
             <PasswordInput
               label="Password"
@@ -294,6 +286,11 @@ export default function Login() {
             Don't have an account?{' '}
             <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
               Sign up
+            </Link>
+          </p>
+          <p className="text-center text-gray-500 mt-2">
+            <Link to="/landing" className="text-gray-500 hover:text-gray-700 text-sm">
+              View landing page
             </Link>
           </p>
         </div>

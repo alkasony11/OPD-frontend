@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiDocumentText, HiUser, HiCalendar, HiSearch, HiDownload, HiEye } from 'react-icons/hi';
+import { HiArrowLeft, HiDocument, HiDocumentText, HiUser, HiCalendar, HiSearch, HiDownload, HiEye } from 'react-icons/hi';
 import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
@@ -124,47 +124,59 @@ export default function DoctorRecordsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
       <DoctorSidebar />
       <div className="flex-1 ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
+        {/* Professional Header */}
+        <div className="bg-white shadow-lg border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 <button
                   onClick={() => navigate('/doctor/dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
                 >
-                  <HiArrowLeft className="h-5 w-5" />
-                  <span>Back to Dashboard</span>
+                  <HiArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Medical Records</h1>
-                  <p className="text-gray-600">View and manage patient medical records</p>
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
+                    <HiDocument className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Medical Records</h1>
+                    <p className="text-base sm:text-lg text-gray-600 mt-1">View and manage patient medical records</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <HiDocument className="h-4 w-4 text-indigo-600" />
+                  <span className="text-sm font-medium text-indigo-700">{records.length} Total Records</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filter */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <HiSearch className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search records by patient name, diagnosis, or notes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Enhanced Search and Filter */}
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <HiSearch className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search records by patient name, diagnosis, or notes..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="block w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all duration-200 text-lg"
+                    />
+                  </div>
+                </div>
           <div className="sm:w-48">
             <select
               value={filterStatus}
@@ -177,10 +189,12 @@ export default function DoctorRecordsPage() {
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Stats Cards */}
+          {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
@@ -251,10 +265,13 @@ export default function DoctorRecordsPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {filteredRecords.map((record) => (
+              {filteredRecords.map((record, index) => (
                 <div key={record._id} className="p-6 hover:bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                      </div>
                       <div className="flex-shrink-0">
                         <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                           <HiUser className="h-6 w-6 text-blue-600" />

@@ -14,7 +14,8 @@ import {
   HiChartBar,
   HiDocumentText,
   HiSearch,
-  HiExclamation
+  HiExclamation,
+  HiArchive
 } from 'react-icons/hi';
 import { useClerk } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
@@ -30,6 +31,7 @@ export default function DoctorSidebar() {
     { name: 'Dashboard', icon: HiHome, path: '/doctor/dashboard' },
     { name: 'Appointments', icon: HiCalendar, path: '/doctor/appointments' },
     { name: 'Patients', icon: HiUsers, path: '/doctor/patients' },
+    { name: 'History', icon: HiArchive, path: '/doctor/history' },
     { name: 'Schedule', icon: HiClock, path: '/doctor/schedule' },
     { name: 'Leave Requests', icon: HiExclamation, path: '/doctor/leave-requests' },
     { name: 'Medical Records', icon: HiDocumentText, path: '/doctor/records' },
@@ -77,12 +79,14 @@ export default function DoctorSidebar() {
             <span className="text-xl font-bold">Doctor Portal</span>
           </div>
         )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          {isCollapsed ? <HiMenu className="h-5 w-5" /> : <HiX className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {isCollapsed ? <HiMenu className="h-5 w-5" /> : <HiX className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Navigation Menu */}

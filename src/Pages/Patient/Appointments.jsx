@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { HiArrowLeft, HiCalendar, HiClock, HiTag, HiX, HiPencil, HiUser, HiDocumentText, HiClipboardList, HiCash, HiCheckCircle, HiExclamationCircle, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
+import QueuePosition from '../../Components/Patients/QueuePosition';
 
 export default function Appointments() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('upcoming'); // upcoming | past | all
+  const [filter, setFilter] = useState('upcoming'); // upcoming | all
   const [selectedFamilyMember, setSelectedFamilyMember] = useState('all'); // all | family member id
   const [rescheduling, setRescheduling] = useState(null); // appointment being rescheduled
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -26,7 +28,14 @@ export default function Appointments() {
     fetchAppointments();
     fetchFamilyMembers();
     fetchUserData();
-  }, []);
+    
+    // Check URL parameters for filter
+    const urlParams = new URLSearchParams(location.search);
+    const urlFilter = urlParams.get('filter');
+    if (urlFilter && ['upcoming', 'all'].includes(urlFilter)) {
+      setFilter(urlFilter);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     applyFilter(filter);
@@ -112,12 +121,17 @@ export default function Appointments() {
     const now = new Date();
     let list = appointments; // already filtered by family member via API
 
-    // Then filter by time
+    // Filter by time (upcoming, all)
+    // Exclude consulted and cancelled appointments from main view
     list = list.filter((apt) => {
+      // Exclude completed appointments from main view
+      if (apt.status === 'consulted' || apt.status === 'cancelled') {
+        return false;
+      }
+      
       const aptDate = new Date(apt.appointmentDate);
       const isUpcoming = aptDate >= new Date(now.toDateString());
       if (type === 'upcoming') return isUpcoming;
-      if (type === 'past') return !isUpcoming;
       return true;
     });
 
@@ -277,7 +291,7 @@ export default function Appointments() {
             {/* Time Filter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Time:</span>
-            {['upcoming', 'past', 'all'].map((f) => (
+            {['upcoming', 'all'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -392,7 +406,7 @@ export default function Appointments() {
                       <HiTag className="h-4 w-4 text-gray-500" />
                       <div>
                         <div className="font-medium text-gray-900 text-sm">Token #{apt.tokenNumber}</div>
-                        <div className="text-gray-600 text-xs">Wait: {apt.estimatedWaitTime} mins</div>
+                        <div className="text-gray-600 text-xs">Queue Position</div>
                       </div>
                     </div>
                     
@@ -442,6 +456,12 @@ export default function Appointments() {
                     </div>
                   )}
 
+                  {/* Queue Position for Active Appointments */}
+                  <QueuePosition 
+                    appointmentId={apt.id} 
+                    appointmentStatus={apt.status} 
+                  />
+
                   {/* Symptoms */}
                   {/* Patient Details */}
                   <div className="mb-3 p-2.5 bg-gray-50 rounded-lg">
@@ -483,27 +503,30 @@ export default function Appointments() {
 
                   {/* Cancellation Details for Cancelled Appointments */}
                   {apt.status === 'cancelled' && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <HiX className="h-5 w-5 text-red-600" />
+                    <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <HiX className="h-4 w-4 text-red-600" />
                         <span className="font-medium text-red-800">Appointment Cancelled</span>
                       </div>
                       
-                      <div className="text-sm text-red-700 space-y-2">
-                        <p><span className="font-medium">Cancelled on:</span> {new Date(apt.cancelled_at).toLocaleDateString()}</p>
-                        <p><span className="font-medium">Reason:</span> {apt.cancellationReason || 'No reason provided'}</p>
-                        
+                      <div className="text-xs text-red-700 space-y-1">
+                        <p className="flex flex-wrap gap-2">
+                          <span className="font-medium">Cancelled on:</span>
+                          <span>{(apt.cancelled_at && !isNaN(new Date(apt.cancelled_at))) ? new Date(apt.cancelled_at).toLocaleString() : '-'}</span>
+                        </p>
+                        <p className="flex flex-wrap gap-2"><span className="font-medium">Reason:</span><span>{apt.cancellationReason || 'No reason provided'}</span></p>
                         {apt.refund_status && apt.refund_status !== 'none' && (
-                          <div className="mt-3 p-3 bg-white rounded border border-red-200">
-                            <div className="flex items-center gap-2 mb-2">
-                              <HiCash className="h-4 w-4 text-green-600" />
-                              <span className="font-medium text-green-700">Refund Information</span>
+                          <div className="mt-2 p-2 bg-white rounded border border-red-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <HiCash className="h-3 w-3 text-green-600" />
+                              <span className="font-medium text-green-700 text-[12px]">Refund</span>
                             </div>
-                            <div className="text-sm text-green-600 space-y-1">
-                              <p><span className="font-medium">Amount:</span> ₹{apt.refund_amount}</p>
-                              <p><span className="font-medium">Method:</span> {apt.refund_method}</p>
-                              <p><span className="font-medium">Status:</span> 
-                                <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                            <div className="text-xs text-green-700 flex flex-wrap gap-x-4 gap-y-1">
+                              <span>Amount: ₹{apt.refund_amount}</span>
+                              <span>Method: {apt.refund_method}</span>
+                              <span>
+                                Status:
+                                <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] ${
                                   apt.refund_status === 'processed' ? 'bg-green-100 text-green-800' :
                                   apt.refund_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                                   apt.refund_status === 'failed' ? 'bg-red-100 text-red-800' :
@@ -511,10 +534,8 @@ export default function Appointments() {
                                 }`}>
                                   {apt.refund_status}
                                 </span>
-                              </p>
-                              {apt.refund_reference && (
-                                <p><span className="font-medium">Reference:</span> {apt.refund_reference}</p>
-                              )}
+                              </span>
+                              {apt.refund_reference && (<span>Ref: {apt.refund_reference}</span>)}
                             </div>
                           </div>
                         )}

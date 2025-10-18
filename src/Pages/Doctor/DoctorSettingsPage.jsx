@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiUser, HiMail, HiPhone, HiCog, HiKey, HiSave, HiEye, HiEyeOff } from 'react-icons/hi';
+import { HiArrowLeft, HiUser, HiMail, HiPhone, HiCog, HiKey, HiSave, HiEye, HiEyeOff, HiCamera, HiUpload } from 'react-icons/hi';
 import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 import Swal from 'sweetalert2';
@@ -25,6 +25,10 @@ export default function DoctorSettingsPage() {
     languages: '',
     bio: ''
   });
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
   const [qualificationProofs, setQualificationProofs] = useState([]);
   const [certificationProofs, setCertificationProofs] = useState([]);
   const qualFileInputRef = useRef(null);
@@ -220,6 +224,98 @@ export default function DoctorSettingsPage() {
     }
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid File Type',
+          text: 'Please select an image file (JPG, PNG, GIF, etc.)'
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'error',
+          title: 'File Too Large',
+          text: 'Please select an image smaller than 5MB'
+        });
+        return;
+      }
+
+      setProfilePhoto(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfilePhotoPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!profilePhoto) return;
+
+    setUploadingPhoto(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('profilePhoto', profilePhoto);
+
+      const response = await axios.post(
+        'http://localhost:5001/api/doctor/upload-photo',
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Photo Updated!',
+        text: 'Your profile photo has been updated successfully.'
+      });
+
+      // Update the doctor state with new photo URL
+      if (response.data.photoUrl) {
+        setDoctor(prev => ({ ...prev, profilePhoto: response.data.photoUrl }));
+      }
+
+      // Reset photo state
+      setProfilePhoto(null);
+      setProfilePhotoPreview(null);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Upload Failed',
+        text: error.response?.data?.message || 'Failed to upload photo. Please try again.'
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setProfilePhoto(null);
+    setProfilePhotoPreview(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+  };
+
   const tabs = [
     { id: 'profile', name: 'Profile', icon: HiUser },
     { id: 'password', name: 'Password', icon: HiKey },
@@ -238,56 +334,144 @@ export default function DoctorSettingsPage() {
     <div className="min-h-screen bg-gray-50 flex">
       <DoctorSidebar />
       <div className="flex-1 ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
+        {/* Professional Header */}
+        <div className="bg-white shadow-lg border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 <button
                   onClick={() => navigate('/doctor/dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
                 >
-                  <HiArrowLeft className="h-5 w-5" />
-                  <span>Back to Dashboard</span>
+                  <HiArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                  <p className="text-gray-600">Manage your account settings and preferences</p>
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 bg-gradient-to-r from-gray-600 to-gray-700 rounded-xl flex items-center justify-center">
+                    <HiCog className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Settings</h1>
+                    <p className="text-base sm:text-lg text-gray-600 mt-1">Manage your account settings and preferences</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                  <HiCog className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">Account Settings</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <nav className="flex space-x-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Enhanced Tab Navigation */}
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2">
+              <nav className="flex flex-wrap gap-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4" />
                   <span>{tab.name}</span>
                 </button>
               );
             })}
-          </nav>
-        </div>
+              </nav>
+            </div>
+          </div>
 
-        {/* Profile Tab */}
-        {activeTab === 'profile' && (
-          <div className="bg-white shadow-sm rounded-lg p-6">
+          {/* Enhanced Tab Content */}
+          {activeTab === 'profile' && (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
             <h2 className="text-lg font-medium text-gray-900 mb-6">Profile Information</h2>
             <form onSubmit={handleProfileUpdate} className="space-y-6">
+              {/* Profile Photo Section */}
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h3 className="text-md font-semibold text-gray-900 mb-4">Profile Photo</h3>
+                <div className="flex items-center space-x-6">
+                  {/* Current/Preview Photo */}
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 border-4 border-white shadow-lg">
+                      {profilePhotoPreview ? (
+                        <img
+                          src={profilePhotoPreview}
+                          alt="Profile Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : doctor?.profilePhoto ? (
+                        <img
+                          src={doctor.profilePhoto}
+                          alt="Profile Photo"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
+                          <HiUser className="h-12 w-12 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    {profilePhotoPreview && (
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Remove photo"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="flex-1">
+                    <div className="space-y-3">
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                      >
+                        <HiCamera className="h-4 w-4" />
+                        <span>{profilePhotoPreview ? 'Change Photo' : 'Upload Photo'}</span>
+                      </button>
+                      
+                      {profilePhotoPreview && (
+                        <button
+                          type="button"
+                          onClick={handlePhotoUpload}
+                          disabled={uploadingPhoto}
+                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                        >
+                          <HiUpload className="h-4 w-4" />
+                          <span>{uploadingPhoto ? 'Uploading...' : 'Save Photo'}</span>
+                        </button>
+                      )}
+                      
+                      <p className="text-xs text-gray-500">
+                        Recommended: Square image, at least 200x200 pixels. Max size: 5MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Full Name</label>

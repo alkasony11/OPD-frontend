@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { HiCalendar, HiClock, HiUsers, HiDocumentText, HiChartBar, HiCog, HiExclamation, HiArrowRight, HiTrendingUp, HiTrendingDown, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
+import { HiCalendar, HiUsers, HiArrowRight, HiTrendingUp, HiVideoCamera, HiExternalLink, HiCheckCircle, HiEye } from 'react-icons/hi';
+import axios from 'axios';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
+import NotificationBell from '../../Components/Doctor/NotificationBell';
+import DiagnosisModal from '../../Components/Admin/DiagnosisModal';
+import PatientConsultationModal from '../../Components/Doctor/PatientConsultationModal';
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
@@ -28,6 +32,9 @@ export default function DoctorDashboard() {
   const [todayQueue, setTodayQueue] = useState({ date: '', sessions: [] });
   const [nextPatient, setNextPatient] = useState(null);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
+  const [showConsultationModal, setShowConsultationModal] = useState(false);
 
   useEffect(() => {
     checkDoctorAuth();
@@ -266,50 +273,19 @@ export default function DoctorDashboard() {
     navigate('/login');
   };
 
-  const quickActions = [
-    {
-      title: 'View Appointments',
-      description: 'Manage today\'s appointments',
-      icon: HiCalendar,
-      color: 'bg-blue-500',
-      href: '/doctor/appointments'
-    },
-    {
-      title: 'Patient List',
-      description: 'View all your patients',
-      icon: HiUsers,
-      color: 'bg-green-500',
-      href: '/doctor/patients'
-    },
-    {
-      title: 'Schedule Management',
-      description: 'Manage your availability',
-      icon: HiClock,
-      color: 'bg-purple-500',
-      href: '/doctor/schedule'
-    },
-    {
-      title: 'Medical Records',
-      description: 'View patient records',
-      icon: HiDocumentText,
-      color: 'bg-indigo-500',
-      href: '/doctor/records'
-    },
-    {
-      title: 'Reports & Analytics',
-      description: 'View performance reports',
-      icon: HiChartBar,
-      color: 'bg-orange-500',
-      href: '/doctor/reports'
-    },
-    {
-      title: 'Settings',
-      description: 'Account preferences',
-      icon: HiCog,
-      color: 'bg-gray-500',
-      href: '/doctor/settings'
-    }
-  ];
+  const handleStartConsultation = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowConsultationModal(true);
+  };
+
+  const handleDiagnosisSaved = () => {
+    setShowDiagnosisModal(false);
+    setSelectedAppointment(null);
+    // Refresh the queue data
+    fetchTodayQueue();
+    fetchNextPatient();
+  };
+
 
   if (loading) {
     return (
@@ -320,244 +296,338 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
       <DoctorSidebar />
       <div className="flex-1 ml-64">
-      {/* Header */}
-        <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
-                <p className="text-gray-600 mt-1">Welcome back, Dr. {doctor?.name}</p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setLeaveForm({ date: new Date().toISOString().split('T')[0], reason: '' });
-                  setShowLeaveRequestModal(true);
-                }}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center space-x-2"
-              >
-                <HiExclamation className="h-4 w-4" />
-                <span>Request Leave</span>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <HiCalendar className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Today's Appointments</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stats.todayAppointments}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <HiUsers className="h-8 w-8 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Patients</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stats.totalPatients}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <HiUsers className="h-8 w-8 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Booked Patients</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stats.bookedPatients}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <HiTrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Completed</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stats.completedAppointments}</p>
-            </div>
-          </div>
-        </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <HiTrendingDown className="h-8 w-8 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stats.pendingAppointments}</p>
-              </div>
-            </div>
-          </div>
-                    </div>
-
-        {/* Next Patient */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Next Patient</h2>
-            <button onClick={fetchNextPatient} className="text-gray-600 hover:text-gray-800 flex items-center space-x-1">
-              <HiCalendar className="h-4 w-4" />
-              <span>Refresh</span>
-            </button>
-          </div>
-          {!nextPatient ? (
-            <div className="text-sm text-gray-500">No patients waiting.</div>
-          ) : (
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
+        {/* Professional Header */}
+        <div className="bg-white shadow-lg border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                  <HiUsers className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                </div>
                 <div>
-                  <div className="text-lg font-semibold text-gray-900">
-                    Next Patient: Token #{nextPatient.tokenNumber} {nextPatient.patientName}
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Medical Dashboard</h1>
+                  <p className="text-base sm:text-lg text-gray-600 mt-1">Welcome back, Dr. {doctor?.name}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
+                <NotificationBell />
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:bg-red-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl text-sm sm:text-base"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Enhanced Statistics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            {/* Today's Appointments */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Today's Appointments</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.todayAppointments}</p>
+                  <p className="text-xs text-gray-500 mt-1">Scheduled for today</p>
+                </div>
+                <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+                  <HiCalendar className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Total Patients */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Total Patients</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.totalPatients}</p>
+                  <p className="text-xs text-gray-500 mt-1">Registered patients</p>
+                </div>
+                <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center">
+                  <HiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Completed Today */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border-l-4 border-emerald-500">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Completed Today</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.completedAppointments}</p>
+                  <p className="text-xs text-gray-500 mt-1">Consultations finished</p>
+                </div>
+                <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center">
+                  <HiTrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Pending Appointments */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-4 sm:p-6 border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wide">Pending</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.pendingAppointments}</p>
+                  <p className="text-xs text-gray-500 mt-1">Awaiting consultation</p>
+                </div>
+                <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center">
+                  <HiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions & Performance Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
+            {/* Quick Actions */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 sm:p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                  <HiCheckCircle className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Quick Actions</h3>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate('/doctor/appointments')}
+                  className="w-full flex items-center space-x-3 p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200 group"
+                >
+                  <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <HiCalendar className="h-4 w-4 text-white" />
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {nextPatient.age ? `Age: ${nextPatient.age}` : ''}{nextPatient.age && nextPatient.gender ? ' • ' : ''}{nextPatient.gender || ''}
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900">View All Appointments</p>
+                    <p className="text-xs text-gray-600">Manage your schedule</p>
                   </div>
-                  {nextPatient.symptoms && (
-                    <div className="text-sm text-gray-700 mt-1">Symptoms: {nextPatient.symptoms}</div>
-                  )}
-                  {nextPatient.appointmentType === 'video' && (nextPatient.meetingLink || nextPatient.meeting_link) && (
-                    <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <HiVideoCamera className="h-4 w-4 text-purple-600" />
-                          <span className="text-sm font-medium text-purple-900">Video Consultation</span>
+                </button>
+                <button
+                  onClick={() => navigate('/doctor/patients')}
+                  className="w-full flex items-center space-x-3 p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-all duration-200 group"
+                >
+                  <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <HiUsers className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900">Patient Records</p>
+                    <p className="text-xs text-gray-600">Access patient history</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => navigate('/doctor/schedule')}
+                  className="w-full flex items-center space-x-3 p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-all duration-200 group"
+                >
+                  <div className="h-8 w-8 bg-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <HiTrendingUp className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900">Manage Schedule</p>
+                    <p className="text-xs text-gray-600">Update availability</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 sm:p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center">
+                  <HiTrendingUp className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Performance</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600">Completion Rate</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats.totalPatients > 0 ? Math.round((stats.completedAppointments / stats.totalPatients) * 100) : 0}%
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <HiCheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600">Active Tokens</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.activeTokens}</p>
+                  </div>
+                  <div className="h-12 w-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <HiUsers className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600">Available Days</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.availableDays}</p>
+                  </div>
+                  <div className="h-12 w-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <HiCalendar className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Leave Requests Summary */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 sm:p-6 md:col-span-2 lg:col-span-1">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="h-10 w-10 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl flex items-center justify-center">
+                  <HiCalendar className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Leave Requests</h3>
+              </div>
+              <div className="space-y-4">
+                {leaveRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <HiCheckCircle className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-500 font-medium">No leave requests</p>
+                  </div>
+                ) : (
+                  <>
+                    {leaveRequests.slice(0, 3).map((lr, index) => {
+                      const s = new Date(lr.start_date);
+                      const e = new Date(lr.end_date);
+                      const dateStr = s.toDateString() === e.toDateString() ? s.toLocaleDateString() : `${s.toLocaleDateString()} - ${e.toLocaleDateString()}`;
+                      return (
+                        <div key={lr._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{dateStr}</p>
+                            <p className="text-xs text-gray-600 capitalize">{lr.leave_type?.replace('_', ' ')}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            lr.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            lr.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            lr.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {lr.status}
+                          </span>
                         </div>
-                        <button
-                          onClick={() => window.open((nextPatient.meetingLink || nextPatient.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
-                          className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
-                        >
-                          <HiExternalLink className="h-3 w-3" />
-                          <span>Join Meeting</span>
-                        </button>
+                      );
+                    })}
+                    {leaveRequests.length > 3 && (
+                      <button
+                        onClick={() => navigate('/doctor/leave-requests')}
+                        className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-2"
+                      >
+                        View all {leaveRequests.length} requests
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Next Patient - Enhanced Design */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-xl border border-blue-100 p-6 sm:p-8 mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                  <HiUsers className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Next Patient</h2>
+              </div>
+              <button 
+                onClick={fetchNextPatient} 
+                className="flex items-center space-x-2 px-4 py-2 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-md hover:shadow-lg w-full sm:w-auto"
+              >
+                <HiCalendar className="h-4 w-4" />
+                <span className="font-medium">Refresh</span>
+              </button>
+            </div>
+            
+            {!nextPatient ? (
+              <div className="text-center py-12">
+                <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <HiUsers className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No patients waiting</h3>
+                <p className="text-gray-500">All patients have been attended to</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="h-12 w-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">#{nextPatient.tokenNumber}</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{nextPatient.patientName}</h3>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                          {nextPatient.age && <span>Age: {nextPatient.age}</span>}
+                          {nextPatient.gender && <span>• {nextPatient.gender}</span>}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button onClick={startConsultation} className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Start Consultation</button>
-                  <button onClick={skipConsultation} className="px-3 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">Skip / Call Later</button>
-                  <button onClick={markNoShow} className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Mark as No-Show</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Today's Queue by Session */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Today's Queue</h2>
-            <button
-              onClick={fetchTodayQueue}
-              className="text-gray-600 hover:text-gray-800 flex items-center space-x-1"
-              title="Refresh queue"
-            >
-              <HiCalendar className="h-4 w-4" />
-              <span>{todayQueue.date || ''}</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(['morning','afternoon','evening']).map((sid) => {
-              const session = (todayQueue.sessions || []).find(s => s.id === sid) || { id: sid, name: sid, range: '', queue: [] };
-              return (
-                <div key={sid} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">{session.name}</h3>
-                      {session.range && <p className="text-sm text-gray-500">{session.range}</p>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{session.queue?.length || 0}</div>
-                      <div className="text-xs text-gray-500">in queue</div>
-                    </div>
-                  </div>
-
-                  {(!session.queue || session.queue.length === 0) ? (
-                    <div className="text-sm text-gray-500">No patients in this session.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {session.queue.map(item => (
-                        <div key={item.id} className="border rounded p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                {item.tokenNumber && (
-                                  <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">Token #{item.tokenNumber}</span>
-                                )}
-                                <span className="text-sm font-medium text-gray-900">{item.patientName}</span>
-                              </div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                {(item.age || item.gender) && (
-                                  <span className="mr-3">{item.age ? `Age: ${item.age}` : ''}{item.age && item.gender ? ' • ' : ''}{item.gender || ''}</span>
-                                )}
-                                {item.symptoms && <span>Symptoms: {item.symptoms}</span>}
-                              </div>
-                              {item.appointmentType === 'video' && (item.meetingLink || item.meeting_link) && (
-                                <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded">
-                                  <button
-                                    onClick={() => window.open((item.meetingLink || item.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
-                                    className="flex items-center space-x-1 px-2 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
-                                  >
-                                    <HiVideoCamera className="h-3 w-3" />
-                                    <span>Join Meeting</span>
-                                  </button>
-                                </div>
-                              )}
+                    
+                    {nextPatient.symptoms && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+                        <h4 className="text-sm font-semibold text-yellow-800 mb-1">Symptoms</h4>
+                        <p className="text-yellow-700">{nextPatient.symptoms}</p>
+                      </div>
+                    )}
+                    
+                    {nextPatient.appointmentType === 'video' && (nextPatient.meetingLink || nextPatient.meeting_link) && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-8 w-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                              <HiVideoCamera className="h-4 w-4 text-white" />
                             </div>
-                            <div className="text-right space-y-1">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                item.bookingStatus === 'booked' ? 'bg-yellow-100 text-yellow-800' :
-                                item.bookingStatus === 'in_queue' ? 'bg-blue-100 text-blue-800' :
-                                item.bookingStatus === 'consulted' ? 'bg-green-100 text-green-800' :
-                                item.bookingStatus === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                item.bookingStatus === 'missed' ? 'bg-orange-100 text-orange-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>{item.bookingStatus}</span>
-                              <div>
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  item.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                                  item.paymentStatus === 'refunded' ? 'bg-purple-100 text-purple-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>{item.paymentStatus || 'pending'}</span>
-                              </div>
+                            <div>
+                              <h4 className="text-sm font-semibold text-purple-900">Video Consultation</h4>
+                              <p className="text-xs text-purple-700">Click to join the meeting</p>
                             </div>
                           </div>
+                          <button
+                            onClick={() => window.open((nextPatient.meetingLink || nextPatient.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                          >
+                            <HiExternalLink className="h-4 w-4" />
+                            <span>Join Meeting</span>
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row lg:flex-col space-y-3 sm:space-y-0 sm:space-x-3 lg:space-x-0 lg:space-y-3 mt-6 lg:mt-0 lg:ml-6">
+                    <button 
+                      onClick={startConsultation} 
+                      className="px-4 sm:px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl text-sm sm:text-base"
+                    >
+                      Start Consultation
+                    </button>
+                    <button 
+                      onClick={skipConsultation} 
+                      className="px-4 sm:px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 font-medium text-sm sm:text-base"
+                    >
+                      Skip / Call Later
+                    </button>
+                    <button 
+                      onClick={markNoShow} 
+                      className="px-4 sm:px-6 py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition-all duration-200 font-medium text-sm sm:text-base"
+                    >
+                      Mark as No-Show
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
-        </div>
+
 
         {/* Leave Requests Tracker */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
@@ -610,220 +680,167 @@ export default function DoctorDashboard() {
           )}
         </div>
 
-        {/* Quick Actions Grid */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.title}
-                  onClick={() => navigate(action.href)}
-                  className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 text-left group"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`${action.color} p-3 rounded-lg`}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600">
-                        {action.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">{action.description}</p>
-                    </div>
-                    <HiArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600" />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-              </div>
 
-        {/* Booked Patients */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Booked Patients</h2>
-            <button
-              onClick={() => navigate('/doctor/patients')}
-              className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-            >
-              <span>View All</span>
-              <HiArrowRight className="h-4 w-4" />
-            </button>
-              </div>
 
-          {bookedPatients.length === 0 ? (
-            <div className="text-center py-8">
-              <HiUsers className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No booked patients</h3>
-              <p className="mt-1 text-sm text-gray-500">Patients will appear here once they book appointments.</p>
-                            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {bookedPatients.slice(0, 6).map((patient) => (
-                <div key={patient._id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <HiUsers className="h-5 w-5 text-blue-600" />
-                              </div>
-                              </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{patient.name}</p>
-                      <p className="text-sm text-gray-500 truncate">{patient.email}</p>
-                      {patient.phone && (
-                        <p className="text-xs text-gray-500 truncate">{patient.phone}</p>
-                            )}
-                          </div>
-                  </div>
-                  {patient.nextAppointment && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <p className="text-xs text-gray-600">
-                        Next: {new Date(patient.nextAppointment.booking_date).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-gray-500">{patient.nextAppointment.time_slot}</p>
+          {/* Recent Appointments - Enhanced Design */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center">
+                  <HiCalendar className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Appointments</h2>
               </div>
-                  )}
-                </div>
-              ))}
-                </div>
-          )}
-                </div>
-
-        {/* All Appointments */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">All Appointments</h2>
-            <div className="flex space-x-2">
-              <button
-                onClick={fetchAppointments}
-                className="text-gray-600 hover:text-gray-800 flex items-center space-x-1"
-                title="Refresh appointments"
-              >
-                <HiCalendar className="h-4 w-4" />
-                <span>Refresh</span>
-              </button>
               <button
                 onClick={() => navigate('/doctor/appointments')}
-                className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl w-full sm:w-auto text-sm sm:text-base"
               >
-                <span>View Details</span>
+                <span>View All</span>
                 <HiArrowRight className="h-4 w-4" />
               </button>
             </div>
-          </div>
 
-          {/* Filter Tabs */}
-          <div className="mb-6">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                {[
-                  { key: 'all', label: 'All Appointments' },
-                  { key: 'today', label: 'Today' },
-                  { key: 'upcoming', label: 'Upcoming' },
-                  { key: 'past', label: 'Past' }
-                ].map((tab) => (
+            {/* Enhanced Filter Tabs */}
+            <div className="mb-6 sm:mb-8">
+              <div className="bg-gray-50 rounded-2xl p-2">
+                <nav className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'all', label: 'All Appointments', icon: HiCalendar },
+                    { key: 'today', label: 'Today', icon: HiCheckCircle },
+                    { key: 'upcoming', label: 'Upcoming', icon: HiTrendingUp },
+                    { key: 'past', label: 'Past', icon: HiEye }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
                       <button
-                    key={tab.key}
-                    onClick={() => {
-                      setAppointmentFilter(tab.key);
-                      setCurrentPage(1);
-                    }}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      appointmentFilter === tab.key
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {tab.label}
+                        key={tab.key}
+                        onClick={() => {
+                          setAppointmentFilter(tab.key);
+                          setCurrentPage(1);
+                        }}
+                        className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 ${
+                          appointmentFilter === tab.key
+                            ? 'bg-white text-blue-600 shadow-md'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
                       </button>
-                ))}
-              </nav>
+                    );
+                  })}
+                </nav>
+              </div>
             </div>
-                    </div>
           
-          {allAppointments.length === 0 ? (
-            <div className="text-center py-8">
-              <HiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
-                {appointmentFilter === 'today' ? 'No appointments today' :
-                 appointmentFilter === 'upcoming' ? 'No upcoming appointments' :
-                 appointmentFilter === 'past' ? 'No past appointments' :
-                 'No appointments found'}
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {appointmentFilter === 'today' ? 'You have a free day!' :
-                 appointmentFilter === 'upcoming' ? 'No future appointments scheduled.' :
-                 appointmentFilter === 'past' ? 'No completed appointments yet.' :
-                 'No appointments have been scheduled yet.'}
-              </p>
-            </div>
-          ) : (
-            <>
-                  <div className="space-y-4">
-                {allAppointments.map((appointment) => (
-                  <div key={appointment._id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <HiUsers className="h-5 w-5 text-blue-600" />
-                    </div>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{appointment.patient_name}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>{new Date(appointment.booking_date).toLocaleDateString()}</span>
-                            <span>{appointment.time_slot}</span>
+            {allAppointments.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <HiCalendar className="h-12 w-12 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {appointmentFilter === 'today' ? 'No appointments today' :
+                   appointmentFilter === 'upcoming' ? 'No upcoming appointments' :
+                   appointmentFilter === 'past' ? 'No past appointments' :
+                   'No appointments found'}
+                </h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  {appointmentFilter === 'today' ? 'You have a free day! Take some time to review your schedule or catch up on other tasks.' :
+                   appointmentFilter === 'upcoming' ? 'No future appointments scheduled. Check back later or update your availability.' :
+                   appointmentFilter === 'past' ? 'No completed appointments yet. Your consultation history will appear here.' :
+                   'No appointments have been scheduled yet. Patients can book appointments through the system.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {allAppointments.map((appointment) => (
+                    <div key={appointment._id} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4">
+                          <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                            <HiUsers className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900 mb-1">{appointment.patient_name}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                              <span className="flex items-center space-x-1">
+                                <HiCalendar className="h-4 w-4" />
+                                <span>{new Date(appointment.booking_date).toLocaleDateString()}</span>
+                              </span>
+                              <span className="font-medium">{appointment.time_slot}</span>
+                            </div>
                             {appointment.token_number && (
-                              <span className="bg-gray-100 px-2 py-1 rounded text-xs">Token #{appointment.token_number}</span>
+                              <div className="inline-flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full text-xs font-semibold text-gray-700 mb-3">
+                                <span>Token #{appointment.token_number}</span>
+                              </div>
+                            )}
+                            {appointment.symptoms && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                <p className="text-sm text-yellow-800 font-medium">Symptoms: {appointment.symptoms}</p>
+                              </div>
                             )}
                           </div>
-                          {appointment.symptoms && (
-                            <p className="text-xs text-gray-600 mt-1">Symptoms: {appointment.symptoms}</p>
-                          )}
                         </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        appointment.status === 'booked' ? 'bg-yellow-100 text-yellow-800' :
-                          appointment.status === 'in_queue' ? 'bg-blue-100 text-blue-800' :
-                        appointment.status === 'consulted' ? 'bg-green-100 text-green-800' :
-                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          appointment.status === 'missed' ? 'bg-orange-100 text-orange-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {appointment.status}
-                        </span>
+                        <div className="text-right">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            appointment.status === 'booked' ? 'bg-yellow-100 text-yellow-800' :
+                            appointment.status === 'in_queue' ? 'bg-blue-100 text-blue-800' :
+                            appointment.status === 'consulted' ? 'bg-green-100 text-green-800' :
+                            appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            appointment.status === 'missed' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {appointment.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Next
-                    </button>
-                  </div>
                 </div>
-              )}
+
+                {/* Enhanced Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-between">
+                    <div className="text-sm text-gray-600 font-medium">
+                      Showing page {currentPage} of {totalPages}
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-all duration-200"
+                      >
+                        <span>Previous</span>
+                      </button>
+                      <div className="flex items-center space-x-2">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          const pageNum = i + 1;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                currentPage === pageNum
+                                  ? 'bg-blue-600 text-white shadow-lg'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-all duration-200"
+                      >
+                        <span>Next</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
             </>
           )}
               </div>
@@ -898,6 +915,34 @@ export default function DoctorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Diagnosis Modal */}
+      {showDiagnosisModal && selectedAppointment && (
+        <DiagnosisModal
+          appointment={selectedAppointment}
+          onClose={() => {
+            setShowDiagnosisModal(false);
+            setSelectedAppointment(null);
+          }}
+          onSave={handleDiagnosisSaved}
+        />
+      )}
+
+      {/* Consultation Modal */}
+      <PatientConsultationModal
+        appointment={selectedAppointment}
+        isOpen={showConsultationModal}
+        onClose={() => {
+          setShowConsultationModal(false);
+          setSelectedAppointment(null);
+        }}
+        onSave={() => {
+          setShowConsultationModal(false);
+          setSelectedAppointment(null);
+          fetchTodayQueue();
+          fetchNextPatient();
+        }}
+      />
       </div>
     </div>
   );

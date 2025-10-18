@@ -222,10 +222,13 @@ export default function AppointmentList() {
           </div>
         ) : (
           <div className="space-y-4">
-            {appointments.map((appointment) => (
+            {appointments.map((appointment, index) => (
               <div key={appointment._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                    </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                       <HiUser className="h-6 w-6 text-blue-600" />
                     </div>

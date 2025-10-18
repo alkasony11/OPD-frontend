@@ -52,14 +52,12 @@ export default function AdminSidebar() {
     { name: 'Appointments', icon: HiClipboardList, path: '/admin/appointments', status: 'working' },
     { name: 'Doctors', icon: HiUserGroup, path: '/admin/doctors', status: 'working' },
     { name: 'Doctor Schedules', icon: HiCalendar, path: '/admin/doctor-schedules', status: 'working' },
+    { name: 'Schedule Requests', icon: HiBell, path: '/admin/schedule-requests', status: 'working' },
     { name: 'Leave Requests', icon: HiClipboardList, path: '/admin/leave-requests', status: 'working' },
     { name: 'Patients', icon: HiUsers, path: '/admin/patients', status: 'working' },
-    { name: 'Family Members', icon: HiUserGroup, path: '/admin/family-members', status: 'working' },
     { name: 'Departments', icon: HiOfficeBuilding, path: '/admin/departments', status: 'working' },
     { name: 'Payments', icon: HiCash, path: '/admin/payments', status: 'working' },
     { name: 'Feedback', icon: HiChat, path: '/admin/feedback', status: 'working' },
-    { name: 'Messages', icon: HiMail, path: '/admin/messages', status: 'working' },
-    { name: 'Analytics', icon: HiChartBar, path: '/admin/doctor-load', status: 'working' },
   ];
 
   const handleLogout = async () => {

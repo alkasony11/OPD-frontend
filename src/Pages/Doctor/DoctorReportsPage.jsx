@@ -218,40 +218,47 @@ export default function DoctorReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
       <DoctorSidebar />
       <div className="flex-1 ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
+        {/* Professional Header */}
+        <div className="bg-white shadow-lg border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
                 <button
                   onClick={() => navigate('/doctor/dashboard')}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200"
                 >
-                  <HiArrowLeft className="h-5 w-5" />
-                  <span>Back to Dashboard</span>
+                  <HiArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-                  <p className="text-gray-600">View your performance and patient statistics</p>
+                <div className="flex items-center space-x-3">
+                  <div className="h-12 w-12 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center">
+                    <HiChartBar className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+                    <p className="text-base sm:text-lg text-gray-600 mt-1">View your performance and patient statistics</p>
+                  </div>
                 </div>
               </div>
-            <button
-              onClick={exportReport}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <HiDownload className="h-4 w-4" />
-              <span>Export Report</span>
-            </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={exportReport}
+                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl"
+                >
+                  <HiDownload className="h-4 w-4" />
+                  <span>Export Report</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Date Range Filter */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Enhanced Date Range Filter */}
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Report Period</h3>
           <div className="flex flex-col sm:flex-row gap-4">
             <div>
@@ -273,9 +280,10 @@ export default function DoctorReportsPage() {
               />
             </div>
           </div>
-        </div>
+            </div>
+          </div>
 
-        {/* Key Statistics */}
+          {/* Key Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
@@ -509,7 +517,7 @@ export default function DoctorReportsPage() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
       </div>
     </div>
   );
