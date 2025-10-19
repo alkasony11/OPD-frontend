@@ -22,7 +22,7 @@ export const ValidatedInput = ({
   maxLength,
   ...props
 }) => {
-  const hasError = touched && error;
+  const hasError = error; // Show error immediately, not just when touched
   const isValid = touched && !error && value;
 
   return (
@@ -58,7 +58,7 @@ export const ValidatedInput = ({
         />
         
         {/* Validation Icons */}
-        {touched && (
+        {(touched || hasError) && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {hasError ? (
               <HiExclamationCircle className="h-5 w-5 text-red-500" />
@@ -243,7 +243,7 @@ export const ValidatedSelect = ({
   disabled = false,
   ...props
 }) => {
-  const hasError = touched && error;
+  const hasError = error; // Show error immediately, not just when touched
   const isValid = touched && !error && value;
 
   return (
@@ -289,7 +289,7 @@ export const ValidatedSelect = ({
         </div>
         
         {/* Validation Icons */}
-        {touched && (
+        {(touched || hasError) && (
           <div className="absolute inset-y-0 right-8 flex items-center pr-3">
             {hasError ? (
               <HiExclamationCircle className="h-5 w-5 text-red-500" />

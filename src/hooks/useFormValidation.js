@@ -26,11 +26,11 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
   // Debounced validation
   const [validationTimeout, setValidationTimeout] = useState(null);
 
-  const validateField = useCallback((fieldName, value) => {
+  const validateField = useCallback((fieldName, value, currentValues = values) => {
     if (!validationRules) return { isValid: true, message: '' };
     
-    // Create a temporary form data object for validation
-    const tempFormData = { ...values, [fieldName]: value };
+    // Create a temporary form data object for validation with the new value
+    const tempFormData = { ...currentValues, [fieldName]: value };
     const validation = validationRules(tempFormData);
     
     return {
@@ -41,10 +41,10 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
     };
   }, [values, validationRules]);
 
-  const validateForm = useCallback(() => {
+  const validateForm = useCallback((currentValues = values) => {
     if (!validationRules) return { isValid: true, errors: {} };
     
-    const validation = validationRules(values);
+    const validation = validationRules(currentValues);
     return {
       isValid: validation.isValid,
       errors: validation.errors || {},
@@ -106,9 +106,34 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
     }
 
     if (validateOnChange) {
-      debouncedValidation(name, fieldValue);
+      // Immediate validation for basic fields (name, phone) to show errors instantly
+      const immediateValidationFields = ['name', 'phone'];
+      if (immediateValidationFields.includes(name)) {
+        // Clear any existing timeout for this field
+        if (validationTimeout) {
+          clearTimeout(validationTimeout);
+        }
+        
+        // Immediate validation for basic fields with updated values
+        const updatedValues = { ...values, [name]: fieldValue };
+        const validation = validateField(name, fieldValue, updatedValues);
+        
+        // Always show validation errors for immediate fields, even on first keystroke
+        setErrors(prev => ({
+          ...prev,
+          [name]: validation.message
+        }));
+        
+        // Update overall form validity with updated values
+        const tempFormData = { ...values, [name]: fieldValue };
+        const formValidation = validateForm(tempFormData);
+        setIsValid(formValidation.isValid);
+      } else {
+        // Use debounced validation for other fields (email, password, etc.)
+        debouncedValidation(name, fieldValue);
+      }
     }
-  }, [validateOnChange, debouncedValidation, hasInteracted, validateForm, values]);
+  }, [validateOnChange, debouncedValidation, hasInteracted, validateForm, values, validateField, validationTimeout]);
 
   const handleBlur = useCallback((e) => {
     const { name, value } = e.target;
@@ -274,7 +299,7 @@ export const useLoginValidation = (initialValues = { email: '', password: '' }) 
   return useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
-    debounceMs: 300
+    debounceMs: 100
   });
 };
 
@@ -288,8 +313,7 @@ export const useRegistrationValidation = (initialValues = {
   dob: '',
   gender: '',
   password: '',
-  confirmPassword: '',
-  termsAccepted: false
+  confirmPassword: ''
 }) => {
   const validationRules = useCallback((formData) => {
     const errors = {};
@@ -474,11 +498,11 @@ export const useRegistrationValidation = (initialValues = {
       isValid = false;
     }
 
-    // Terms acceptance validation
-    if (!formData.termsAccepted) {
-      errors.termsAccepted = 'You must accept the Terms and Privacy Policy';
-      isValid = false;
-    }
+    // Terms acceptance validation - removed as no checkbox in UI
+    // if (!formData.termsAccepted) {
+    //   errors.termsAccepted = 'You must accept the Terms and Privacy Policy';
+    //   isValid = false;
+    // }
 
     return { isValid, errors, passwordStrength };
   }, []);
@@ -486,7 +510,7 @@ export const useRegistrationValidation = (initialValues = {
   const base = useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
-    debounceMs: 500
+    debounceMs: 100 // Reduced from 500ms to 100ms for faster feedback
   });
 
   // Async availability checks for email and phone
@@ -552,19 +576,24 @@ export const useProfileUpdateValidation = (initialValues = {
     const errors = {};
     let isValid = true;
 
-    // Name validation
+    // Name validation (strict)
     if (!formData.name) {
       errors.name = 'Name is required';
       isValid = false;
-    } else if (formData.name.trim().length < 2) {
-      errors.name = 'Name must be at least 2 characters long';
-      isValid = false;
-    } else if (formData.name.trim().length > 50) {
-      errors.name = 'Name is too long (max 50 characters)';
-      isValid = false;
-    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.name.trim())) {
-      errors.name = 'Name can only contain letters, spaces, hyphens, and apostrophes';
-      isValid = false;
+    } else {
+      // Normalize name spaces (no multiple spaces) before validation
+      const normalizedName = (formData.name || '').replace(/\s{2,}/g, ' ').trim();
+      
+      if (normalizedName.length < 2) {
+        errors.name = 'Name must be at least 2 characters long';
+        isValid = false;
+      } else if (normalizedName.length > 50) {
+        errors.name = 'Name is too long (max 50 characters)';
+        isValid = false;
+      } else if (!/^[a-zA-Z\s'-]+$/.test(normalizedName)) {
+        errors.name = 'Name can only contain letters, spaces, hyphens, and apostrophes';
+        isValid = false;
+      }
     }
 
     // Age validation
@@ -594,31 +623,74 @@ export const useProfileUpdateValidation = (initialValues = {
       isValid = false;
     }
 
-    // Phone validation
+    // Phone validation (strict - India)
     if (!formData.phone) {
       errors.phone = 'Phone number is required';
       isValid = false;
     } else {
-      const cleanPhone = formData.phone.replace(/\D/g, '');
-      if (cleanPhone.length < 10) {
-        errors.phone = 'Phone number must be at least 10 digits';
+      // Normalize to 10-digit Indian mobile number
+      let digits = formData.phone.replace(/\D/g, '');
+      if (digits.startsWith('0')) digits = digits.replace(/^0+/, '');
+      if (digits.startsWith('91') && digits.length === 12) digits = digits.slice(2);
+      if (digits.length !== 10) {
+        errors.phone = 'Enter a 10-digit Indian mobile number';
         isValid = false;
-      } else if (cleanPhone.length > 15) {
-        errors.phone = 'Phone number is too long';
+      } else if (!/^[6-9]\d{9}$/.test(digits)) {
+        errors.phone = 'Number must start with 6-9 and be 10 digits';
         isValid = false;
-      } else if (!/^(\+91|91)?[6-9]\d{9}$/.test(cleanPhone)) {
-        errors.phone = 'Please enter a valid Indian phone number';
+      } else if (/^(\d)\1{9}$/.test(digits)) {
+        errors.phone = 'Phone number cannot be all same digits';
+        isValid = false;
+      } else if (digits === '1234567890' || digits === '0123456789' || digits === '0987654321') {
+        errors.phone = 'Enter a real phone number';
         isValid = false;
       }
     }
 
-    // Email validation
+    // Email validation (strict)
     if (!formData.email) {
       errors.email = 'Email is required';
       isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
-      isValid = false;
+    } else {
+      const email = (formData.email || '').trim().toLowerCase();
+      const hasSpace = /\s/.test(email);
+      const parts = email.split('@');
+      const validParts = parts.length === 2 && parts[0] && parts[1];
+      const local = validParts ? parts[0] : '';
+      const domain = validParts ? parts[1] : '';
+
+      const tooLong = email.length > 254 || local.length > 64;
+      const hasConsecutiveDots = /\.\./.test(local) || /\.\./.test(domain);
+      const localStartsOrEndsWithDot = local.startsWith('.') || local.endsWith('.');
+      const invalidDomainLabel = domain
+        .split('.')
+        .some(label => !label || label.length > 63 || label.startsWith('-') || label.endsWith('-'));
+      const tld = domain.includes('.') ? domain.split('.').pop() : '';
+      const invalidTldShape = !tld || tld.length < 2 || tld.length > 24 || /[^a-z]/.test(tld);
+      // Restrict to commonly used/public TLDs for signup
+      const allowedTlds = ['com','net','org','edu','gov','mil','info','io','co','in','ai','app','dev'];
+      const invalidTld = invalidTldShape || !allowedTlds.includes(tld);
+
+      const basicRegex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/i;
+      // Additional strict local-part rule: must start with a letter
+      const localStartsWithLetter = /^[a-z][a-z0-9._%+\-]*$/i.test(local);
+
+      if (hasSpace || !validParts || !basicRegex.test(email)) {
+        errors.email = 'Please enter a valid email address';
+        isValid = false;
+      } else if (tooLong) {
+        errors.email = 'Email is too long';
+        isValid = false;
+      } else if (hasConsecutiveDots || localStartsOrEndsWithDot) {
+        errors.email = 'Email cannot contain consecutive dots or end with dot';
+        isValid = false;
+      } else if (!localStartsWithLetter) {
+        errors.email = 'Email must start with a letter';
+        isValid = false;
+      } else if (invalidDomainLabel || invalidTld) {
+        errors.email = 'Please enter a valid domain (e.g. example.com)';
+        isValid = false;
+      }
     }
 
     // Address validation (optional)
@@ -678,11 +750,60 @@ export const useProfileUpdateValidation = (initialValues = {
     return { isValid, errors };
   }, []);
 
-  return useFormValidation(initialValues, validationRules, {
+  const base = useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
-    debounceMs: 300
+    debounceMs: 100 // Faster feedback for profile updates
   });
+
+  // Override handleChange to provide immediate validation for critical fields
+  const handleChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    const fieldValue = type === 'checkbox' ? checked : value;
+
+    base.setValues(prev => ({
+      ...prev,
+      [name]: fieldValue
+    }));
+
+    // Mark field as touched on first change for dynamic validation UX
+    base.setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+
+    // Immediate validation for critical fields (name, phone, email)
+    const immediateValidationFields = ['name', 'phone', 'email'];
+    if (immediateValidationFields.includes(name)) {
+      // Clear any existing timeout for this field
+      if (base.validationTimeout) {
+        clearTimeout(base.validationTimeout);
+      }
+      
+      // Immediate validation for critical fields
+      const updatedValues = { ...base.values, [name]: fieldValue };
+      const validation = base.validateField(name, fieldValue, updatedValues);
+      
+      // Always show validation errors for immediate fields
+      base.setErrors(prev => ({
+        ...prev,
+        [name]: validation.message
+      }));
+      
+      // Update overall form validity with updated values
+      const tempFormData = { ...base.values, [name]: fieldValue };
+      const formValidation = base.validateForm(tempFormData);
+      base.setIsValid(formValidation.isValid);
+    } else {
+      // Use debounced validation for other fields
+      base.debouncedValidation(name, fieldValue);
+    }
+  }, [base]);
+
+  return {
+    ...base,
+    handleChange
+  };
 };
 
 /**
@@ -786,7 +907,7 @@ export const useFamilyMemberValidation = (initialValues = {
   return useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
-    debounceMs: 300
+    debounceMs: 100 // Faster feedback for family member forms
   });
 };
 
@@ -849,6 +970,6 @@ export const usePasswordChangeValidation = (initialValues = {
   return useFormValidation(initialValues, validationRules, {
     validateOnChange: true,
     validateOnBlur: true,
-    debounceMs: 300
+    debounceMs: 100
   });
 };

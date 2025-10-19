@@ -308,10 +308,12 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || !isValid}
-              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                isValid && !loading
-                  ? 'bg-black text-white hover:bg-gray-600'
-                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
+                loading
+                  ? 'bg-gray-500 text-white cursor-not-allowed opacity-50'
+                  : isValid
+                    ? 'bg-black text-white hover:bg-gray-600 hover:shadow-lg'
+                    : 'bg-black text-white hover:bg-gray-600 hover:shadow-lg opacity-50 cursor-not-allowed'
               }`}
             >
               {loading ? 'Signing In...' : 'Sign In'}

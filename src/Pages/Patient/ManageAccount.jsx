@@ -26,6 +26,7 @@ const ManageAccount = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -35,9 +36,6 @@ const ManageAccount = () => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState('');
-  const [showMessage, setShowMessage] = useState(false);
-  const [messageText, setMessageText] = useState('');
-  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
   // Form states with validation
   const profileValidation = useProfileUpdateValidation({
@@ -105,41 +103,50 @@ const ManageAccount = () => {
 
 
   useEffect(() => {
-    fetchUserData();
-    fetchFamilyMembers();
+    const loadData = async () => {
+      setInitialLoading(true);
+      try {
+        await Promise.all([
+          fetchUserData(),
+          fetchFamilyMembers()
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    loadData();
   }, []);
 
-  // Handle location state for profile completion messages
-  useEffect(() => {
-    if (location.state?.message) {
-      setMessageText(location.state.message);
-      setShowMessage(true);
-      setIsProfileIncomplete(location.state.isProfileIncomplete || false);
-      
-      // Don't auto-hide message - keep it until profile is complete
-    }
-  }, [location.state]);
 
   // Check if profile is complete based on required fields
   const isProfileComplete = () => {
     if (!user) return false;
     
-    // Check required fields: phone, dob, gender
+    // Check required fields: phone, dob, gender, age, address
     const hasPhone = user.phone && user.phone.trim() !== '';
     const hasDob = user.dob && user.dob !== '';
     const hasGender = user.gender && user.gender.trim() !== '';
+    const hasAge = user.age && user.age > 0;
+    const hasAddress = user.address && user.address.trim() !== '';
     
-    return hasPhone && hasDob && hasGender;
+    return hasPhone && hasDob && hasGender && hasAge && hasAddress;
   };
 
-  // Update message visibility when profile data changes
-  useEffect(() => {
-    if (showMessage && isProfileIncomplete && isProfileComplete()) {
-      // Profile is now complete, hide the message
-      setShowMessage(false);
-      setIsProfileIncomplete(false);
-    }
-  }, [user, showMessage, isProfileIncomplete]);
+  // Get missing fields for profile completion
+  const getMissingFields = () => {
+    const missingFields = [];
+    if (!user?.phone || user.phone.trim() === '') missingFields.push('Phone Number');
+    if (!user?.dob || user.dob === '') missingFields.push('Date of Birth');
+    if (!user?.gender || user.gender.trim() === '') missingFields.push('Gender');
+    if (!user?.age || user.age <= 0) missingFields.push('Age');
+    if (!user?.address || user.address.trim() === '') missingFields.push('Address');
+    return missingFields;
+  };
+
+
 
   const fetchUserData = async () => {
     try {
@@ -157,9 +164,11 @@ const ManageAccount = () => {
             profileImage: localUser.profileImage
           });
           setUser(localUser);
-          setProfileData({
+          
+          // Update both legacy state and validation hooks
+          const profileData = {
             name: localUser.name || '',
-            age: localUser.age || '',
+            age: localUser.age ? String(localUser.age) : '',
             gender: localUser.gender || 'male',
             phone: localUser.phone || '',
             email: localUser.email || '',
@@ -172,14 +181,26 @@ const ManageAccount = () => {
               phone: '',
               relation: ''
             }
+          };
+          
+          setProfileData(profileData);
+          
+          // Update validation hook values
+          Object.keys(profileData).forEach(key => {
+            if (key === 'emergencyContact') {
+              profileValidation.setFieldValue('emergencyContact', profileData.emergencyContact);
+            } else {
+              profileValidation.setFieldValue(key, profileData[key]);
+            }
           });
+          
           return;
         }
       }
       
-      console.log('Making API call to:', '${API_BASE_URL}/api/patient/profile');
+      console.log('Making API call to:', `${API_BASE_URL}/api/patient/profile`);
       
-      const response = await axios.get('${API_BASE_URL}/api/patient/profile', {
+      const response = await axios.get(`${API_BASE_URL}/api/patient/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -190,10 +211,13 @@ const ManageAccount = () => {
         profile_photo: userData.profile_photo,
         profileImage: userData.profileImage
       });
+      
       setUser(userData);
-      setProfileData({
+      
+      // Update both legacy state and validation hooks
+      const profileData = {
         name: userData.name || '',
-        age: userData.age || '',
+        age: userData.age ? String(userData.age) : '',
         gender: userData.gender || 'male',
         phone: userData.phone || '',
         email: userData.email || '',
@@ -206,7 +230,19 @@ const ManageAccount = () => {
           phone: '',
           relation: ''
         }
+      };
+      
+      setProfileData(profileData);
+      
+      // Update validation hook values
+      Object.keys(profileData).forEach(key => {
+        if (key === 'emergencyContact') {
+          profileValidation.setFieldValue('emergencyContact', profileData.emergencyContact);
+        } else {
+          profileValidation.setFieldValue(key, profileData[key]);
+        }
       });
+      
     } catch (error) {
       console.error('Error fetching user data:', error);
       console.error('Error response:', error.response?.data);
@@ -216,9 +252,10 @@ const ManageAccount = () => {
       if (localUser.name) {
         console.log('Using localStorage data as fallback after API error');
         setUser(localUser);
-        setProfileData({
+        
+        const profileData = {
           name: localUser.name || '',
-          age: localUser.age || '',
+          age: localUser.age ? String(localUser.age) : '',
           gender: localUser.gender || 'male',
           phone: localUser.phone || '',
           email: localUser.email || '',
@@ -231,6 +268,17 @@ const ManageAccount = () => {
             phone: '',
             relation: ''
           }
+        };
+        
+        setProfileData(profileData);
+        
+        // Update validation hook values
+        Object.keys(profileData).forEach(key => {
+          if (key === 'emergencyContact') {
+            profileValidation.setFieldValue('emergencyContact', profileData.emergencyContact);
+          } else {
+            profileValidation.setFieldValue(key, profileData[key]);
+          }
         });
       } else {
         Swal.fire('Error', 'Failed to load profile data', 'error');
@@ -241,7 +289,7 @@ const ManageAccount = () => {
   const fetchFamilyMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/patient/family-members', {
+      const response = await axios.get(`${API_BASE_URL}/api/patient/family-members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFamilyMembers(response.data.familyMembers || []);
@@ -286,7 +334,7 @@ const ManageAccount = () => {
       formData.append('photo', photoFile);
 
       const token = localStorage.getItem('token');
-      const response = await axios.post('${API_BASE_URL}/api/patient/upload-photo', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/patient/upload-photo`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -347,7 +395,7 @@ const ManageAccount = () => {
         setUploadingPhoto(true);
         const token = localStorage.getItem('token');
         
-        await axios.delete('${API_BASE_URL}/api/patient/remove-photo', {
+        await axios.delete(`${API_BASE_URL}/api/patient/remove-photo`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -395,15 +443,29 @@ const ManageAccount = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put('${API_BASE_URL}/api/patient/profile', profileValidation.values, {
+      // Prepare data for API call - convert age to number
+      const apiData = {
+        ...profileValidation.values,
+        age: profileValidation.values.age ? parseInt(profileValidation.values.age) : undefined
+      };
+      
+      console.log('Updating profile with data:', apiData);
+      console.log('API URL:', `${API_BASE_URL}/api/patient/profile`);
+      console.log('Token exists:', !!token);
+      
+      await axios.put(`${API_BASE_URL}/api/patient/profile`, apiData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       Swal.fire('Success', 'Profile updated successfully!', 'success');
-      fetchUserData();
+      await fetchUserData();
     } catch (error) {
       console.error('Error updating profile:', error);
-      Swal.fire('Error', 'Failed to update profile', 'error');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile';
+      Swal.fire('Error', errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -421,7 +483,7 @@ const ManageAccount = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', familyMemberValidation.values, {
+      const response = await axios.post(`${API_BASE_URL}/api/patient/family-members`, familyMemberValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -579,7 +641,7 @@ const ManageAccount = () => {
         setLoading(true);
         const token = localStorage.getItem('token');
         
-        await axios.put('${API_BASE_URL}/api/patient/change-password', {
+        await axios.put(`${API_BASE_URL}/api/patient/change-password`, {
           currentPassword: formValues.currentPassword,
           newPassword: formValues.newPassword
         }, {
@@ -603,6 +665,21 @@ const ManageAccount = () => {
     { id: 'medical', name: 'Medical Details', icon: HeartIcon }
   ];
 
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading your account details...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -611,37 +688,45 @@ const ManageAccount = () => {
           <p className="mt-2 text-gray-600">Update your personal information and account settings</p>
         </div>
 
-        {/* Profile Completion Message */}
-        {showMessage && (
-          <div className={`mb-6 p-4 rounded-lg border-l-4 ${
-            isProfileIncomplete 
-              ? 'bg-blue-50 border-blue-400 text-blue-800' 
-              : 'bg-green-50 border-green-400 text-green-800'
-          }`}>
+        {/* Simple Profile Completion Message */}
+        {user && !isProfileComplete() && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-start">
-              <InformationCircleIcon className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0" />
+              <InformationCircleIcon className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium">{messageText}</p>
-                {isProfileIncomplete && (
-                  <div className="text-xs mt-2 opacity-90">
-                    <p className="mb-1">Please complete the following required fields:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      {(!user?.phone || user.phone.trim() === '') && (
-                        <li>Phone Number</li>
-                      )}
-                      {(!user?.dob || user.dob === '') && (
-                        <li>Date of Birth</li>
-                      )}
-                      {(!user?.gender || user.gender.trim() === '') && (
-                        <li>Gender</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
+                <h3 className="text-sm font-medium text-blue-800 mb-2">Complete Your Profile</h3>
+                <p className="text-sm text-blue-700 mb-2">
+                  Please fill in the following required fields to complete your profile:
+                </p>
+                <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
+                  {getMissingFields().map((field, index) => (
+                    <li key={index}>{field}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-blue-600 mt-2">
+                  This helps us provide better healthcare services.
+                </p>
               </div>
             </div>
           </div>
         )}
+
+        {/* Profile Complete Success Message */}
+        {user && isProfileComplete() && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium text-green-800">Profile Complete!</h3>
+                <p className="text-sm text-green-700">Thank you for completing your profile. This helps us provide better healthcare services.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+
 
         <div className="bg-white rounded-lg shadow-sm">
           {/* Tab Navigation */}
@@ -699,6 +784,10 @@ const ManageAccount = () => {
                   <div className="flex-1">
                     <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
                     <p className="text-sm text-gray-500">Patient ID: {user?.patientId}</p>
+                    <p className="text-sm text-gray-500">Email: {user?.email}</p>
+                    <p className="text-sm text-gray-500">Phone: {user?.phone || 'Not provided'}</p>
+                    <p className="text-sm text-gray-500">Role: {user?.role}</p>
+                    <p className="text-sm text-gray-500">Status: {user?.isActive ? 'Active' : 'Inactive'}</p>
                     <div className="mt-2 flex space-x-3">
                       <button
                         onClick={() => setShowPhotoUpload(true)}
@@ -721,7 +810,7 @@ const ManageAccount = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                     <input
                       type="text"
                       name="name"
@@ -740,7 +829,7 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Age *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
                     <input
                       type="number"
                       name="age"
@@ -759,7 +848,23 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={user?.dob ? new Date(user.dob).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const dob = e.target.value;
+                        setUser(prev => ({ ...prev, dob }));
+                        profileValidation.setFieldValue('dob', dob);
+                      }}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Date of birth from registration</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
                     <select
                       name="gender"
                       value={profileValidation.values.gender}
@@ -781,7 +886,7 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
                     <input
                       type="tel"
                       name="phone"
@@ -800,7 +905,7 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                     <input
                       type="email"
                       name="email"
@@ -819,7 +924,7 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                     <textarea
                       name="address"
                       value={profileValidation.values.address}
@@ -910,7 +1015,7 @@ const ManageAccount = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
                     <select
                       name="bloodGroup"
                       value={profileValidation.values.bloodGroup}
@@ -938,7 +1043,7 @@ const ManageAccount = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
                     <input
                       type="text"
                       name="allergies"
@@ -951,7 +1056,7 @@ const ManageAccount = () => {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Chronic Conditions</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Chronic Conditions</label>
                     <textarea
                       name="chronicConditions"
                       value={profileValidation.values.chronicConditions}
@@ -969,7 +1074,7 @@ const ManageAccount = () => {
                   <h4 className="text-md font-medium text-gray-900 mb-4">Emergency Contact</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                       <input
                         type="text"
                         name="emergencyContact.name"
@@ -995,7 +1100,7 @@ const ManageAccount = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                       <input
                         type="tel"
                         name="emergencyContact.phone"
@@ -1021,7 +1126,7 @@ const ManageAccount = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Relation</label>
                       <select
                         name="emergencyContact.relation"
                         value={profileValidation.values.emergencyContact.relation}
@@ -1074,8 +1179,8 @@ const ManageAccount = () => {
 
       {/* Photo Upload Modal */}
       {showPhotoUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
+          <div className="bg-white rounded-lg p-4 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Upload Profile Photo</h3>
               <button
@@ -1171,8 +1276,8 @@ const ManageAccount = () => {
 
       {/* Add/Edit Family Member Modal */}
       {showAddMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
+          <div className="bg-white rounded-lg p-4 max-w-sm w-full mx-4 max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
                 {editingMember ? 'Edit Family Member' : 'Add Family Member'}
@@ -1198,9 +1303,9 @@ const ManageAccount = () => {
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input
                   type="text"
                   name="name"
@@ -1221,7 +1326,7 @@ const ManageAccount = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Age *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
                   <input
                     type="number"
                     name="age"
@@ -1240,7 +1345,7 @@ const ManageAccount = () => {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
                   <select
                     name="gender"
                     value={familyMemberValidation.values.gender}
@@ -1264,7 +1369,7 @@ const ManageAccount = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input
                   type="tel"
                   name="phone"
@@ -1284,7 +1389,7 @@ const ManageAccount = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Relation *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Relation *</label>
                 <select
                   name="relation"
                   value={familyMemberValidation.values.relation}
@@ -1309,7 +1414,7 @@ const ManageAccount = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
                 <select
                   name="bloodGroup"
                   value={familyMemberValidation.values.bloodGroup}
@@ -1338,7 +1443,7 @@ const ManageAccount = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
                 <input
                   type="text"
                   name="allergies"
@@ -1352,7 +1457,7 @@ const ManageAccount = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Chronic Conditions</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chronic Conditions</label>
                 <textarea
                   name="chronicConditions"
                   value={familyMemberValidation.values.chronicConditions}
