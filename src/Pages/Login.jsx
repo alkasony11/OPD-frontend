@@ -42,19 +42,32 @@ export default function Login() {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     const rememberMeData = localStorage.getItem('rememberMe');
-    const tokenExpiration = localStorage.getItem('tokenExpiration');
+
+    console.log('Auto-login check:', {
+      hasToken: !!token,
+      hasUserData: !!userData,
+      rememberMe: rememberMeData
+    });
 
     if (token && userData) {
-      // Check if token has expired (only if not remember me or if remember me has expired)
-      const isRememberMe = rememberMeData === 'true';
-      const hasExpiration = tokenExpiration && parseInt(tokenExpiration) > new Date().getTime();
-      
-      if (!isRememberMe || !hasExpiration) {
-        // Token expired or not remember me, clear data
+      // Check if JWT token has expired
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < currentTime) {
+          // JWT token expired, clear data
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('rememberMe');
+          console.log('Token expired, clearing auth data');
+          return;
+        }
+      } catch (error) {
+        // Invalid token, clear data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('rememberMe');
-        localStorage.removeItem('tokenExpiration');
+        console.log('Invalid token, clearing auth data');
         return;
       }
 
@@ -114,7 +127,10 @@ export default function Login() {
     setLoading(true);
     
     try {
-      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, formData);
+      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, {
+        ...formData,
+        rememberMe
+      });
       if (response.data?.user && (response.data.user.status === 'inactive' || response.data.user.isActive === false)) {
         setServerError('Your account has been deactivated by the administrator. Please contact support.');
         return;
@@ -125,12 +141,10 @@ export default function Login() {
       // Handle remember me functionality
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
-        // Set longer expiration for remember me (30 days)
-        const expirationTime = new Date().getTime() + (30 * 24 * 60 * 60 * 1000);
-        localStorage.setItem('tokenExpiration', expirationTime.toString());
+        console.log('Remember me enabled - token expires in 30 days');
       } else {
         localStorage.removeItem('rememberMe');
-        localStorage.removeItem('tokenExpiration');
+        console.log('Remember me disabled - using JWT expiration');
       }
       
       setIsLoggedIn(true);
