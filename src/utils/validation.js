@@ -343,3 +343,306 @@ export const getPasswordStrengthText = (strength) => {
       return '';
   }
 };
+
+/**
+ * Age validation
+ * @param {string|number} age - Age to validate
+ * @returns {object} - { isValid: boolean, message: string }
+ */
+export const validateAge = (age) => {
+  if (!age) {
+    return { isValid: false, message: 'Age is required' };
+  }
+  
+  const ageNum = parseInt(age);
+  if (isNaN(ageNum)) {
+    return { isValid: false, message: 'Age must be a valid number' };
+  }
+  
+  if (ageNum < 0) {
+    return { isValid: false, message: 'Age cannot be negative' };
+  }
+  
+  if (ageNum < 1) {
+    return { isValid: false, message: 'Age must be at least 1 year' };
+  }
+  
+  if (ageNum > 150) {
+    return { isValid: false, message: 'Age cannot exceed 150 years' };
+  }
+  
+  return { isValid: true, message: '' };
+};
+
+/**
+ * Blood group validation
+ * @param {string} bloodGroup - Blood group to validate
+ * @returns {object} - { isValid: boolean, message: string }
+ */
+export const validateBloodGroup = (bloodGroup) => {
+  if (!bloodGroup) {
+    return { isValid: true, message: '' }; // Optional field
+  }
+  
+  const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  if (!validBloodGroups.includes(bloodGroup)) {
+    return { isValid: false, message: 'Please select a valid blood group' };
+  }
+  
+  return { isValid: true, message: '' };
+};
+
+/**
+ * Relation validation
+ * @param {string} relation - Relation to validate
+ * @returns {object} - { isValid: boolean, message: string }
+ */
+export const validateRelation = (relation) => {
+  if (!relation) {
+    return { isValid: false, message: 'Relation is required' };
+  }
+  
+  const validRelations = ['spouse', 'child', 'parent', 'sibling', 'other'];
+  if (!validRelations.includes(relation)) {
+    return { isValid: false, message: 'Please select a valid relation' };
+  }
+  
+  return { isValid: true, message: '' };
+};
+
+/**
+ * Address validation
+ * @param {string} address - Address to validate
+ * @returns {object} - { isValid: boolean, message: string }
+ */
+export const validateAddress = (address) => {
+  if (!address) {
+    return { isValid: true, message: '' }; // Optional field
+  }
+  
+  if (address.trim().length < 10) {
+    return { isValid: false, message: 'Address must be at least 10 characters long' };
+  }
+  
+  if (address.trim().length > 500) {
+    return { isValid: false, message: 'Address is too long (max 500 characters)' };
+  }
+  
+  return { isValid: true, message: '' };
+};
+
+/**
+ * Emergency contact validation
+ * @param {object} emergencyContact - Emergency contact object
+ * @returns {object} - { isValid: boolean, errors: object }
+ */
+export const validateEmergencyContact = (emergencyContact) => {
+  const errors = {};
+  let isValid = true;
+  
+  if (!emergencyContact) {
+    return { isValid: true, errors: {} }; // Optional field
+  }
+  
+  // Name validation
+  if (emergencyContact.name) {
+    const nameValidation = validateName(emergencyContact.name);
+    if (!nameValidation.isValid) {
+      errors.name = nameValidation.message;
+      isValid = false;
+    }
+  }
+  
+  // Phone validation
+  if (emergencyContact.phone) {
+    const phoneValidation = validatePhone(emergencyContact.phone);
+    if (!phoneValidation.isValid) {
+      errors.phone = phoneValidation.message;
+      isValid = false;
+    }
+  }
+  
+  // Relation validation
+  if (emergencyContact.relation) {
+    const relationValidation = validateRelation(emergencyContact.relation);
+    if (!relationValidation.isValid) {
+      errors.relation = relationValidation.message;
+      isValid = false;
+    }
+  }
+  
+  return { isValid, errors };
+};
+
+/**
+ * Family member validation
+ * @param {object} member - Family member object
+ * @returns {object} - { isValid: boolean, errors: object }
+ */
+export const validateFamilyMember = (member) => {
+  const errors = {};
+  let isValid = true;
+  
+  // Name validation
+  const nameValidation = validateName(member.name);
+  if (!nameValidation.isValid) {
+    errors.name = nameValidation.message;
+    isValid = false;
+  }
+  
+  // Age validation
+  const ageValidation = validateAge(member.age);
+  if (!ageValidation.isValid) {
+    errors.age = ageValidation.message;
+    isValid = false;
+  }
+  
+  // Gender validation
+  const genderValidation = validateGender(member.gender);
+  if (!genderValidation.isValid) {
+    errors.gender = genderValidation.message;
+    isValid = false;
+  }
+  
+  // Phone validation (optional)
+  if (member.phone) {
+    const phoneValidation = validatePhone(member.phone);
+    if (!phoneValidation.isValid) {
+      errors.phone = phoneValidation.message;
+      isValid = false;
+    }
+  }
+  
+  // Relation validation
+  const relationValidation = validateRelation(member.relation);
+  if (!relationValidation.isValid) {
+    errors.relation = relationValidation.message;
+    isValid = false;
+  }
+  
+  // Blood group validation (optional)
+  if (member.bloodGroup) {
+    const bloodGroupValidation = validateBloodGroup(member.bloodGroup);
+    if (!bloodGroupValidation.isValid) {
+      errors.bloodGroup = bloodGroupValidation.message;
+      isValid = false;
+    }
+  }
+  
+  return { isValid, errors };
+};
+
+/**
+ * Profile update validation
+ * @param {object} profileData - Profile data to validate
+ * @returns {object} - { isValid: boolean, errors: object }
+ */
+export const validateProfileUpdate = (profileData) => {
+  const errors = {};
+  let isValid = true;
+  
+  // Name validation
+  const nameValidation = validateName(profileData.name);
+  if (!nameValidation.isValid) {
+    errors.name = nameValidation.message;
+    isValid = false;
+  }
+  
+  // Age validation
+  const ageValidation = validateAge(profileData.age);
+  if (!ageValidation.isValid) {
+    errors.age = ageValidation.message;
+    isValid = false;
+  }
+  
+  // Gender validation
+  const genderValidation = validateGender(profileData.gender);
+  if (!genderValidation.isValid) {
+    errors.gender = genderValidation.message;
+    isValid = false;
+  }
+  
+  // Phone validation
+  const phoneValidation = validatePhone(profileData.phone);
+  if (!phoneValidation.isValid) {
+    errors.phone = phoneValidation.message;
+    isValid = false;
+  }
+  
+  // Email validation
+  const emailValidation = validateEmail(profileData.email);
+  if (!emailValidation.isValid) {
+    errors.email = emailValidation.message;
+    isValid = false;
+  }
+  
+  // Address validation (optional)
+  if (profileData.address) {
+    const addressValidation = validateAddress(profileData.address);
+    if (!addressValidation.isValid) {
+      errors.address = addressValidation.message;
+      isValid = false;
+    }
+  }
+  
+  // Blood group validation (optional)
+  if (profileData.bloodGroup) {
+    const bloodGroupValidation = validateBloodGroup(profileData.bloodGroup);
+    if (!bloodGroupValidation.isValid) {
+      errors.bloodGroup = bloodGroupValidation.message;
+      isValid = false;
+    }
+  }
+  
+  // Emergency contact validation (optional)
+  if (profileData.emergencyContact) {
+    const emergencyValidation = validateEmergencyContact(profileData.emergencyContact);
+    if (!emergencyValidation.isValid) {
+      Object.assign(errors, emergencyValidation.errors);
+      isValid = false;
+    }
+  }
+  
+  return { isValid, errors };
+};
+
+/**
+ * Password change validation
+ * @param {object} passwordData - Password change data
+ * @returns {object} - { isValid: boolean, errors: object }
+ */
+export const validatePasswordChange = (passwordData) => {
+  const errors = {};
+  let isValid = true;
+  
+  // Current password validation
+  if (!passwordData.currentPassword) {
+    errors.currentPassword = 'Current password is required';
+    isValid = false;
+  }
+  
+  // New password validation
+  const newPasswordValidation = validatePassword(passwordData.newPassword, false);
+  if (!newPasswordValidation.isValid) {
+    errors.newPassword = newPasswordValidation.message;
+    isValid = false;
+  }
+  
+  // Confirm password validation
+  if (!passwordData.confirmPassword) {
+    errors.confirmPassword = 'Please confirm your new password';
+    isValid = false;
+  } else if (passwordData.newPassword && passwordData.confirmPassword !== passwordData.newPassword) {
+    errors.confirmPassword = 'Passwords do not match';
+    isValid = false;
+  }
+  
+  // Check if new password is same as current
+  if (passwordData.currentPassword && passwordData.newPassword && 
+      passwordData.currentPassword === passwordData.newPassword) {
+    errors.newPassword = 'New password must be different from current password';
+    isValid = false;
+  }
+  
+  return { isValid, errors };
+};

@@ -1,0 +1,859 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
+import Swal from 'sweetalert2';
+import {
+  CogIcon,
+  BellIcon,
+  ShieldCheckIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  TrashIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  CalendarDaysIcon
+} from '@heroicons/react/24/outline';
+import { usePasswordChangeValidation } from '../../hooks/useFormValidation';
+
+const Settings = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [activeQuickAccess, setActiveQuickAccess] = useState(null);
+  const [notifications, setNotifications] = useState({
+    emailNotifications: true,
+    smsNotifications: true,
+    appointmentReminders: true,
+    prescriptionReady: true,
+    paymentReminders: true
+  });
+  const [privacy, setPrivacy] = useState({
+    profileVisibility: 'private',
+    shareMedicalData: false,
+    allowDataCollection: true
+  });
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+
+  // Data for quick access sections
+  const [invoices, setInvoices] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [consultedAppointments, setConsultedAppointments] = useState([]);
+  const [cancelledAppointments, setCancelledAppointments] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Password change validation
+  const passwordValidation = usePasswordChangeValidation({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  useEffect(() => {
+    fetchUserData();
+    fetchSettings();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success && response.data.settings) {
+        setNotifications(response.data.settings.notifications || notifications);
+        setPrivacy(response.data.settings.privacy || privacy);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      // Use default settings if API fails
+    }
+  };
+
+  const fetchInvoices = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/invoices`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setInvoices(response.data.invoices || []);
+      }
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setInvoices([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      setAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchConsultedAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/consulted-appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setConsultedAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching consulted appointments:', error);
+      setConsultedAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchCancelledAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/cancelled-appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setCancelledAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching cancelled appointments:', error);
+      setCancelledAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleQuickAccessClick = (section) => {
+    setActiveQuickAccess(section);
+    
+    // Fetch data based on the selected section
+    switch (section) {
+      case 'invoices':
+        fetchInvoices();
+        break;
+      case 'appointments':
+        fetchAppointments();
+        break;
+      case 'consulted':
+        fetchConsultedAppointments();
+        break;
+      case 'cancelled':
+        fetchCancelledAppointments();
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleNotificationChange = (key, value) => {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handlePrivacyChange = (key, value) => {
+    setPrivacy(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveSettings = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API_BASE_URL}/api/patient/settings`, {
+        notifications,
+        privacy
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        Swal.fire('Success', 'Settings saved successfully!', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      Swal.fire('Error', 'Failed to save settings', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Change Password',
+      html: `
+        <input id="current-password" type="password" placeholder="Current Password" class="swal2-input">
+        <input id="new-password" type="password" placeholder="New Password" class="swal2-input">
+        <input id="confirm-password" type="password" placeholder="Confirm New Password" class="swal2-input">
+        <div class="text-xs text-gray-600 mt-2">
+          Password must be at least 8 characters with uppercase, lowercase, numbers, and no spaces
+        </div>
+      `,
+      focusConfirm: false,
+      preConfirm: () => {
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        // Validate using our validation function
+        const validation = passwordValidation.validateForm({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        });
+        
+        if (!validation.isValid) {
+          const firstError = Object.values(validation.errors)[0];
+          Swal.showValidationMessage(firstError);
+          return false;
+        }
+        
+        return { currentPassword, newPassword };
+      }
+    });
+
+    if (formValues) {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        
+        await axios.put(`${API_BASE_URL}/api/patient/change-password`, {
+          currentPassword: formValues.currentPassword,
+          newPassword: formValues.newPassword
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        Swal.fire('Success', 'Password changed successfully!', 'success');
+      } catch (error) {
+        console.error('Error changing password:', error);
+        Swal.fire('Error', error.response?.data?.message || 'Failed to change password', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      Swal.fire('Error', 'Please type DELETE to confirm account deletion', 'error');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'This action cannot be undone. All your data will be permanently deleted.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete my account',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.delete(`${API_BASE_URL}/api/patient/account`, {
+          headers: { Authorization: `Bearer ${token}` },
+          data: { password: 'DELETE' } // Using DELETE as password for now
+        });
+
+        if (response.data.success) {
+          // Clear local storage and redirect
+          localStorage.clear();
+          Swal.fire('Account Deleted', 'Your account has been permanently deleted.', 'success');
+          navigate('/');
+        }
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        Swal.fire('Error', 'Failed to delete account', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="mt-2 text-gray-600">Manage your account preferences and privacy settings</p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Quick Access */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center mb-6">
+              <CalendarDaysIcon className="h-6 w-6 text-blue-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Quick Access</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <button
+                onClick={() => handleQuickAccessClick('invoices')}
+                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
+                  activeQuickAccess === 'invoices'
+                    ? 'border-orange-300 bg-orange-50'
+                    : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                }`}
+              >
+                <DocumentTextIcon className="h-8 w-8 text-orange-600 mb-2" />
+                <span className="text-sm font-medium text-gray-900">Invoices</span>
+                <span className="text-xs text-gray-500">View payment history</span>
+              </button>
+              
+              <button
+                onClick={() => handleQuickAccessClick('consulted')}
+                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
+                  activeQuickAccess === 'consulted'
+                    ? 'border-purple-300 bg-purple-50'
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                }`}
+              >
+                <ClockIcon className="h-8 w-8 text-purple-600 mb-2" />
+                <span className="text-sm font-medium text-gray-900">Appointment History</span>
+                <span className="text-xs text-gray-500">Past consultations</span>
+              </button>
+              
+              <button
+                onClick={() => handleQuickAccessClick('cancelled')}
+                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
+                  activeQuickAccess === 'cancelled'
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
+                }`}
+              >
+                <XMarkIcon className="h-8 w-8 text-red-600 mb-2" />
+                <span className="text-sm font-medium text-gray-900">Cancelled Appointments</span>
+                <span className="text-xs text-gray-500">Cancelled bookings</span>
+              </button>
+              
+              <button
+                onClick={() => handleQuickAccessClick('appointments')}
+                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
+                  activeQuickAccess === 'appointments'
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
+                }`}
+              >
+                <CalendarDaysIcon className="h-8 w-8 text-green-600 mb-2" />
+                <span className="text-sm font-medium text-gray-900">My Appointments</span>
+                <span className="text-xs text-gray-500">Upcoming bookings</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Access Content */}
+          {activeQuickAccess && (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {activeQuickAccess === 'invoices' && 'Invoices'}
+                  {activeQuickAccess === 'appointments' && 'My Appointments'}
+                  {activeQuickAccess === 'consulted' && 'Appointment History'}
+                  {activeQuickAccess === 'cancelled' && 'Cancelled Appointments'}
+                </h2>
+                <button
+                  onClick={() => setActiveQuickAccess(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              {loadingData ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeQuickAccess === 'invoices' && (
+                    <InvoicesContent invoices={invoices} />
+                  )}
+                  {activeQuickAccess === 'appointments' && (
+                    <AppointmentsContent appointments={appointments} />
+                  )}
+                  {activeQuickAccess === 'consulted' && (
+                    <ConsultedAppointmentsContent appointments={consultedAppointments} />
+                  )}
+                  {activeQuickAccess === 'cancelled' && (
+                    <CancelledAppointmentsContent appointments={cancelledAppointments} />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Notifications Settings */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center mb-6">
+              <BellIcon className="h-6 w-6 text-blue-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Notifications</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
+                  <p className="text-sm text-gray-500">Receive updates via email</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifications.emailNotifications}
+                    onChange={(e) => handleNotificationChange('emailNotifications', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">SMS Notifications</h3>
+                  <p className="text-sm text-gray-500">Receive updates via SMS</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifications.smsNotifications}
+                    onChange={(e) => handleNotificationChange('smsNotifications', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Appointment Reminders</h3>
+                  <p className="text-sm text-gray-500">Get reminded about upcoming appointments</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifications.appointmentReminders}
+                    onChange={(e) => handleNotificationChange('appointmentReminders', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Prescription Ready</h3>
+                  <p className="text-sm text-gray-500">Get notified when prescriptions are ready</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifications.prescriptionReady}
+                    onChange={(e) => handleNotificationChange('prescriptionReady', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Privacy Settings */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center mb-6">
+              <ShieldCheckIcon className="h-6 w-6 text-green-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Privacy & Security</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Profile Visibility</h3>
+                  <p className="text-sm text-gray-500">Control who can see your profile</p>
+                </div>
+                <select
+                  value={privacy.profileVisibility}
+                  onChange={(e) => handlePrivacyChange('profileVisibility', e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="private">Private</option>
+                  <option value="doctors">Doctors Only</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Share Medical Data</h3>
+                  <p className="text-sm text-gray-500">Allow doctors to access your medical history</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={privacy.shareMedicalData}
+                    onChange={(e) => handlePrivacyChange('shareMedicalData', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Data Collection</h3>
+                  <p className="text-sm text-gray-500">Allow anonymous data collection for service improvement</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={privacy.allowDataCollection}
+                    onChange={(e) => handlePrivacyChange('allowDataCollection', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Security */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center mb-6">
+              <CogIcon className="h-6 w-6 text-gray-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Account Security</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Change Password</h3>
+                  <p className="text-sm text-gray-500">Update your account password</p>
+                </div>
+                <button
+                  onClick={handlePasswordChange}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Change Password
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
+            <div className="flex items-center mb-6">
+              <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+              <h2 className="text-xl font-semibold text-red-900">Danger Zone</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Delete Account</h3>
+                  <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
+                </div>
+                <button
+                  onClick={() => setShowDeleteAccount(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={saveSettings}
+              disabled={loading}
+              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+
+        {/* Delete Account Modal */}
+        {showDeleteAccount && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex items-center mb-4">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+              </div>
+              
+              <p className="text-sm text-gray-600 mb-4">
+                This action cannot be undone. All your data will be permanently deleted.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type <span className="font-mono bg-gray-100 px-2 py-1 rounded">DELETE</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Type DELETE here"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteAccount(false);
+                    setDeleteConfirmation('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmation !== 'DELETE' || loading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Deleting...' : 'Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Content Components
+const InvoicesContent = ({ invoices }) => {
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (invoices.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No invoices found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {invoices.map((invoice) => (
+        <div key={invoice.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-gray-900">Invoice #{invoice.invoice_number || invoice.id}</h3>
+              <p className="text-sm text-gray-500">Date: {formatDate(invoice.created_at || invoice.appointment?.appointmentDate)}</p>
+              {invoice.appointment && (
+                <p className="text-sm text-gray-500">Doctor: {invoice.appointment.doctorName}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-gray-900">{formatCurrency(invoice.amount || 0)}</p>
+              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                invoice.payment_status === 'paid' 
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {invoice.payment_status?.charAt(0).toUpperCase() + invoice.payment_status?.slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const AppointmentsContent = ({ appointments }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <CalendarDaysIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No appointments found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
+              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                appointment.status === 'confirmed' 
+                  ? 'bg-green-100 text-green-800'
+                  : appointment.status === 'pending'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                {appointment.status?.charAt(0).toUpperCase() + appointment.status?.slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ConsultedAppointmentsContent = ({ appointments }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <ClockIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No consultation history found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
+              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+              {appointment.diagnosis && (
+                <p className="text-sm text-gray-600 mt-2">Diagnosis: {appointment.diagnosis}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                Consulted
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const CancelledAppointmentsContent = ({ appointments }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <XMarkIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No cancelled appointments found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
+              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+              {appointment.cancellationReason && (
+                <p className="text-sm text-gray-600 mt-2">Reason: {appointment.cancellationReason}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                Cancelled
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default Settings;

@@ -528,3 +528,327 @@ export const useRegistrationValidation = (initialValues = {
 
   return base;
 };
+
+/**
+ * Hook specifically for profile update validation
+ */
+export const useProfileUpdateValidation = (initialValues = {
+  name: '',
+  age: '',
+  gender: 'male',
+  phone: '',
+  email: '',
+  address: '',
+  bloodGroup: '',
+  allergies: '',
+  chronicConditions: '',
+  emergencyContact: {
+    name: '',
+    phone: '',
+    relation: ''
+  }
+}) => {
+  const validationRules = useCallback((formData) => {
+    const errors = {};
+    let isValid = true;
+
+    // Name validation
+    if (!formData.name) {
+      errors.name = 'Name is required';
+      isValid = false;
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters long';
+      isValid = false;
+    } else if (formData.name.trim().length > 50) {
+      errors.name = 'Name is too long (max 50 characters)';
+      isValid = false;
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.name.trim())) {
+      errors.name = 'Name can only contain letters, spaces, hyphens, and apostrophes';
+      isValid = false;
+    }
+
+    // Age validation
+    if (!formData.age) {
+      errors.age = 'Age is required';
+      isValid = false;
+    } else {
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum)) {
+        errors.age = 'Age must be a valid number';
+        isValid = false;
+      } else if (ageNum < 1) {
+        errors.age = 'Age must be at least 1 year';
+        isValid = false;
+      } else if (ageNum > 150) {
+        errors.age = 'Age cannot exceed 150 years';
+        isValid = false;
+      }
+    }
+
+    // Gender validation
+    if (!formData.gender) {
+      errors.gender = 'Gender is required';
+      isValid = false;
+    } else if (!['male', 'female', 'other'].includes(formData.gender)) {
+      errors.gender = 'Please select a valid gender';
+      isValid = false;
+    }
+
+    // Phone validation
+    if (!formData.phone) {
+      errors.phone = 'Phone number is required';
+      isValid = false;
+    } else {
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        errors.phone = 'Phone number must be at least 10 digits';
+        isValid = false;
+      } else if (cleanPhone.length > 15) {
+        errors.phone = 'Phone number is too long';
+        isValid = false;
+      } else if (!/^(\+91|91)?[6-9]\d{9}$/.test(cleanPhone)) {
+        errors.phone = 'Please enter a valid Indian phone number';
+        isValid = false;
+      }
+    }
+
+    // Email validation
+    if (!formData.email) {
+      errors.email = 'Email is required';
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+      isValid = false;
+    }
+
+    // Address validation (optional)
+    if (formData.address && formData.address.trim().length > 0) {
+      if (formData.address.trim().length < 10) {
+        errors.address = 'Address must be at least 10 characters long';
+        isValid = false;
+      } else if (formData.address.trim().length > 500) {
+        errors.address = 'Address is too long (max 500 characters)';
+        isValid = false;
+      }
+    }
+
+    // Blood group validation (optional)
+    if (formData.bloodGroup && formData.bloodGroup.trim().length > 0) {
+      const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      if (!validBloodGroups.includes(formData.bloodGroup)) {
+        errors.bloodGroup = 'Please select a valid blood group';
+        isValid = false;
+      }
+    }
+
+    // Emergency contact validation (optional)
+    if (formData.emergencyContact) {
+      const { name, phone, relation } = formData.emergencyContact;
+      
+      if (name && name.trim().length > 0) {
+        if (name.trim().length < 2) {
+          errors['emergencyContact.name'] = 'Emergency contact name must be at least 2 characters';
+          isValid = false;
+        } else if (!/^[a-zA-Z\s'-]+$/.test(name.trim())) {
+          errors['emergencyContact.name'] = 'Name can only contain letters, spaces, hyphens, and apostrophes';
+          isValid = false;
+        }
+      }
+      
+      if (phone && phone.trim().length > 0) {
+        const cleanPhone = phone.replace(/\D/g, '');
+        if (cleanPhone.length < 10) {
+          errors['emergencyContact.phone'] = 'Phone number must be at least 10 digits';
+          isValid = false;
+        } else if (!/^(\+91|91)?[6-9]\d{9}$/.test(cleanPhone)) {
+          errors['emergencyContact.phone'] = 'Please enter a valid Indian phone number';
+          isValid = false;
+        }
+      }
+      
+      if (relation && relation.trim().length > 0) {
+        const validRelations = ['spouse', 'parent', 'child', 'sibling', 'friend', 'other'];
+        if (!validRelations.includes(relation)) {
+          errors['emergencyContact.relation'] = 'Please select a valid relation';
+          isValid = false;
+        }
+      }
+    }
+
+    return { isValid, errors };
+  }, []);
+
+  return useFormValidation(initialValues, validationRules, {
+    validateOnChange: true,
+    validateOnBlur: true,
+    debounceMs: 300
+  });
+};
+
+/**
+ * Hook specifically for family member validation
+ */
+export const useFamilyMemberValidation = (initialValues = {
+  name: '',
+  age: '',
+  gender: 'male',
+  phone: '',
+  relation: 'spouse',
+  bloodGroup: '',
+  allergies: '',
+  chronicConditions: ''
+}) => {
+  const validationRules = useCallback((formData) => {
+    const errors = {};
+    let isValid = true;
+
+    // Name validation
+    if (!formData.name) {
+      errors.name = 'Name is required';
+      isValid = false;
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters long';
+      isValid = false;
+    } else if (formData.name.trim().length > 50) {
+      errors.name = 'Name is too long (max 50 characters)';
+      isValid = false;
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.name.trim())) {
+      errors.name = 'Name can only contain letters, spaces, hyphens, and apostrophes';
+      isValid = false;
+    }
+
+    // Age validation
+    if (!formData.age) {
+      errors.age = 'Age is required';
+      isValid = false;
+    } else {
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum)) {
+        errors.age = 'Age must be a valid number';
+        isValid = false;
+      } else if (ageNum < 1) {
+        errors.age = 'Age must be at least 1 year';
+        isValid = false;
+      } else if (ageNum > 150) {
+        errors.age = 'Age cannot exceed 150 years';
+        isValid = false;
+      }
+    }
+
+    // Gender validation
+    if (!formData.gender) {
+      errors.gender = 'Gender is required';
+      isValid = false;
+    } else if (!['male', 'female', 'other'].includes(formData.gender)) {
+      errors.gender = 'Please select a valid gender';
+      isValid = false;
+    }
+
+    // Phone validation (optional)
+    if (formData.phone && formData.phone.trim().length > 0) {
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        errors.phone = 'Phone number must be at least 10 digits';
+        isValid = false;
+      } else if (cleanPhone.length > 15) {
+        errors.phone = 'Phone number is too long';
+        isValid = false;
+      } else if (!/^(\+91|91)?[6-9]\d{9}$/.test(cleanPhone)) {
+        errors.phone = 'Please enter a valid Indian phone number';
+        isValid = false;
+      }
+    }
+
+    // Relation validation
+    if (!formData.relation) {
+      errors.relation = 'Relation is required';
+      isValid = false;
+    } else {
+      const validRelations = ['spouse', 'parent', 'child', 'sibling', 'other'];
+      if (!validRelations.includes(formData.relation)) {
+        errors.relation = 'Please select a valid relation';
+        isValid = false;
+      }
+    }
+
+    // Blood group validation (optional)
+    if (formData.bloodGroup && formData.bloodGroup.trim().length > 0) {
+      const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      if (!validBloodGroups.includes(formData.bloodGroup)) {
+        errors.bloodGroup = 'Please select a valid blood group';
+        isValid = false;
+      }
+    }
+
+    return { isValid, errors };
+  }, []);
+
+  return useFormValidation(initialValues, validationRules, {
+    validateOnChange: true,
+    validateOnBlur: true,
+    debounceMs: 300
+  });
+};
+
+/**
+ * Hook specifically for password change validation
+ */
+export const usePasswordChangeValidation = (initialValues = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+}) => {
+  const validationRules = useCallback((formData) => {
+    const errors = {};
+    let isValid = true;
+
+    // Current password validation
+    if (!formData.currentPassword) {
+      errors.currentPassword = 'Current password is required';
+      isValid = false;
+    }
+
+    // New password validation
+    if (!formData.newPassword) {
+      errors.newPassword = 'New password is required';
+      isValid = false;
+    } else if (formData.newPassword.length < 8) {
+      errors.newPassword = 'Password must be at least 8 characters long';
+      isValid = false;
+    } else {
+      const hasUpperCase = /[A-Z]/.test(formData.newPassword);
+      const hasLowerCase = /[a-z]/.test(formData.newPassword);
+      const hasNumbers = /\d/.test(formData.newPassword);
+      const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(formData.newPassword);
+      const hasWhitespace = /\s/.test(formData.newPassword);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+        errors.newPassword = 'Password must contain uppercase, lowercase, and numbers';
+        isValid = false;
+      } else if (hasWhitespace) {
+        errors.newPassword = 'Password cannot contain spaces';
+        isValid = false;
+      } else if (formData.currentPassword && formData.newPassword === formData.currentPassword) {
+        errors.newPassword = 'New password must be different from current password';
+        isValid = false;
+      }
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = 'Please confirm your new password';
+      isValid = false;
+    } else if (formData.newPassword && formData.confirmPassword !== formData.newPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+      isValid = false;
+    }
+
+    return { isValid, errors };
+  }, []);
+
+  return useFormValidation(initialValues, validationRules, {
+    validateOnChange: true,
+    validateOnBlur: true,
+    debounceMs: 300
+  });
+};

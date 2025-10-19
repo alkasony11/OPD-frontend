@@ -6,6 +6,7 @@ import { AuthContext } from '../../App';
 import { getCurrentUser } from '../../utils/auth';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { useFamilyMemberValidation, useFormValidation } from '../../hooks/useFormValidation';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -120,7 +121,7 @@ export default function NewBookingPage() {
 
   // Family member form
   const [showAddMember, setShowAddMember] = useState(false);
-  const [newMember, setNewMember] = useState({
+  const familyMemberValidation = useFamilyMemberValidation({
     name: '',
     age: '',
     gender: 'male',
@@ -130,6 +131,33 @@ export default function NewBookingPage() {
     allergies: '',
     chronicConditions: ''
   });
+
+  // Symptoms validation
+  const symptomsValidation = useFormValidation(
+    { symptoms: bookingData.symptoms || '' },
+    (formData) => {
+      const errors = {};
+      let isValid = true;
+
+      // Symptoms validation (optional but if provided, should be meaningful)
+      if (formData.symptoms && formData.symptoms.trim().length > 0) {
+        if (formData.symptoms.trim().length < 10) {
+          errors.symptoms = 'Please provide more detailed symptoms (at least 10 characters)';
+          isValid = false;
+        } else if (formData.symptoms.trim().length > 1000) {
+          errors.symptoms = 'Symptoms description is too long (max 1000 characters)';
+          isValid = false;
+        }
+      }
+
+      return { isValid, errors };
+    },
+    {
+      validateOnChange: true,
+      validateOnBlur: true,
+      debounceMs: 300
+    }
+  );
 
   useEffect(() => {
     if (token) {
@@ -861,16 +889,17 @@ export default function NewBookingPage() {
 
   const handleAddFamilyMember = async () => {
     try {
-      console.log('Adding family member:', newMember);
+      console.log('Adding family member:', familyMemberValidation.values);
       console.log('Using token:', token ? 'Token present' : 'No token');
       
-      // Validate required fields
-      if (!newMember.name.trim() || !newMember.age) {
-        alert('Please fill in name and age');
+      // Validate form before submission
+      const validation = familyMemberValidation.validateAllFields();
+      if (!validation.isValid) {
+        Swal.fire('Validation Error', 'Please fix the errors before submitting', 'error');
         return;
       }
       
-      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', newMember, {
+      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', familyMemberValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -887,21 +916,12 @@ export default function NewBookingPage() {
         return [...prev.slice(0, 1), ...filteredPrev, memberWithDefaults];
       });
       
-      setNewMember({ 
-        name: '', 
-        age: '', 
-        gender: 'male', 
-        relation: 'spouse', 
-        phone: '',
-        bloodGroup: '',
-        allergies: '',
-        chronicConditions: ''
-      });
+      familyMemberValidation.resetForm();
       setShowAddMember(false);
-      alert('Family member added successfully!');
+      Swal.fire('Success', 'Family member added successfully!', 'success');
     } catch (error) {
       console.error('Error adding family member:', error);
-      alert('Error adding family member: ' + (error.response?.data?.message || 'Unknown error'));
+      Swal.fire('Error', 'Error adding family member: ' + (error.response?.data?.message || 'Unknown error'), 'error');
     }
   };
 
@@ -1050,8 +1070,7 @@ export default function NewBookingPage() {
               onSelect={handlePatientSelect}
               showAddMember={showAddMember}
               setShowAddMember={setShowAddMember}
-              newMember={newMember}
-              setNewMember={setNewMember}
+              familyMemberValidation={familyMemberValidation}
               onAddMember={handleAddFamilyMember}
               onRefresh={fetchFamilyMembers}
               loading={familyMembersLoading}
@@ -1129,6 +1148,7 @@ export default function NewBookingPage() {
               symptoms={bookingData.symptoms}
               onChange={(symptoms) => setBookingData(prev => ({ ...prev, symptoms }))}
               onNext={handleSymptomsSubmit}
+              validation={symptomsValidation}
             />
               </div>
             <DepartmentSuggestion
@@ -1354,21 +1374,39 @@ export default function NewBookingPage() {
 }
 
 // Symptoms Input Component
-function SymptomsInput({ symptoms, onChange, onNext }) {
+function SymptomsInput({ symptoms, onChange, onNext, validation }) {
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-6">Describe Symptoms</h2>
-      <textarea
-        value={symptoms}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Please describe the symptoms, concerns, or reason for the visit..."
-        rows={6}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-      />
+      <div>
+        <textarea
+          name="symptoms"
+          value={symptoms}
+          onChange={(e) => {
+            onChange(e.target.value);
+            validation.handleChange(e);
+          }}
+          onBlur={validation.handleBlur}
+          onFocus={validation.handleFocus}
+          placeholder="Please describe the symptoms, concerns, or reason for the visit..."
+          rows={6}
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${
+            validation.errors.symptoms && validation.touched.symptoms
+              ? 'border-red-500 focus:ring-red-500'
+              : 'border-gray-300'
+          }`}
+        />
+        {validation.errors.symptoms && validation.touched.symptoms && (
+          <p className="mt-1 text-sm text-red-600">{validation.errors.symptoms}</p>
+        )}
+        <div className="mt-2 text-sm text-gray-500">
+          {symptoms ? `${symptoms.length}/1000 characters` : 'Optional - you can skip this and choose a department directly'}
+        </div>
+      </div>
       <div className="flex justify-end mt-6">
         <button
           onClick={() => onNext(typeof symptoms === 'string' ? symptoms : String(symptoms || ''))}
-          disabled={!String(symptoms || '').trim()}
+          disabled={validation.errors.symptoms && validation.touched.symptoms}
           className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
@@ -1385,8 +1423,7 @@ function PatientSelection({
   onSelect, 
   showAddMember, 
   setShowAddMember, 
-  newMember, 
-  setNewMember, 
+  familyMemberValidation,
   onAddMember, 
   onRefresh,
   loading 
@@ -1462,47 +1499,107 @@ function PatientSelection({
               </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="Name"
-                value={newMember.name}
-                onChange={(e) => setNewMember(prev => ({ ...prev, name: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-              />
-              <input
-                type="number"
-                placeholder="Age"
-                value={newMember.age}
-                onChange={(e) => setNewMember(prev => ({ ...prev, age: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-              />
-              <select
-                value={newMember.gender}
-                onChange={(e) => setNewMember(prev => ({ ...prev, gender: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-              >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-              <select
-                value={newMember.relation}
-                onChange={(e) => setNewMember(prev => ({ ...prev, relation: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-              >
-                <option value="spouse">Spouse</option>
-                <option value="child">Child</option>
-                <option value="parent">Parent</option>
-                <option value="sibling">Sibling</option>
-                <option value="other">Other</option>
-              </select>
-              <input
-                type="tel"
-                placeholder="Phone (optional)"
-                value={newMember.phone}
-                onChange={(e) => setNewMember(prev => ({ ...prev, phone: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent md:col-span-2"
-              />
+              <div>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Name *"
+                  value={familyMemberValidation.values.name}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent w-full ${
+                    familyMemberValidation.errors.name && familyMemberValidation.touched.name
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                />
+                {familyMemberValidation.errors.name && familyMemberValidation.touched.name && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.name}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  name="age"
+                  placeholder="Age *"
+                  value={familyMemberValidation.values.age}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent w-full ${
+                    familyMemberValidation.errors.age && familyMemberValidation.touched.age
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                />
+                {familyMemberValidation.errors.age && familyMemberValidation.touched.age && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.age}</p>
+                )}
+              </div>
+              <div>
+                <select
+                  name="gender"
+                  value={familyMemberValidation.values.gender}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent w-full ${
+                    familyMemberValidation.errors.gender && familyMemberValidation.touched.gender
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                {familyMemberValidation.errors.gender && familyMemberValidation.touched.gender && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.gender}</p>
+                )}
+              </div>
+              <div>
+                <select
+                  name="relation"
+                  value={familyMemberValidation.values.relation}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent w-full ${
+                    familyMemberValidation.errors.relation && familyMemberValidation.touched.relation
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  <option value="spouse">Spouse</option>
+                  <option value="child">Child</option>
+                  <option value="parent">Parent</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="other">Other</option>
+                </select>
+                {familyMemberValidation.errors.relation && familyMemberValidation.touched.relation && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.relation}</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="Phone (optional)"
+                  value={familyMemberValidation.values.phone}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`px-3 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent w-full ${
+                    familyMemberValidation.errors.phone && familyMemberValidation.touched.phone
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300'
+                  }`}
+                />
+                {familyMemberValidation.errors.phone && familyMemberValidation.touched.phone && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.phone}</p>
+                )}
+              </div>
             </div>
             <div className="flex justify-end space-x-3 mt-4">
               <button
@@ -1513,7 +1610,7 @@ function PatientSelection({
               </button>
               <button
                 onClick={onAddMember}
-                disabled={!newMember.name || !newMember.age}
+                disabled={!familyMemberValidation.isValid}
                 className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add Member

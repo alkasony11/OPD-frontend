@@ -1,8 +1,10 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { HiMenu, HiX, HiUser, HiLogout, HiChevronDown, HiCalendar, HiClipboardList, HiVideoCamera } from 'react-icons/hi';
+import { CogIcon } from '@heroicons/react/24/outline';
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
+import { getProfileImageUrl } from '../../utils/imageUtils';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -312,10 +314,7 @@ export default function Navbar() {
                 >
                   {profilePhoto ? (
                     <img 
-                      src={profilePhoto.startsWith('http') 
-                        ? profilePhoto
-                        : `${API_BASE_URL}${profilePhoto}`
-                      }
+                      src={getProfileImageUrl(profilePhoto, 'small')}
                       alt={userName}
                       className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
                       onError={(e) => {
@@ -347,6 +346,16 @@ export default function Navbar() {
                     >
                       <HiUser className="mr-3 h-4 w-4" />
                       Manage Account
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/settings');
+                        setIsProfileDropdownOpen(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                    >
+                      <CogIcon className="mr-3 h-4 w-4" />
+                      Settings
                     </button>
                     
                     <button
@@ -444,10 +453,7 @@ export default function Navbar() {
                   <div className="flex items-center space-x-3">
                     {profilePhoto ? (
                       <img 
-                        src={profilePhoto.startsWith('http') 
-                          ? profilePhoto
-                          : `${API_BASE_URL}${profilePhoto}`
-                        }
+                        src={getProfileImageUrl(profilePhoto, 'small')}
                         alt={userName}
                         className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
                         onError={(e) => {
@@ -472,6 +478,17 @@ export default function Navbar() {
                 >
                   <HiUser className="mr-3 h-5 w-5" />
                   Manage Account
+                </button>
+                
+                <button
+                  onClick={() => {
+                    navigate('/settings');
+                    setIsOpen(false);
+                  }}
+                  className="flex items-center w-full px-4 py-3 text-base font-medium text-gray-600 hover:text-black hover:bg-gray-50"
+                >
+                  <CogIcon className="mr-3 h-5 w-5" />
+                  Settings
                 </button>
                 
                 <button

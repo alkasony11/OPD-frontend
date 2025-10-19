@@ -32,6 +32,7 @@ import DoctorReportsPage from './Pages/Doctor/DoctorReportsPage';
 import DoctorSettingsPage from './Pages/Doctor/DoctorSettingsPage';
 import PatientChatbotPage from './Pages/Patient/ChatbotPage';
 import DoctorProfilesPage from './Pages/Patient/DoctorProfilesPage';
+import Settings from './Pages/Patient/Settings';
 import DoctorDetailPage from './Pages/Patient/DoctorDetailPage';
 import Invoices from './Pages/Patient/Invoices';
 import ConsultedAppointments from './Pages/Patient/ConsultedAppointments';
@@ -125,6 +126,7 @@ function AppContent() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/appointments" element={<ProtectedRoute requiredRole="patient"><Appointments /></ProtectedRoute>} />
           <Route path="/manage-account" element={<ProtectedRoute requiredRole="patient"><ManageAccount /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute requiredRole="patient"><Settings /></ProtectedRoute>} />
           <Route path="/invoices" element={<ProtectedRoute requiredRole="patient"><Invoices /></ProtectedRoute>} />
           <Route path="/consulted-appointments" element={<ProtectedRoute requiredRole="patient"><ConsultedAppointments /></ProtectedRoute>} />
           <Route path="/cancelled-appointments" element={<ProtectedRoute requiredRole="patient"><CancelledAppointments /></ProtectedRoute>} />

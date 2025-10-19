@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { getImageUrl, getProfileImageUrl } from '../../utils/imageUtils';
 import Swal from 'sweetalert2';
 import {
   UserCircleIcon,
@@ -18,6 +19,7 @@ import {
   XMarkIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
+import { useProfileUpdateValidation, useFamilyMemberValidation, usePasswordChangeValidation } from '../../hooks/useFormValidation';
 
 const ManageAccount = () => {
   const navigate = useNavigate();
@@ -37,7 +39,42 @@ const ManageAccount = () => {
   const [messageText, setMessageText] = useState('');
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
-  // Form states
+  // Form states with validation
+  const profileValidation = useProfileUpdateValidation({
+    name: '',
+    age: '',
+    gender: 'male',
+    phone: '',
+    email: '',
+    address: '',
+    bloodGroup: '',
+    allergies: '',
+    chronicConditions: '',
+    emergencyContact: {
+      name: '',
+      phone: '',
+      relation: ''
+    }
+  });
+
+  const familyMemberValidation = useFamilyMemberValidation({
+    name: '',
+    age: '',
+    gender: 'male',
+    phone: '',
+    relation: 'spouse',
+    bloodGroup: '',
+    allergies: '',
+    chronicConditions: ''
+  });
+
+  const passwordValidation = usePasswordChangeValidation({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Legacy state for backward compatibility
   const [profileData, setProfileData] = useState({
     name: '',
     age: '',
@@ -347,11 +384,18 @@ const ManageAccount = () => {
   };
 
   const handleProfileUpdate = async () => {
+    // Validate form before submission
+    const validation = profileValidation.validateAllFields();
+    if (!validation.isValid) {
+      Swal.fire('Validation Error', 'Please fix the errors before submitting', 'error');
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put('${API_BASE_URL}/api/patient/profile', profileData, {
+      await axios.put('${API_BASE_URL}/api/patient/profile', profileValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -366,15 +410,23 @@ const ManageAccount = () => {
   };
 
   const handleAddFamilyMember = async () => {
+    // Validate form before submission
+    const validation = familyMemberValidation.validateAllFields();
+    if (!validation.isValid) {
+      Swal.fire('Validation Error', 'Please fix the errors before submitting', 'error');
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', newMember, {
+      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', familyMemberValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       setFamilyMembers(prev => [...prev, response.data.familyMember]);
+      familyMemberValidation.resetForm();
       setNewMember({
         name: '',
         age: '',
@@ -415,20 +467,28 @@ const ManageAccount = () => {
   };
 
   const handleUpdateFamilyMember = async () => {
+    // Validate form before submission
+    const validation = familyMemberValidation.validateAllFields();
+    if (!validation.isValid) {
+      Swal.fire('Validation Error', 'Please fix the errors before submitting', 'error');
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put(`${API_BASE_URL}/api/patient/family-members/${editingMember._id}`, newMember, {
+      await axios.put(`${API_BASE_URL}/api/patient/family-members/${editingMember._id}`, familyMemberValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       setFamilyMembers(prev => 
-        prev.map(m => m._id === editingMember._id ? { ...m, ...newMember } : m)
+        prev.map(m => m._id === editingMember._id ? { ...m, ...familyMemberValidation.values } : m)
       );
       
       setEditingMember(null);
       setShowAddMember(false);
+      familyMemberValidation.resetForm();
       setNewMember({
         name: '',
         age: '',
@@ -487,6 +547,9 @@ const ManageAccount = () => {
         <input id="current-password" type="password" placeholder="Current Password" class="swal2-input">
         <input id="new-password" type="password" placeholder="New Password" class="swal2-input">
         <input id="confirm-password" type="password" placeholder="Confirm New Password" class="swal2-input">
+        <div id="password-requirements" class="text-xs text-gray-600 mt-2">
+          Password must be at least 8 characters with uppercase, lowercase, numbers, and no spaces
+        </div>
       `,
       focusConfirm: false,
       preConfirm: () => {
@@ -494,18 +557,16 @@ const ManageAccount = () => {
         const newPassword = document.getElementById('new-password').value;
         const confirmPassword = document.getElementById('confirm-password').value;
         
-        if (!currentPassword || !newPassword || !confirmPassword) {
-          Swal.showValidationMessage('Please fill in all fields');
-          return false;
-        }
+        // Validate using our validation function
+        const validation = passwordValidation.validateForm({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        });
         
-        if (newPassword !== confirmPassword) {
-          Swal.showValidationMessage('New passwords do not match');
-          return false;
-        }
-        
-        if (newPassword.length < 6) {
-          Swal.showValidationMessage('Password must be at least 6 characters');
+        if (!validation.isValid) {
+          const firstError = Object.values(validation.errors)[0];
+          Swal.showValidationMessage(firstError);
           return false;
         }
         
@@ -614,10 +675,7 @@ const ManageAccount = () => {
                   <div className="relative">
                     {user?.profilePhoto || user?.profile_photo ? (
                       <img
-                        src={(user.profilePhoto || user.profile_photo).startsWith('http') 
-                          ? (user.profilePhoto || user.profile_photo)
-                          : `${API_BASE_URL}${user.profilePhoto || user.profile_photo}`
-                        }
+                        src={getProfileImageUrl(user.profilePhoto || user.profile_photo, 'xlarge')}
                         alt="Profile"
                         className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
                         onError={(e) => {
@@ -663,68 +721,128 @@ const ManageAccount = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                     <input
                       type="text"
-                      value={profileData.name}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="name"
+                      value={profileValidation.values.name}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.name && profileValidation.touched.name
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
+                    {profileValidation.errors.name && profileValidation.touched.name && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.name}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Age *</label>
                     <input
                       type="number"
-                      value={profileData.age}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, age: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="age"
+                      value={profileValidation.values.age}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.age && profileValidation.touched.age
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
+                    {profileValidation.errors.age && profileValidation.touched.age && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.age}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
                     <select
-                      value={profileData.gender}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, gender: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="gender"
+                      value={profileValidation.values.gender}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.gender && profileValidation.touched.gender
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     >
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="other">Other</option>
                     </select>
+                    {profileValidation.errors.gender && profileValidation.touched.gender && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.gender}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
                     <input
                       type="tel"
-                      value={profileData.phone}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="phone"
+                      value={profileValidation.values.phone}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.phone && profileValidation.touched.phone
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
+                    {profileValidation.errors.phone && profileValidation.touched.phone && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.phone}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                     <input
                       type="email"
-                      value={profileData.email}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="email"
+                      value={profileValidation.values.email}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.email && profileValidation.touched.email
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
+                    {profileValidation.errors.email && profileValidation.touched.email && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.email}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                     <textarea
-                      value={profileData.address}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
+                      name="address"
+                      value={profileValidation.values.address}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.address && profileValidation.touched.address
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
+                    {profileValidation.errors.address && profileValidation.touched.address && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.address}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex justify-end">
                   <button
                     onClick={handleProfileUpdate}
-                    disabled={loading}
+                    disabled={loading || !profileValidation.isValid}
                     className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {loading ? 'Updating...' : 'Update Profile'}
@@ -794,9 +912,16 @@ const ManageAccount = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
                     <select
-                      value={profileData.bloodGroup}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, bloodGroup: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      name="bloodGroup"
+                      value={profileValidation.values.bloodGroup}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        profileValidation.errors.bloodGroup && profileValidation.touched.bloodGroup
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     >
                       <option value="">Select Blood Group</option>
                       <option value="A+">A+</option>
@@ -808,13 +933,19 @@ const ManageAccount = () => {
                       <option value="O+">O+</option>
                       <option value="O-">O-</option>
                     </select>
+                    {profileValidation.errors.bloodGroup && profileValidation.touched.bloodGroup && (
+                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.bloodGroup}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
                     <input
                       type="text"
-                      value={profileData.allergies}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, allergies: e.target.value }))}
+                      name="allergies"
+                      value={profileValidation.values.allergies}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
                       placeholder="List any allergies (comma separated)"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -822,8 +953,11 @@ const ManageAccount = () => {
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Chronic Conditions</label>
                     <textarea
-                      value={profileData.chronicConditions}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, chronicConditions: e.target.value }))}
+                      name="chronicConditions"
+                      value={profileValidation.values.chronicConditions}
+                      onChange={profileValidation.handleChange}
+                      onBlur={profileValidation.handleBlur}
+                      onFocus={profileValidation.handleFocus}
                       placeholder="List any chronic conditions (e.g., Diabetes, Hypertension)"
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -838,35 +972,74 @@ const ManageAccount = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                       <input
                         type="text"
-                        value={profileData.emergencyContact.name}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          emergencyContact: { ...prev.emergencyContact, name: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        name="emergencyContact.name"
+                        value={profileValidation.values.emergencyContact.name}
+                        onChange={(e) => {
+                          const { name, value } = e.target;
+                          const [parent, child] = name.split('.');
+                          profileValidation.setFieldValue('emergencyContact', {
+                            ...profileValidation.values.emergencyContact,
+                            [child]: value
+                          });
+                        }}
+                        onBlur={profileValidation.handleBlur}
+                        onFocus={profileValidation.handleFocus}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                          profileValidation.errors['emergencyContact.name'] && profileValidation.touched['emergencyContact.name']
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
                       />
+                      {profileValidation.errors['emergencyContact.name'] && profileValidation.touched['emergencyContact.name'] && (
+                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.name']}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                       <input
                         type="tel"
-                        value={profileData.emergencyContact.phone}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          emergencyContact: { ...prev.emergencyContact, phone: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        name="emergencyContact.phone"
+                        value={profileValidation.values.emergencyContact.phone}
+                        onChange={(e) => {
+                          const { name, value } = e.target;
+                          const [parent, child] = name.split('.');
+                          profileValidation.setFieldValue('emergencyContact', {
+                            ...profileValidation.values.emergencyContact,
+                            [child]: value
+                          });
+                        }}
+                        onBlur={profileValidation.handleBlur}
+                        onFocus={profileValidation.handleFocus}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                          profileValidation.errors['emergencyContact.phone'] && profileValidation.touched['emergencyContact.phone']
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
                       />
+                      {profileValidation.errors['emergencyContact.phone'] && profileValidation.touched['emergencyContact.phone'] && (
+                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.phone']}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
                       <select
-                        value={profileData.emergencyContact.relation}
-                        onChange={(e) => setProfileData(prev => ({
-                          ...prev,
-                          emergencyContact: { ...prev.emergencyContact, relation: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        name="emergencyContact.relation"
+                        value={profileValidation.values.emergencyContact.relation}
+                        onChange={(e) => {
+                          const { name, value } = e.target;
+                          const [parent, child] = name.split('.');
+                          profileValidation.setFieldValue('emergencyContact', {
+                            ...profileValidation.values.emergencyContact,
+                            [child]: value
+                          });
+                        }}
+                        onBlur={profileValidation.handleBlur}
+                        onFocus={profileValidation.handleFocus}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                          profileValidation.errors['emergencyContact.relation'] && profileValidation.touched['emergencyContact.relation']
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
                       >
                         <option value="">Select Relation</option>
                         <option value="spouse">Spouse</option>
@@ -876,6 +1049,9 @@ const ManageAccount = () => {
                         <option value="friend">Friend</option>
                         <option value="other">Other</option>
                       </select>
+                      {profileValidation.errors['emergencyContact.relation'] && profileValidation.touched['emergencyContact.relation'] && (
+                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.relation']}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -883,7 +1059,7 @@ const ManageAccount = () => {
                 <div className="flex justify-end">
                   <button
                     onClick={handleProfileUpdate}
-                    disabled={loading}
+                    disabled={loading || !profileValidation.isValid}
                     className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {loading ? 'Updating...' : 'Update Medical Info'}
@@ -1024,36 +1200,66 @@ const ManageAccount = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
                 <input
                   type="text"
-                  value={newMember.name}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  name="name"
+                  value={familyMemberValidation.values.name}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    familyMemberValidation.errors.name && familyMemberValidation.touched.name
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 />
+                {familyMemberValidation.errors.name && familyMemberValidation.touched.name && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.name}</p>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Age *</label>
                   <input
                     type="number"
-                    value={newMember.age}
-                    onChange={(e) => setNewMember(prev => ({ ...prev, age: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    name="age"
+                    value={familyMemberValidation.values.age}
+                    onChange={familyMemberValidation.handleChange}
+                    onBlur={familyMemberValidation.handleBlur}
+                    onFocus={familyMemberValidation.handleFocus}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      familyMemberValidation.errors.age && familyMemberValidation.touched.age
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                   />
+                  {familyMemberValidation.errors.age && familyMemberValidation.touched.age && (
+                    <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.age}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender *</label>
                   <select
-                    value={newMember.gender}
-                    onChange={(e) => setNewMember(prev => ({ ...prev, gender: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    name="gender"
+                    value={familyMemberValidation.values.gender}
+                    onChange={familyMemberValidation.handleChange}
+                    onBlur={familyMemberValidation.handleBlur}
+                    onFocus={familyMemberValidation.handleFocus}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      familyMemberValidation.errors.gender && familyMemberValidation.touched.gender
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
                   </select>
+                  {familyMemberValidation.errors.gender && familyMemberValidation.touched.gender && (
+                    <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.gender}</p>
+                  )}
                 </div>
               </div>
               
@@ -1061,18 +1267,35 @@ const ManageAccount = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                 <input
                   type="tel"
-                  value={newMember.phone}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  name="phone"
+                  value={familyMemberValidation.values.phone}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    familyMemberValidation.errors.phone && familyMemberValidation.touched.phone
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 />
+                {familyMemberValidation.errors.phone && familyMemberValidation.touched.phone && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.phone}</p>
+                )}
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Relation *</label>
                 <select
-                  value={newMember.relation}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, relation: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  name="relation"
+                  value={familyMemberValidation.values.relation}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    familyMemberValidation.errors.relation && familyMemberValidation.touched.relation
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="spouse">Spouse</option>
                   <option value="parent">Parent</option>
@@ -1080,14 +1303,24 @@ const ManageAccount = () => {
                   <option value="sibling">Sibling</option>
                   <option value="other">Other</option>
                 </select>
+                {familyMemberValidation.errors.relation && familyMemberValidation.touched.relation && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.relation}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
                 <select
-                  value={newMember.bloodGroup}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, bloodGroup: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  name="bloodGroup"
+                  value={familyMemberValidation.values.bloodGroup}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                    familyMemberValidation.errors.bloodGroup && familyMemberValidation.touched.bloodGroup
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="">Select Blood Group</option>
                   <option value="A+">A+</option>
@@ -1099,14 +1332,20 @@ const ManageAccount = () => {
                   <option value="O+">O+</option>
                   <option value="O-">O-</option>
                 </select>
+                {familyMemberValidation.errors.bloodGroup && familyMemberValidation.touched.bloodGroup && (
+                  <p className="mt-1 text-sm text-red-600">{familyMemberValidation.errors.bloodGroup}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
                 <input
                   type="text"
-                  value={newMember.allergies}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, allergies: e.target.value }))}
+                  name="allergies"
+                  value={familyMemberValidation.values.allergies}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
                   placeholder="List any allergies (comma separated)"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1115,8 +1354,11 @@ const ManageAccount = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Chronic Conditions</label>
                 <textarea
-                  value={newMember.chronicConditions}
-                  onChange={(e) => setNewMember(prev => ({ ...prev, chronicConditions: e.target.value }))}
+                  name="chronicConditions"
+                  value={familyMemberValidation.values.chronicConditions}
+                  onChange={familyMemberValidation.handleChange}
+                  onBlur={familyMemberValidation.handleBlur}
+                  onFocus={familyMemberValidation.handleFocus}
                   placeholder="List any chronic conditions"
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1146,7 +1388,7 @@ const ManageAccount = () => {
               </button>
               <button
                 onClick={editingMember ? handleUpdateFamilyMember : handleAddFamilyMember}
-                disabled={loading || !newMember.name || !newMember.age}
+                disabled={loading || !familyMemberValidation.isValid}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? 'Saving...' : editingMember ? 'Update' : 'Add Member'}
