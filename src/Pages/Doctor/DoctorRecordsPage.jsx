@@ -55,7 +55,7 @@ export default function DoctorRecordsPage() {
         return;
       }
 
-      const response = await axios.get('http://localhost:5001/api/doctor/medical-records', {
+      const response = await axios.get('${API_BASE_URL}/api/doctor/medical-records', {
         headers: { Authorization: `Bearer ${token}` }
       });
 

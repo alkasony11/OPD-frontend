@@ -12,6 +12,8 @@ import ManageAccount from './Pages/Patient/ManageAccount';
 import ForgotPassword from './Pages/ForgotPassword';
 import ResetPassword from './Pages/ResetPassword';
 import SSOCallback from './Pages/SSOCallback';
+import Terms from './Pages/Terms';
+import Privacy from './Pages/Privacy';
 import AdminDashboard from './Pages/Admin/AdminDashboard';
 import AdminPatientProfile from './Pages/Admin/PatientProfile';
 import PatientConsultations from './Pages/Admin/PatientConsultations';
@@ -94,7 +96,7 @@ function AppContent() {
 
   // Routes where navbar and footer should be hidden
   const hideNavbarFooterRoutes = [
-    '/login', '/register', '/forgot-password', '/reset-password',
+    '/login', '/register', '/forgot-password', '/reset-password', '/terms', '/privacy',
     '/admin/dashboard', '/admin/users', '/admin/registered-patients', '/admin/doctors', '/admin/doctor-schedules', '/admin/schedule-requests', '/admin/patients', '/admin/family-members', '/admin/payments', '/admin/messages', '/admin/departments', '/admin/leave-requests', '/admin/feedback', '/admin/appointments', '/admin/reports', '/admin/logs', '/admin/doctor-load', '/admin/priority',
     '/admin/patient-category/registered', '/admin/patient-category/management', '/admin/patient-category/family', '/admin/patient-category/history', '/admin/patient-category/notifications', '/admin/patient-category/payments', '/admin/patient-category/blocking',
     '/doctor', '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
@@ -117,6 +119,8 @@ function AppContent() {
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/booking" element={<NewBookingPage />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/appointments" element={<ProtectedRoute requiredRole="patient"><Appointments /></ProtectedRoute>} />

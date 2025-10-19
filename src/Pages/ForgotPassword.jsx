@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { HiArrowLeft } from 'react-icons/hi';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:5001/api/auth/forgot-password', { email });
+      await axios.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
       setMsg('Password reset link sent to your email! Please check your inbox and click the link to reset your password.');
     } catch (err) {
       setError(err.response?.data?.message || 'Error sending reset link');

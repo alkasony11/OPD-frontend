@@ -103,7 +103,7 @@ export default function DoctorSchedulePage() {
       const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `${API_BASE_URL}/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSchedules(response.data.schedules || []);
@@ -153,7 +153,7 @@ export default function DoctorSchedulePage() {
       console.log('🚀 Sending schedule request:', requestData);
       console.log('🚀 Token exists:', !!token);
       
-      const response = await axios.post('http://localhost:5001/api/doctor/schedule-requests', requestData, {
+      const response = await axios.post('${API_BASE_URL}/api/doctor/schedule-requests', requestData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -199,7 +199,7 @@ export default function DoctorSchedulePage() {
       console.log('🚀 Sending reschedule request:', requestData);
       console.log('🚀 Token exists:', !!token);
       
-      const response = await axios.post('http://localhost:5001/api/doctor/schedule-requests', requestData, {
+      const response = await axios.post('${API_BASE_URL}/api/doctor/schedule-requests', requestData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       

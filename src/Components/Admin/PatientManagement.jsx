@@ -61,7 +61,7 @@ export default function PatientManagement() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/patients', {
+      const response = await axios.get('${API_BASE_URL}/api/admin/patients', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = Array.isArray(response.data) ? response.data : (response.data?.patients || []);
@@ -81,8 +81,8 @@ export default function PatientManagement() {
     try {
       const token = localStorage.getItem('token');
       const [deptRes, docRes] = await Promise.all([
-        axios.get('http://localhost:5001/api/admin/departments', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:5001/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } })
+        axios.get('${API_BASE_URL}/api/admin/departments', { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get('${API_BASE_URL}/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } })
       ]);
       setDepartments(deptRes.data?.departments || []);
       setDoctors((docRes.data || []).filter(d => d.role === 'doctor'));
@@ -95,7 +95,7 @@ export default function PatientManagement() {
     try {
       setAppointmentsLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/admin/appointments', {
+      const res = await axios.get('${API_BASE_URL}/api/admin/appointments', {
         params: { limit: 200, status: apptStatus || undefined, doctorId: apptDoctorId || undefined },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -189,17 +189,17 @@ export default function PatientManagement() {
       const token = localStorage.getItem('token');
       
       // Fetch patient details
-      const patientResponse = await axios.get(`http://localhost:5001/api/admin/patients/${patientId}`, {
+      const patientResponse = await axios.get(`${API_BASE_URL}/api/admin/patients/${patientId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Fetch patient history
-      const historyResponse = await axios.get(`http://localhost:5001/api/admin/patients/${patientId}/history`, {
+      const historyResponse = await axios.get(`${API_BASE_URL}/api/admin/patients/${patientId}/history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Fetch family members
-      const familyResponse = await axios.get(`http://localhost:5001/api/admin/patients/${patientId}/family`, {
+      const familyResponse = await axios.get(`${API_BASE_URL}/api/admin/patients/${patientId}/family`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -217,7 +217,7 @@ export default function PatientManagement() {
       setActionLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put(`http://localhost:5001/api/admin/patients/${selectedPatient.patientId}/block`, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${selectedPatient.patientId}/block`, {
         reason: blockReason,
         blocked: true
       }, {
@@ -247,7 +247,7 @@ export default function PatientManagement() {
       setActionLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put(`http://localhost:5001/api/admin/patients/${selectedPatient.patientId}/block`, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${selectedPatient.patientId}/block`, {
         blocked: false
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -274,7 +274,7 @@ export default function PatientManagement() {
       setActionLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put(`http://localhost:5001/api/admin/patients/${selectedPatient.patientId}`, editData, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${selectedPatient.patientId}`, editData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -323,7 +323,7 @@ export default function PatientManagement() {
   const exportSinglePatient = async (patient) => {
     try {
       const token = localStorage.getItem('token');
-      const url = `http://localhost:5001/api/admin/patients/${patient.patientId}/history/export?includeFamily=true`;
+      const url = `${API_BASE_URL}/api/admin/patients/${patient.patientId}/history/export?includeFamily=true`;
       const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
       const blob = new Blob([response.data], { type: 'text/csv' });
       const link = document.createElement('a');
@@ -556,7 +556,7 @@ function PatientDetailsModal({ patient, history, familyMembers, onClose, onBlock
                 <img
                   src={(patient.profilePhoto || patient.profile_photo).startsWith('http') 
                     ? (patient.profilePhoto || patient.profile_photo)
-                    : `http://localhost:5001${patient.profilePhoto || patient.profile_photo}`
+                    : `${API_BASE_URL}${patient.profilePhoto || patient.profile_photo}`
                   }
                   alt={patient.name}
                   className="h-16 w-16 rounded-full object-cover"
@@ -895,7 +895,7 @@ function RescheduleButton({ patient, appointment, onSuccess }) {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/reschedule`, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/reschedule`, {
         appointmentDate: date,
         appointmentTime: time,
         notify
@@ -970,7 +970,7 @@ function CancelButton({ patient, appointment, onSuccess }) {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/cancel`, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${patient.patientId}/appointments/${appointment.id}/cancel`, {
         reason,
         notify
       }, { headers: { Authorization: `Bearer ${token}` }});
@@ -1042,7 +1042,7 @@ function AssignDoctorButton({ patient, current, appointmentId, departments, onSu
     (async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5001/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get('${API_BASE_URL}/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } });
         setDoctors(res.data || []);
         setDept(() => {
           const match = (departments || []).find(d => d.name === current.department);
@@ -1071,7 +1071,7 @@ function AssignDoctorButton({ patient, current, appointmentId, departments, onSu
         const token = localStorage.getItem('token');
         const startDate = date;
         const endDate = date;
-        const res = await axios.get(`http://localhost:5001/api/admin/doctor-schedules/${doctorId}`, {
+        const res = await axios.get(`${API_BASE_URL}/api/admin/doctor-schedules/${doctorId}`, {
           params: { startDate, endDate },
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -1117,7 +1117,7 @@ function AssignDoctorButton({ patient, current, appointmentId, departments, onSu
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/admin/patients/${patient.patientId || 'dummy'}/appointments/${appointmentId}/assign-doctor`, {
+      await axios.put(`${API_BASE_URL}/api/admin/patients/${patient.patientId || 'dummy'}/appointments/${appointmentId}/assign-doctor`, {
         doctorId,
         notify,
         appointmentDate: date,
@@ -1249,7 +1249,7 @@ function FamilyTab({ familyMembers, patient, onSwitchPatient }) {
           onClick={async () => {
             try {
               const token = localStorage.getItem('token');
-              const url = `http://localhost:5001/api/admin/patients/${patient.patientId}/history/export?includeFamily=true`;
+              const url = `${API_BASE_URL}/api/admin/patients/${patient.patientId}/history/export?includeFamily=true`;
               const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
               const blob = new Blob([response.data], { type: 'text/csv' });
               const link = document.createElement('a');

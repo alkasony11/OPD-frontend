@@ -8,6 +8,7 @@ import { AuthContext } from '../App';
 import { HiArrowLeft } from 'react-icons/hi';
 import { useLoginValidation } from '../hooks/useFormValidation';
 import { ValidatedInput, PasswordInput } from '../Components/FormComponents';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -33,14 +34,30 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false); 
   const [serverError, setServerError] = useState('');
   const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   // Removed auth method checking - users can use either login method
 
   // Check if user is already logged in and redirect them
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
+    const rememberMeData = localStorage.getItem('rememberMe');
+    const tokenExpiration = localStorage.getItem('tokenExpiration');
 
     if (token && userData) {
+      // Check if token has expired (only if not remember me or if remember me has expired)
+      const isRememberMe = rememberMeData === 'true';
+      const hasExpiration = tokenExpiration && parseInt(tokenExpiration) > new Date().getTime();
+      
+      if (!isRememberMe || !hasExpiration) {
+        // Token expired or not remember me, clear data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('tokenExpiration');
+        return;
+      }
+
       try {
         const user = JSON.parse(userData);
         setIsLoggedIn(true);
@@ -64,7 +81,14 @@ export default function Login() {
         // Clear invalid data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('tokenExpiration');
       }
+    }
+
+    // Set remember me state if previously checked
+    if (rememberMeData === 'true') {
+      setRememberMe(true);
     }
   }, [navigate, setIsLoggedIn]);
 
@@ -90,13 +114,25 @@ export default function Login() {
     setLoading(true);
     
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/login', formData);
+      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, formData);
       if (response.data?.user && (response.data.user.status === 'inactive' || response.data.user.isActive === false)) {
         setServerError('Your account has been deactivated by the administrator. Please contact support.');
         return;
       }
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      // Handle remember me functionality
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        // Set longer expiration for remember me (30 days)
+        const expirationTime = new Date().getTime() + (30 * 24 * 60 * 60 * 1000);
+        localStorage.setItem('tokenExpiration', expirationTime.toString());
+      } else {
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('tokenExpiration');
+      }
+      
       setIsLoggedIn(true);
 
       // Use the redirectTo from backend response
@@ -110,8 +146,18 @@ export default function Login() {
       const errorMessage = err.response?.data?.message || 'Login failed';
       const authMethod = err.response?.data?.authMethod;
       
+      // Handle network errors
+      if (!err.response) {
+        setServerError('Network error. Please check your connection and try again.');
+        return;
+      }
+      
       if (status === 403 || /deactivated/i.test(errorMessage)) {
         setServerError('Your account has been deactivated by the administrator. Please contact support.');
+      } else if (status === 429) {
+        setServerError('Too many login attempts. Please try again later.');
+      } else if (status >= 500) {
+        setServerError('Server error. Please try again later.');
       } else {
         // Handle specific field errors
         if (errorMessage.toLowerCase().includes('email')) {
@@ -190,7 +236,7 @@ export default function Login() {
         </h2>
         <div className="bg-white rounded-xl shadow-md p-8">
           {serverError && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn" role="alert" aria-live="polite">
               {serverError}
             </div>
           )}
@@ -232,9 +278,11 @@ export default function Login() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">
                   Remember me
                 </label>
               </div>

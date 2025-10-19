@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { HiCalendar, HiUsers, HiArrowRight, HiTrendingUp, HiVideoCamera, HiExternalLink, HiCheckCircle, HiEye } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 import NotificationBell from '../../Components/Doctor/NotificationBell';
 import DiagnosisModal from '../../Components/Admin/DiagnosisModal';
@@ -87,7 +88,7 @@ export default function DoctorDashboard() {
   const fetchLeaveRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/doctor/leave-requests', {
+      const res = await axios.get('${API_BASE_URL}/api/doctor/leave-requests', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setLeaveRequests(Array.isArray(res.data?.leaveRequests) ? res.data.leaveRequests : []);
@@ -103,19 +104,19 @@ export default function DoctorDashboard() {
 
       // Fetch all appointments for stats
       const allAppointmentsResponse = await axios.get(
-        'http://localhost:5001/api/doctor/appointments',
+        '${API_BASE_URL}/api/doctor/appointments',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       // Fetch booked patients
       const bookedPatientsResponse = await axios.get(
-        'http://localhost:5001/api/doctor/booked-patients',
+        '${API_BASE_URL}/api/doctor/booked-patients',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       // Fetch patients
       const patientsResponse = await axios.get(
-        'http://localhost:5001/api/doctor/patients',
+        '${API_BASE_URL}/api/doctor/patients',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -124,7 +125,7 @@ export default function DoctorDashboard() {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
       const schedulesResponse = await axios.get(
-        `http://localhost:5001/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `${API_BASE_URL}/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -179,7 +180,7 @@ export default function DoctorDashboard() {
   const fetchTodayQueue = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/doctor/today-queue', {
+      const res = await axios.get('${API_BASE_URL}/api/doctor/today-queue', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTodayQueue(res.data || { date: '', sessions: [] });
@@ -192,7 +193,7 @@ export default function DoctorDashboard() {
   const fetchNextPatient = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/doctor/next-patient', {
+      const res = await axios.get('${API_BASE_URL}/api/doctor/next-patient', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNextPatient(res.data?.next || null);
@@ -206,7 +207,7 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5001/api/doctor/consultation/start', { tokenId: nextPatient.id }, {
+      await axios.post('${API_BASE_URL}/api/doctor/consultation/start', { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
@@ -221,7 +222,7 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5001/api/doctor/consultation/skip', { tokenId: nextPatient.id }, {
+      await axios.post('${API_BASE_URL}/api/doctor/consultation/skip', { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
@@ -235,7 +236,7 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5001/api/doctor/consultation/no-show', { tokenId: nextPatient.id }, {
+      await axios.post('${API_BASE_URL}/api/doctor/consultation/no-show', { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
@@ -256,7 +257,7 @@ export default function DoctorDashboard() {
       params.append('limit', 10);
 
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/appointments?${params.toString()}`,
+        `${API_BASE_URL}/api/doctor/appointments?${params.toString()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -890,7 +891,7 @@ export default function DoctorDashboard() {
                   try {
                     const token = localStorage.getItem('token');
                   await axios.post(
-                    'http://localhost:5001/api/doctor/leave-requests',
+                    '${API_BASE_URL}/api/doctor/leave-requests',
                     { 
                       leave_type: 'full_day',
                       start_date: leaveForm.date,

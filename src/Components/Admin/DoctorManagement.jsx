@@ -41,7 +41,7 @@ export default function DoctorManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/departments', {
+      const response = await axios.get('${API_BASE_URL}/api/admin/departments', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -53,7 +53,7 @@ export default function DoctorManagement() {
   const fetchDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/doctors', {
+      const response = await axios.get('${API_BASE_URL}/api/admin/doctors', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data);
@@ -100,7 +100,7 @@ export default function DoctorManagement() {
         status: doctorForm.status // default 'pending' to allow login and complete profile
       };
 
-      const response = await axios.post('http://localhost:5001/api/admin/users', userData, {
+      const response = await axios.post('${API_BASE_URL}/api/admin/users', userData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -126,7 +126,7 @@ export default function DoctorManagement() {
   const handleEditDoctor = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`http://localhost:5001/api/admin/doctors/${editingDoctor._id}`, {
+      const response = await axios.put(`${API_BASE_URL}/api/admin/doctors/${editingDoctor._id}`, {
         name: doctorForm.name,
         email: doctorForm.email,
         phone: doctorForm.phone,
@@ -193,7 +193,7 @@ export default function DoctorManagement() {
 
     try {
       const token = localStorage.getItem('token');
-      const { data: updated } = await axios.patch(`http://localhost:5001/api/admin/users/${doctor._id}`, { status: next }, {
+      const { data: updated } = await axios.patch(`${API_BASE_URL}/api/admin/users/${doctor._id}`, { status: next }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(prev => prev.map(d => d._id === doctor._id ? { ...d, ...updated } : d));
@@ -224,7 +224,7 @@ export default function DoctorManagement() {
     if (!confirm.isConfirmed) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5001/api/admin/doctors/${doctorId}`, {
+      await axios.delete(`${API_BASE_URL}/api/admin/doctors/${doctorId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(doctors.filter(doc => doc._id !== doctorId));

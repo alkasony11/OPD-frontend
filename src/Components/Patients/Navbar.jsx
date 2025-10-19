@@ -73,7 +73,7 @@ export default function Navbar() {
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const response = await fetch('http://localhost:5001/api/patient/profile', {
+        const response = await fetch('${API_BASE_URL}/api/patient/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -314,7 +314,7 @@ export default function Navbar() {
                     <img 
                       src={profilePhoto.startsWith('http') 
                         ? profilePhoto
-                        : `http://localhost:5001${profilePhoto}`
+                        : `${API_BASE_URL}${profilePhoto}`
                       }
                       alt={userName}
                       className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
@@ -446,7 +446,7 @@ export default function Navbar() {
                       <img 
                         src={profilePhoto.startsWith('http') 
                           ? profilePhoto
-                          : `http://localhost:5001${profilePhoto}`
+                          : `${API_BASE_URL}${profilePhoto}`
                         }
                         alt={userName}
                         className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"

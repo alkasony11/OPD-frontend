@@ -63,7 +63,7 @@ export default function PatientConsultationModal({
       const token = localStorage.getItem('token');
 
       await axios.patch(
-        `http://localhost:5001/api/doctor/appointments/${appointment._id}/consultation`,
+        `${API_BASE_URL}/api/doctor/appointments/${appointment._id}/consultation`,
         {
           consultationData,
           status: 'consulted'

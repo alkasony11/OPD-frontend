@@ -97,7 +97,7 @@ export default function DoctorSettingsPage() {
       (async () => {
         try {
           const token = localStorage.getItem('token');
-          const { data } = await axios.get('http://localhost:5001/api/doctor/profile', { headers: { Authorization: `Bearer ${token}` } });
+          const { data } = await axios.get('${API_BASE_URL}/api/doctor/profile', { headers: { Authorization: `Bearer ${token}` } });
           const d = data?.doctor || {};
           setProfileForm(prev => ({
             ...prev,
@@ -130,7 +130,7 @@ export default function DoctorSettingsPage() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        'http://localhost:5001/api/doctor/profile',
+        '${API_BASE_URL}/api/doctor/profile',
         {
           specialization: profileForm.specialization,
           experience_years: profileForm.experience,
@@ -180,7 +180,7 @@ export default function DoctorSettingsPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        'http://localhost:5001/api/doctor/password',
+        '${API_BASE_URL}/api/doctor/password',
         {
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword
@@ -210,7 +210,7 @@ export default function DoctorSettingsPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        'http://localhost:5001/api/doctor/preferences',
+        '${API_BASE_URL}/api/doctor/preferences',
         preferences,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -268,7 +268,7 @@ export default function DoctorSettingsPage() {
       formData.append('profilePhoto', profilePhoto);
 
       const response = await axios.post(
-        'http://localhost:5001/api/doctor/upload-photo',
+        '${API_BASE_URL}/api/doctor/upload-photo',
         formData,
         {
           headers: {
@@ -546,7 +546,7 @@ export default function DoctorSettingsPage() {
                           const token = localStorage.getItem('token');
                           const form = new FormData();
                           form.append('file', file);
-                          const { data } = await axios.post('http://localhost:5001/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
+                          const { data } = await axios.post('${API_BASE_URL}/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
                           setQualificationProofs(prev => [...prev, data.fileUrl]);
                           setQualPendingName(file.name);
                           await Swal.fire({ icon: 'success', title: 'Document uploaded' });
@@ -590,7 +590,7 @@ export default function DoctorSettingsPage() {
                           const token = localStorage.getItem('token');
                           const form = new FormData();
                           form.append('file', file);
-                          const { data } = await axios.post('http://localhost:5001/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
+                          const { data } = await axios.post('${API_BASE_URL}/api/doctor/upload-proof', form, { headers: { Authorization: `Bearer ${token}` } });
                           setCertificationProofs(prev => [...prev, data.fileUrl]);
                           setCertPendingName(file.name);
                           await Swal.fire({ icon: 'success', title: 'Document uploaded' });

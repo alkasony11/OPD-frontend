@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { HiArrowLeft, HiEye, HiEyeOff } from 'react-icons/hi';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function ResetPassword() {
 
       try {
         console.log('Verifying token with backend...');
-        const response = await axios.get(`http://localhost:5001/api/auth/verify-reset-token/${token}`);
+        const response = await axios.get(`${API_ENDPOINTS.AUTH.VERIFY_RESET_TOKEN}/${token}`);
         console.log('Token verification successful:', response.data);
         setTokenValid(true);
         setUserEmail(response.data.email);
@@ -53,8 +54,8 @@ export default function ResetPassword() {
     setMsg(''); setError('');
 
     // Validate passwords
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
       return;
     }
 
@@ -63,10 +64,26 @@ export default function ResetPassword() {
       return;
     }
 
+    // Check password strength
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+      setError('Password must contain uppercase, lowercase, and numbers');
+      return;
+    }
+
+    if (!hasSpecialChar) {
+      setError('Password must contain at least one special character');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:5001/api/auth/reset-password', {
+      await axios.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
         token,
         password
       });
@@ -173,6 +190,9 @@ export default function ResetPassword() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 New Password
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Must be at least 8 characters with uppercase, lowercase, numbers, and special characters
+              </p>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -180,7 +200,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
@@ -209,7 +229,7 @@ export default function ResetPassword() {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button

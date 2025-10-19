@@ -70,7 +70,7 @@ export default function EnhancedAppointmentList() {
       console.log('🔍 Fetching appointments with filter:', filter);
       
       // Fetch appointments for the current filter
-      const response = await axios.get(`http://localhost:5001/api/doctor/appointments?filter=${filter}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=${filter}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -84,12 +84,12 @@ export default function EnhancedAppointmentList() {
       setAppointments(response.data.appointments || []);
       
       // Also fetch all appointments for count calculation (including cancelled)
-      const allResponse = await axios.get(`http://localhost:5001/api/doctor/appointments?filter=all`, {
+      const allResponse = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Fetch cancelled appointments separately for count calculation
-      const cancelledResponse = await axios.get(`http://localhost:5001/api/doctor/appointments?filter=cancelled`, {
+      const cancelledResponse = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=cancelled`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -165,7 +165,7 @@ export default function EnhancedAppointmentList() {
       const updateData = { status: newStatus, ...additionalData };
 
       await axios.patch(
-        `http://localhost:5001/api/doctor/appointments/${appointmentId}/status`,
+        `${API_BASE_URL}/api/doctor/appointments/${appointmentId}/status`,
         updateData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -214,7 +214,7 @@ export default function EnhancedAppointmentList() {
       const token = localStorage.getItem('token');
 
       await axios.patch(
-        `http://localhost:5001/api/doctor/appointments/${selectedAppointment._id}/notes`,
+        `${API_BASE_URL}/api/doctor/appointments/${selectedAppointment._id}/notes`,
         { doctorNotes: notes, diagnosis },
         { headers: { Authorization: `Bearer ${token}` } }
       );

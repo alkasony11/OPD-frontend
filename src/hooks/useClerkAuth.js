@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../App';
 import { getCurrentUser, clearAuthData } from '../utils/auth';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
 
 export const useClerkAuth = () => {
   const { user, isLoaded: userLoaded } = useUser();
@@ -41,7 +42,7 @@ export const useClerkAuth = () => {
           console.log('Syncing user with backend:', userData);
 
           // Send user data to your backend
-          const response = await axios.post('http://localhost:5001/api/auth/clerk-sync', userData);
+          const response = await axios.post(API_ENDPOINTS.AUTH.CLERK_SYNC, userData);
 
           // Store the backend token
           if (response.data.token) {

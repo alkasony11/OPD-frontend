@@ -7,6 +7,7 @@ import axios from 'axios';
 import { HiArrowLeft } from 'react-icons/hi';
 import { useRegistrationValidation } from '../hooks/useFormValidation';
 import { ValidatedInput, PasswordInput, ValidatedSelect, PhoneInput, OTPInput } from '../Components/FormComponents';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -47,6 +48,51 @@ export default function Register() {
     });
   };
 
+  // Specialized date input handler to prevent aggressive validation
+  const handleDateChange = (e) => {
+    const value = e.target.value;
+    setFieldValue('dob', value);
+    
+    // Clear any existing error when user selects a date
+    if (errors.dob) {
+      clearFieldError('dob');
+    }
+    
+    // Only validate if user has actually selected a date (not just clicked)
+    if (value) {
+      // Small delay to let the user finish selecting
+      setTimeout(() => {
+        handleBlur(e);
+      }, 100);
+    }
+  };
+
+  const handleDateFocus = (e) => {
+    // Clear error when user focuses on date input
+    if (errors.dob) {
+      clearFieldError('dob');
+    }
+    setIsDateFocused(true);
+    handleFocus(e);
+  };
+
+  const handleDateBlur = (e) => {
+    setIsDateFocused(false);
+    // Only validate if there's actually a value selected
+    if (e.target.value) {
+      handleBlur(e);
+    } else {
+      // Just mark as touched without validation for empty values
+      handleBlur({
+        ...e,
+        target: {
+          ...e.target,
+          value: e.target.value
+        }
+      });
+    }
+  };
+
 
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -54,6 +100,8 @@ export default function Register() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const [success, setSuccess] = useState('');
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
+  const [isDateFocused, setIsDateFocused] = useState(false);
 
   // Check if user is already logged in and redirect them
   useEffect(() => {
@@ -103,10 +151,8 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:5001/api/auth/send-otp', {
+      await axios.post(API_ENDPOINTS.AUTH.SEND_OTP, {
         email: formData.email
-
-        
       });
       setSuccess('OTP sent to your email! Please check your inbox.');
       setStep(2);
@@ -150,7 +196,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/register', {
+      const response = await axios.post(API_ENDPOINTS.AUTH.REGISTER, {
         ...formData,
         otp
       });
@@ -160,8 +206,8 @@ export default function Register() {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setIsLoggedIn(true);
-        alert('Registration successful! Welcome!');
-        navigate('/');
+        setSuccess('Registration successful! Welcome!');
+        setTimeout(() => navigate('/'), 2000);
       } else {
         navigate('/login');
       }
@@ -180,15 +226,29 @@ export default function Register() {
   };
 
   const handleResendOTP = async () => {
+    if (otpResendCooldown > 0) return;
+    
     setLoading(true);
     setServerError('');
     setOtpError('');
     
     try {
-      await axios.post('http://localhost:5001/api/auth/send-otp', {
+      await axios.post(API_ENDPOINTS.AUTH.SEND_OTP, {
         email: formData.email
       });
       setSuccess('OTP resent successfully!');
+      
+      // Set cooldown timer (60 seconds)
+      setOtpResendCooldown(60);
+      const timer = setInterval(() => {
+        setOtpResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err) {
       setServerError(err.response?.data?.message || 'Failed to resend OTP');
     } finally {
@@ -237,7 +297,7 @@ export default function Register() {
           </h2>
           <div className="bg-white rounded-xl shadow-md p-8">
             {serverError && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn" role="alert" aria-live="polite">
                 {serverError}
               </div>
             )}
@@ -283,18 +343,59 @@ export default function Register() {
                 autoComplete="email"
               />
 
-              <ValidatedInput
-                label="Date of Birth"
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Date of Birth
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
                 name="dob"
-                type="date"
                 value={formData.dob}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                onFocus={handleFocus}
-                error={errors.dob}
-                touched={touched.dob}
-                required
-              />
+                    onChange={handleDateChange}
+                    onBlur={handleDateBlur}
+                    onFocus={handleDateFocus}
+                    max={new Date().toISOString().split('T')[0]}
+                    min="1900-01-01"
+                    className={`
+                      w-full px-4 py-3 border rounded-lg transition-all duration-200
+                      ${touched.dob && errors.dob
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-200 focus:border-red-500' 
+                        : touched.dob && !errors.dob && formData.dob
+                          ? 'border-green-500 focus:ring-2 focus:ring-green-200 focus:border-green-500'
+                          : isDateFocused
+                            ? 'border-blue-500 focus:ring-2 focus:ring-blue-200 focus:border-blue-500'
+                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                      }
+                      bg-white
+                    `}
+                    style={{
+                      colorScheme: 'light',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'textfield'
+                    }}
+                    step="1"
+                  />
+                  {!formData.dob && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {touched.dob && errors.dob && (
+                  <div className="flex items-center space-x-1 text-red-600 text-sm animate-fadeIn">
+                    <span>{errors.dob}</span>
+                  </div>
+                )}
+                {isDateFocused && !formData.dob && (
+                  <p className="text-xs text-blue-600 animate-fadeIn">
+                    💡 Click the calendar icon to select your date of birth
+                  </p>
+                )}
+              </div>
 
               <ValidatedSelect
                 label="Gender"
@@ -353,34 +454,6 @@ export default function Register() {
                 autoComplete="new-password"
               />
 
-              {/* Terms and Conditions */}
-              <div className="space-y-2">
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
-                    <input
-                      id="termsAccepted"
-                      name="termsAccepted"
-                      type="checkbox"
-                      checked={formData.termsAccepted}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      onFocus={handleFocus}
-                      className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${
-                        touched.termsAccepted && errors.termsAccepted ? 'border-red-500 focus:ring-red-200' : ''
-                      }`}
-                    />
-                  </div>
-                  <label htmlFor="termsAccepted" className="ml-3 text-sm text-gray-700">
-                    I agree to the <a className="text-blue-600 hover:text-blue-700" href="#" target="_blank" rel="noreferrer">Terms</a> and <a className="text-blue-600 hover:text-blue-700" href="#" target="_blank" rel="noreferrer">Privacy Policy</a>
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                </div>
-                {touched.termsAccepted && errors.termsAccepted && (
-                  <div className="flex items-center space-x-1 text-red-600 text-sm animate-fadeIn">
-                    <span>{errors.termsAccepted}</span>
-                  </div>
-                )}
-              </div>
 
               <button
                 type="submit"
@@ -434,12 +507,12 @@ export default function Register() {
         </h2>
         <div className="bg-white rounded-xl shadow-md p-8">
           {serverError && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn">
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn" role="alert" aria-live="polite">
               {serverError}
             </div>
           )}
           {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg animate-fadeIn">
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg animate-fadeIn" role="alert" aria-live="polite">
               {success}
             </div>
           )}
@@ -501,10 +574,10 @@ export default function Register() {
               <button
                 type="button"
                 onClick={handleResendOTP}
-                disabled={loading}
+                disabled={loading || otpResendCooldown > 0}
                 className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
               >
-                {loading ? 'Sending...' : 'Resend OTP'}
+                {loading ? 'Sending...' : otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : 'Resend OTP'}
               </button>
             </div>
 

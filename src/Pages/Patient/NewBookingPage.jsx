@@ -5,6 +5,7 @@ import { useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
 import { getCurrentUser } from '../../utils/auth';
 import axios from 'axios';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -162,7 +163,7 @@ export default function NewBookingPage() {
         setRescheduleFor(resId);
         // Prefill existing appointment details
         const t = localStorage.getItem('token');
-        axios.get(`http://localhost:5001/api/patient/appointments/${resId}`, {
+        axios.get(`${API_ENDPOINTS.PATIENT.APPOINTMENTS}/${resId}`, {
           headers: { Authorization: `Bearer ${t}` }
         }).then(({ data }) => {
           const apt = data.appointment;
@@ -288,7 +289,7 @@ export default function NewBookingPage() {
   const fetchDepartments = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5001/api/patient/departments', {
+      const response = await axios.get(API_ENDPOINTS.PATIENT.DEPARTMENTS, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -302,7 +303,7 @@ export default function NewBookingPage() {
   const fetchDoctors = async (departmentId) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5001/api/patient/doctors/${departmentId}`, {
+      const response = await axios.get(`${API_ENDPOINTS.PATIENT.DOCTORS}/${departmentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data.doctors || []);
@@ -356,7 +357,7 @@ export default function NewBookingPage() {
       // Fetch slot data for each date in parallel
       const slotPromises = dates.map(async (dateObj) => {
         try {
-          const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-dates`, {
+          const res = await axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-dates`, {
             headers: { Authorization: `Bearer ${token}` },
             params: { date: dateObj.date }
           });
@@ -389,7 +390,7 @@ export default function NewBookingPage() {
   const fetchDepartmentAvailableDates = async (departmentId) => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-dates`, {
+      const res = await axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-dates`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAvailableDates(res.data.availableDates || []);
@@ -403,7 +404,7 @@ export default function NewBookingPage() {
   const fetchDepartmentAvailableSessions = async (departmentId, date) => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/availability/${date}`, {
+      const res = await axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/availability/${date}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAvailableSessions(res.data.sessions || []);
@@ -422,7 +423,7 @@ export default function NewBookingPage() {
         setLoading(true);
       }
       
-      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/availability/${date}`, {
+      const res = await axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/availability/${date}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -445,11 +446,11 @@ export default function NewBookingPage() {
     try {
       // Fetch doctor counts for both sessions in parallel
       const [morningRes, afternoonRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+        axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-doctors`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { date, time: '09:00' }
         }).catch(() => ({ data: { doctors: [] } })),
-        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+        axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-doctors`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { date, time: '14:00' }
         }).catch(() => ({ data: { doctors: [] } }))
@@ -481,10 +482,10 @@ export default function NewBookingPage() {
       setLoading(true);
       const token = localStorage.getItem('token');
       const [allDeptRes, availableRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/patient/doctors/${departmentId}`, {
+        axios.get(`${API_BASE_URL}/api/patient/doctors/${departmentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+        axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-doctors`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { date, time }
         }).catch(() => ({ data: { doctors: [] } }))
@@ -533,7 +534,7 @@ export default function NewBookingPage() {
   const fetchAvailableDoctorsForSlot = async (departmentId, date, time) => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5001/api/patient/departments/${departmentId}/available-doctors`, {
+      const res = await axios.get(`${API_BASE_URL}/api/patient/departments/${departmentId}/available-doctors`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { date, time }
       });
@@ -604,7 +605,7 @@ export default function NewBookingPage() {
       
       // Now fetch additional family members from API
       try {
-        const familyResponse = await axios.get('http://localhost:5001/api/patient/family-members', {
+        const familyResponse = await axios.get('${API_BASE_URL}/api/patient/family-members', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -664,7 +665,7 @@ export default function NewBookingPage() {
   const analyzeSymptoms = async (symptoms) => {
     try {
       setLoading(true);
-      const response = await axios.post('http://localhost:5001/api/patient/analyze-symptoms', {
+      const response = await axios.post('${API_BASE_URL}/api/patient/analyze-symptoms', {
         symptoms
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -754,7 +755,7 @@ export default function NewBookingPage() {
     await fetchRealSessionData(bookingData.departmentId, bookingData.appointmentDate);
     
     // Find the updated session with current availability
-    const updatedSessions = await axios.get(`http://localhost:5001/api/patient/departments/${bookingData.departmentId}/availability/${bookingData.appointmentDate}`, {
+    const updatedSessions = await axios.get(`${API_BASE_URL}/api/patient/departments/${bookingData.departmentId}/availability/${bookingData.appointmentDate}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
@@ -775,12 +776,12 @@ export default function NewBookingPage() {
     try {
       const token = localStorage.getItem('token');
       const [allDeptRes, availableRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/patient/doctors/${newData.departmentId}`, {
+        axios.get(`${API_BASE_URL}/api/patient/doctors/${newData.departmentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
         currentSession.availableDoctors
           ? Promise.resolve({ data: { doctors: currentSession.availableDoctors } })
-          : axios.get(`http://localhost:5001/api/patient/departments/${newData.departmentId}/available-doctors`, {
+          : axios.get(`${API_BASE_URL}/api/patient/departments/${newData.departmentId}/available-doctors`, {
               headers: { Authorization: `Bearer ${token}` },
               params: { date: newData.appointmentDate, time: currentSession.startTime }
             }).catch(() => ({ data: { doctors: [] } }))
@@ -822,7 +823,7 @@ export default function NewBookingPage() {
   const handleAutoAssign = async () => {
     try {
       setLoading(true);
-      const response = await axios.post(`http://localhost:5001/api/patient/departments/${bookingData.departmentId}/auto-assign`, {
+      const response = await axios.post(`${API_BASE_URL}/api/patient/departments/${bookingData.departmentId}/auto-assign`, {
         date: bookingData.appointmentDate,
         sessionId: bookingData.selectedSession.id,
         familyMemberId: bookingData.familyMemberId
@@ -869,7 +870,7 @@ export default function NewBookingPage() {
         return;
       }
       
-      const response = await axios.post('http://localhost:5001/api/patient/family-members', newMember, {
+      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', newMember, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -918,7 +919,7 @@ export default function NewBookingPage() {
 
       // Double-check slot availability before proceeding to payment
       try {
-        const availabilityCheck = await axios.get(`http://localhost:5001/api/patient/doctors/${bookingData.doctorId}/availability/${bookingData.appointmentDate}`, {
+        const availabilityCheck = await axios.get(`${API_BASE_URL}/api/patient/doctors/${bookingData.doctorId}/availability/${bookingData.appointmentDate}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -1215,7 +1216,7 @@ export default function NewBookingPage() {
                     
                     console.log('Checking conflict with params:', params.toString());
                     
-                    const res = await axios.get(`http://localhost:5001/api/patient/appointments/conflict?${params.toString()}`, { 
+                    const res = await axios.get(`${API_BASE_URL}/api/patient/appointments/conflict?${params.toString()}`, { 
                       headers: { Authorization: `Bearer ${token}` },
                       timeout: 10000 // 10 second timeout
                     });
@@ -1757,7 +1758,7 @@ function BookingSuccess({ bookingData, onNewBooking, user }) {
                 <img
                   src={(user.profilePhoto || user.profile_photo).startsWith('http') 
                     ? (user.profilePhoto || user.profile_photo)
-                    : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                    : `${API_BASE_URL}${user.profilePhoto || user.profile_photo}`
                   }
                   alt="Profile"
                   className="h-6 w-6 rounded-full object-cover border border-white shadow-sm"
@@ -1828,7 +1829,7 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
     const init = async () => {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.get('http://localhost:5001/api/patient/payment/key', {
+        const { data } = await axios.get('${API_BASE_URL}/api/patient/payment/key', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setKeyId(data.keyId || 'rzp_test_dummy_key');
@@ -1846,7 +1847,7 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
 
       // 1) Create order (or dummy order)
       const amount = bookingData.fee || bookingData.doctorFee || 500;
-      const { data: orderRes } = await axios.post('http://localhost:5001/api/patient/payment/create-order', {
+      const { data: orderRes } = await axios.post('${API_BASE_URL}/api/patient/payment/create-order', {
         amount,
         currency: 'INR',
         receipt: `apt_${bookingData.tokenNumber || Date.now()}`
@@ -1891,12 +1892,12 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
               appointmentType: bookingData.appointmentType
             };
 
-            const appointmentResponse = await axios.post('http://localhost:5001/api/patient/book-appointment', appointmentData, {
+            const appointmentResponse = await axios.post('${API_BASE_URL}/api/patient/book-appointment', appointmentData, {
               headers: { Authorization: `Bearer ${token}` }
             });
 
             // Then mark payment as paid
-            await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+            await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
               appointmentId: appointmentResponse.data?.appointment?.id,
               amount,
               method: bookingData.paymentMethod || 'card',
@@ -2113,14 +2114,14 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
   // Fetch key
   let keyId = 'rzp_test_dummy_key';
   try {
-    const { data } = await axios.get('http://localhost:5001/api/patient/payment/key', {
+    const { data } = await axios.get('${API_BASE_URL}/api/patient/payment/key', {
       headers: { Authorization: `Bearer ${token}` }
     });
     keyId = data.keyId || keyId;
   } catch {}
 
   // Create order (or dummy)
-  const { data: orderRes } = await axios.post('http://localhost:5001/api/patient/payment/create-order', {
+  const { data: orderRes } = await axios.post('${API_BASE_URL}/api/patient/payment/create-order', {
     amount,
     currency: 'INR',
     receipt: `apt_${tokenNumber || Date.now()}`
@@ -2129,7 +2130,7 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
   const order = orderRes.order;
   const isDummy = orderRes.dummy || !window.Razorpay;
   if (isDummy) {
-    await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+    await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
       appointmentId,
       amount,
       method: paymentMethod,
@@ -2152,7 +2153,7 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
       order_id: order.id,
       handler: async function (response) {
         try {
-          await axios.post('http://localhost:5001/api/patient/payment/mark-paid', {
+          await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
             appointmentId,
             amount,
             method: paymentMethod,

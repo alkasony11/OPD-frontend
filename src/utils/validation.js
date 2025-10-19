@@ -300,7 +300,8 @@ export const checkAvailability = async ({ email, phone }) => {
   if (email) params.append('email', email);
   if (phone) params.append('phone', phone);
 
-  const response = await fetch(`http://localhost:5001/api/auth/availability?${params.toString()}`);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+  const response = await fetch(`${API_BASE_URL}/api/auth/availability?${params.toString()}`);
   if (!response.ok) {
     throw new Error('Failed to check availability');
   }

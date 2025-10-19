@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
 import Swal from 'sweetalert2';
 import {
   UserCircleIcon,
@@ -139,9 +140,9 @@ const ManageAccount = () => {
         }
       }
       
-      console.log('Making API call to:', 'http://localhost:5001/api/patient/profile');
+      console.log('Making API call to:', '${API_BASE_URL}/api/patient/profile');
       
-      const response = await axios.get('http://localhost:5001/api/patient/profile', {
+      const response = await axios.get('${API_BASE_URL}/api/patient/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -203,7 +204,7 @@ const ManageAccount = () => {
   const fetchFamilyMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/patient/family-members', {
+      const response = await axios.get('${API_BASE_URL}/api/patient/family-members', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFamilyMembers(response.data.familyMembers || []);
@@ -248,7 +249,7 @@ const ManageAccount = () => {
       formData.append('photo', photoFile);
 
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:5001/api/patient/upload-photo', formData, {
+      const response = await axios.post('${API_BASE_URL}/api/patient/upload-photo', formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -309,7 +310,7 @@ const ManageAccount = () => {
         setUploadingPhoto(true);
         const token = localStorage.getItem('token');
         
-        await axios.delete('http://localhost:5001/api/patient/remove-photo', {
+        await axios.delete('${API_BASE_URL}/api/patient/remove-photo', {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -350,7 +351,7 @@ const ManageAccount = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put('http://localhost:5001/api/patient/profile', profileData, {
+      await axios.put('${API_BASE_URL}/api/patient/profile', profileData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -369,7 +370,7 @@ const ManageAccount = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await axios.post('http://localhost:5001/api/patient/family-members', newMember, {
+      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', newMember, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -418,7 +419,7 @@ const ManageAccount = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      await axios.put(`http://localhost:5001/api/patient/family-members/${editingMember._id}`, newMember, {
+      await axios.put(`${API_BASE_URL}/api/patient/family-members/${editingMember._id}`, newMember, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -464,7 +465,7 @@ const ManageAccount = () => {
         setLoading(true);
         const token = localStorage.getItem('token');
         
-        await axios.delete(`http://localhost:5001/api/patient/family-members/${memberId}`, {
+        await axios.delete(`${API_BASE_URL}/api/patient/family-members/${memberId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -517,7 +518,7 @@ const ManageAccount = () => {
         setLoading(true);
         const token = localStorage.getItem('token');
         
-        await axios.put('http://localhost:5001/api/patient/change-password', {
+        await axios.put('${API_BASE_URL}/api/patient/change-password', {
           currentPassword: formValues.currentPassword,
           newPassword: formValues.newPassword
         }, {
@@ -615,7 +616,7 @@ const ManageAccount = () => {
                       <img
                         src={(user.profilePhoto || user.profile_photo).startsWith('http') 
                           ? (user.profilePhoto || user.profile_photo)
-                          : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                          : `${API_BASE_URL}${user.profilePhoto || user.profile_photo}`
                         }
                         alt="Profile"
                         className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"

@@ -97,25 +97,25 @@ export default function DoctorReportsPage() {
 
       // Fetch appointments
       const appointmentsResponse = await axios.get(
-        `http://localhost:5001/api/doctor/appointments?startDate=${dateRange.start}&endDate=${dateRange.end}`,
+        `${API_BASE_URL}/api/doctor/appointments?startDate=${dateRange.start}&endDate=${dateRange.end}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       // Fetch patients
       const patientsResponse = await axios.get(
-        'http://localhost:5001/api/doctor/patients',
+        '${API_BASE_URL}/api/doctor/patients',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       // Fetch schedules
       const schedulesResponse = await axios.get(
-        `http://localhost:5001/api/doctor/schedules?startDate=${dateRange.start}&endDate=${dateRange.end}`,
+        `${API_BASE_URL}/api/doctor/schedules?startDate=${dateRange.start}&endDate=${dateRange.end}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       // Fetch medical records
       const recordsResponse = await axios.get(
-        'http://localhost:5001/api/doctor/medical-records',
+        '${API_BASE_URL}/api/doctor/medical-records',
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

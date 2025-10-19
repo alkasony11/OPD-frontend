@@ -16,7 +16,7 @@ export default function NotificationBell() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get('http://localhost:5001/api/notifications', {
+      const response = await axios.get('${API_BASE_URL}/api/notifications', {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -67,7 +67,7 @@ export default function NotificationBell() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.put(`http://localhost:5001/api/notifications/${notificationId}/read`, {}, {
+      await axios.put(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {}, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -89,7 +89,7 @@ export default function NotificationBell() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.put('http://localhost:5001/api/notifications/mark-all-read', {}, {
+      await axios.put('${API_BASE_URL}/api/notifications/mark-all-read', {}, {
         headers: {
           Authorization: `Bearer ${token}`
         }
