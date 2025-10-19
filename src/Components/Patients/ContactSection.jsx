@@ -1,6 +1,7 @@
 import { HiPhone, HiMail, HiLocationMarker, HiClock, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import { sanitizeNameInput } from '../../utils/validation';
 
 export default function ContactSection() {
   const [firstName, setFirstName] = useState('');
@@ -14,6 +15,10 @@ export default function ContactSection() {
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [patient, setPatient] = useState(null);
+  
+  // Validation states
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   useEffect(() => {
     try {
@@ -33,26 +38,219 @@ export default function ContactSection() {
     }
   }, []);
 
+  // Validation functions
+  const validateName = useCallback((name, fieldName) => {
+    if (!name) {
+      return `${fieldName} is required`;
+    }
+    const normalizedName = name.replace(/\s{2,}/g, ' ').trim();
+    if (normalizedName.length < 2) {
+      return `${fieldName} must be at least 2 characters long`;
+    }
+    if (normalizedName.length > 50) {
+      return `${fieldName} is too long (max 50 characters)`;
+    }
+    if (!/^[a-zA-Z\s'-]+$/.test(normalizedName)) {
+      return `${fieldName} can only contain letters, spaces, hyphens, and apostrophes`;
+    }
+    return '';
+  }, []);
+
+  const validateEmail = useCallback((email) => {
+    if (!email) {
+      return 'Email is required';
+    }
+    const emailStr = email.trim().toLowerCase();
+    const hasSpace = /\s/.test(emailStr);
+    const parts = emailStr.split('@');
+    const validParts = parts.length === 2 && parts[0] && parts[1];
+    const local = validParts ? parts[0] : '';
+    const domain = validParts ? parts[1] : '';
+
+    const tooLong = emailStr.length > 254 || local.length > 64;
+    const hasConsecutiveDots = /\.\./.test(local) || /\.\./.test(domain);
+    const localStartsOrEndsWithDot = local.startsWith('.') || local.endsWith('.');
+    const invalidDomainLabel = domain
+      .split('.')
+      .some(label => !label || label.length > 63 || label.startsWith('-') || label.endsWith('-'));
+    const tld = domain.includes('.') ? domain.split('.').pop() : '';
+    const invalidTldShape = !tld || tld.length < 2 || tld.length > 24 || /[^a-z]/.test(tld);
+    const allowedTlds = ['com','net','org','edu','gov','mil','info','io','co','in','ai','app','dev'];
+    const invalidTld = invalidTldShape || !allowedTlds.includes(tld);
+
+    const basicRegex = /^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/i;
+    const localStartsWithLetter = /^[a-z][a-z0-9._%+\-]*$/i.test(local);
+
+    if (hasSpace || !validParts || !basicRegex.test(emailStr)) {
+      return 'Please enter a valid email address';
+    } else if (tooLong) {
+      return 'Email is too long';
+    } else if (hasConsecutiveDots || localStartsOrEndsWithDot) {
+      return 'Email cannot contain consecutive dots or end with dot';
+    } else if (!localStartsWithLetter) {
+      return 'Email must start with a letter';
+    } else if (invalidDomainLabel || invalidTld) {
+      return 'Please enter a valid domain (e.g. example.com)';
+    }
+    return '';
+  }, []);
+
+  const validatePhone = useCallback((phone) => {
+    if (!phone) return ''; // Phone is optional
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = digits.replace(/^0+/, '');
+    if (digits.startsWith('91') && digits.length === 12) digits = digits.slice(2);
+    if (digits.length !== 10) {
+      return 'Enter a 10-digit Indian mobile number';
+    } else if (!/^[6-9]\d{9}$/.test(digits)) {
+      return 'Number must start with 6-9 and be 10 digits';
+    } else if (/^(\d)\1{9}$/.test(digits)) {
+      return 'Phone number cannot be all same digits';
+    } else if (digits === '1234567890' || digits === '0123456789' || digits === '0987654321') {
+      return 'Enter a real phone number';
+    }
+    return '';
+  }, []);
+
+  const validateMessage = useCallback((message) => {
+    if (!message) {
+      return 'Message is required';
+    }
+    if (message.trim().length < 10) {
+      return 'Message must be at least 10 characters long';
+    }
+    if (message.trim().length > 1000) {
+      return 'Message is too long (max 1000 characters)';
+    }
+    return '';
+  }, []);
+
+  const validateField = useCallback((name, value) => {
+    switch (name) {
+      case 'firstName':
+        return validateName(value, 'First name');
+      case 'lastName':
+        return validateName(value, 'Last name');
+      case 'email':
+        return validateEmail(value);
+      case 'phone':
+        return validatePhone(value);
+      case 'message':
+        return validateMessage(value);
+      default:
+        return '';
+    }
+  }, [validateName, validateEmail, validatePhone, validateMessage]);
+
+  const handleFieldChange = useCallback((name, value) => {
+    // Sanitize name fields to remove numbers and normalize spaces
+    let sanitizedValue = value;
+    if (name === 'firstName' || name === 'lastName') {
+      sanitizedValue = sanitizeNameInput(value);
+    }
+
+    // Update the field value
+    switch (name) {
+      case 'firstName':
+        setFirstName(sanitizedValue);
+        break;
+      case 'lastName':
+        setLastName(sanitizedValue);
+        break;
+      case 'email':
+        setEmail(value);
+        break;
+      case 'phone':
+        setPhone(value);
+        break;
+      case 'subject':
+        setSubject(value);
+        break;
+      case 'message':
+        setMessage(value);
+        break;
+      default:
+        break;
+    }
+
+    // Mark field as touched
+    setTouched(prev => ({ ...prev, [name]: true }));
+
+    // Validate field immediately for critical fields
+    const criticalFields = ['firstName', 'lastName', 'email', 'message'];
+    if (criticalFields.includes(name)) {
+      const error = validateField(name, value);
+      setErrors(prev => ({ ...prev, [name]: error }));
+    } else {
+      // Debounced validation for other fields
+      setTimeout(() => {
+        const error = validateField(name, value);
+        setErrors(prev => ({ ...prev, [name]: error }));
+      }, 300);
+    }
+  }, [validateField]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMsg('');
     setErrorMsg('');
 
     const token = localStorage.getItem('token');
-
-    if (!message || !subject) {
-      setErrorMsg('Please fill in the subject and message.');
-      return;
-    }
-
     const isGuest = !isLoggedIn || !patient?._id || !token;
 
+    // Validate all fields
+    const newErrors = {};
+    let hasErrors = false;
+
     if (isGuest) {
-      // Guest path requires basic contact info
-      if (!firstName || !lastName || !email) {
-        setErrorMsg('Please provide your name and email to submit as guest.');
-        return;
+      const firstNameError = validateName(firstName, 'First name');
+      const lastNameError = validateName(lastName, 'Last name');
+      const emailError = validateEmail(email);
+      
+      if (firstNameError) {
+        newErrors.firstName = firstNameError;
+        hasErrors = true;
       }
+      if (lastNameError) {
+        newErrors.lastName = lastNameError;
+        hasErrors = true;
+      }
+      if (emailError) {
+        newErrors.email = emailError;
+        hasErrors = true;
+      }
+    }
+
+    const phoneError = validatePhone(phone);
+    const messageError = validateMessage(message);
+    
+    if (phoneError) {
+      newErrors.phone = phoneError;
+      hasErrors = true;
+    }
+    if (messageError) {
+      newErrors.message = messageError;
+      hasErrors = true;
+    }
+
+    if (!subject) {
+      newErrors.subject = 'Please select a subject';
+      hasErrors = true;
+    }
+
+    setErrors(newErrors);
+    setTouched({
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      subject: true,
+      message: true
+    });
+
+    if (hasErrors) {
+      setErrorMsg('Please fix the errors below before submitting.');
+      return;
     }
 
     try {
@@ -118,7 +316,7 @@ export default function ContactSection() {
             {/* Contact Information */}
             <div>
               <h3 className="text-2xl font-bold text-black mb-8">Contact Information</h3>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-start space-x-4">
                   <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
                     <HiPhone className="h-6 w-6 text-white" />
@@ -183,77 +381,114 @@ export default function ContactSection() {
                 </div>
               )}
 
-              <form className="space-y-6" onSubmit={handleSubmit}>
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 {!isLoggedIn && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         First Name *
                       </label>
                       <input
                         type="text"
                         required
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, firstName: true }))}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                          errors.firstName && touched.firstName
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
                         placeholder="Enter your first name"
                       />
+                      {errors.firstName && touched.firstName && (
+                        <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Last Name *
                       </label>
                       <input
                         type="text"
                         required
                         value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, lastName: true }))}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                          errors.lastName && touched.lastName
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
                         placeholder="Enter your last name"
                       />
+                      {errors.lastName && touched.lastName && (
+                        <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                      )}
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     {isLoggedIn ? 'Your Email' : 'Email Address *'}
                   </label>
                   <input
                     type="email"
                     required={!isLoggedIn}
                     value={isLoggedIn ? (patient?.email || '') : email}
-                    onChange={(e) => isLoggedIn ? null : setEmail(e.target.value)}
+                    onChange={(e) => isLoggedIn ? null : handleFieldChange('email', e.target.value)}
+                    onBlur={() => !isLoggedIn && setTouched(prev => ({ ...prev, email: true }))}
                     disabled={isLoggedIn}
-                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isLoggedIn ? 'bg-gray-100 text-gray-600' : ''}`}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      errors.email && touched.email
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    } ${isLoggedIn ? 'bg-gray-100 text-gray-600' : ''}`}
                     placeholder="Enter your email"
                   />
+                  {errors.email && touched.email && (
+                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                  )}
                 </div>
 
                 {!isLoggedIn && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Phone Number
                     </label>
                     <input
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => handleFieldChange('phone', e.target.value)}
+                      onBlur={() => setTouched(prev => ({ ...prev, phone: true }))}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                        errors.phone && touched.phone
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                       placeholder="+91 98765 43210"
                     />
+                    {errors.phone && touched.phone && (
+                      <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                    )}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Subject *
                   </label>
                   <select
                     required
                     value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => handleFieldChange('subject', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, subject: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                      errors.subject && touched.subject
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                   >
                     <option value="">Select a subject</option>
                     <option value="general">General Inquiry</option>
@@ -263,20 +498,31 @@ export default function ContactSection() {
                     <option value="feedback">Feedback</option>
                     <option value="complaint">Complaint</option>
                   </select>
+                  {errors.subject && touched.subject && (
+                    <p className="mt-1 text-sm text-red-600">{errors.subject}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Message *
                   </label>
                   <textarea
                     required
-                    rows={5}
+                    rows={4}
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    onChange={(e) => handleFieldChange('message', e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, message: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 resize-none ${
+                      errors.message && touched.message
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                     placeholder={isLoggedIn ? 'Tell us how we can help you...' : 'Tell us how we can help you... (include details for faster support)'}
                   ></textarea>
+                  {errors.message && touched.message && (
+                    <p className="mt-1 text-sm text-red-600">{errors.message}</p>
+                  )}
                 </div>
 
                 <button
@@ -307,7 +553,7 @@ export default function ContactSection() {
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="bg-gray-50 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-black mb-3">
                 How do I book an appointment?

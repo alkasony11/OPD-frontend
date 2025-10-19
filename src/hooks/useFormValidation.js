@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { checkAvailability } from '../utils/validation';
+import { checkAvailability, sanitizeNameInput } from '../utils/validation';
 
 /**
  * Custom hook for real-time form validation
@@ -77,7 +77,13 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
 
   const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    const fieldValue = type === 'checkbox' ? checked : value;
+    let fieldValue = type === 'checkbox' ? checked : value;
+
+    // Sanitize name fields to remove numbers and normalize spaces
+    if (name === 'name' || name === 'firstName' || name === 'lastName' || 
+        name === 'emergencyContact.name' || name === 'familyMember.name') {
+      fieldValue = sanitizeNameInput(fieldValue);
+    }
 
     setValues(prev => ({
       ...prev,
@@ -107,7 +113,7 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
 
     if (validateOnChange) {
       // Immediate validation for basic fields (name, phone) to show errors instantly
-      const immediateValidationFields = ['name', 'phone'];
+      const immediateValidationFields = ['name', 'phone', 'firstName', 'lastName'];
       if (immediateValidationFields.includes(name)) {
         // Clear any existing timeout for this field
         if (validationTimeout) {
@@ -266,7 +272,11 @@ export const useFormValidation = (initialValues, validationRules, options = {}) 
     setFieldError,
     clearFieldError,
     validateField,
-    validateForm
+    validateForm,
+    setValues,
+    setTouched,
+    setErrors,
+    setIsValid
   };
 };
 
@@ -759,7 +769,13 @@ export const useProfileUpdateValidation = (initialValues = {
   // Override handleChange to provide immediate validation for critical fields
   const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    const fieldValue = type === 'checkbox' ? checked : value;
+    let fieldValue = type === 'checkbox' ? checked : value;
+
+    // Sanitize name fields to remove numbers and normalize spaces
+    if (name === 'name' || name === 'firstName' || name === 'lastName' || 
+        name === 'emergencyContact.name' || name === 'familyMember.name') {
+      fieldValue = sanitizeNameInput(fieldValue);
+    }
 
     base.setValues(prev => ({
       ...prev,

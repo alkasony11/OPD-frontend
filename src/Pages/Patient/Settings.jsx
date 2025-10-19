@@ -180,6 +180,8 @@ const Settings = () => {
     }
   };
 
+  // No default tab - let users click to view sections
+
   const handleNotificationChange = (key, value) => {
     setNotifications(prev => ({
       ...prev,
@@ -278,38 +280,60 @@ const Settings = () => {
       return;
     }
 
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: 'This action cannot be undone. All your data will be permanently deleted.',
-      icon: 'warning',
+    // Ask for password
+    const { value: password } = await Swal.fire({
+      title: 'Confirm Account Deletion',
+      text: 'Enter your password to confirm account deletion',
+      input: 'password',
+      inputPlaceholder: 'Enter your password',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
       cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, delete my account',
-      cancelButtonText: 'Cancel'
+      confirmButtonText: 'Delete Account',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Password is required!';
+        }
+        return null;
+      }
     });
 
-    if (result.isConfirmed) {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        const response = await axios.delete(`${API_BASE_URL}/api/patient/account`, {
-          headers: { Authorization: `Bearer ${token}` },
-          data: { password: 'DELETE' } // Using DELETE as password for now
-        });
+    if (password) {
+      const result = await Swal.fire({
+        title: 'Are you absolutely sure?',
+        text: 'This action cannot be undone. All your data will be permanently deleted.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete my account',
+        cancelButtonText: 'Cancel'
+      });
 
-        if (response.data.success) {
-          // Clear local storage and redirect
-          localStorage.clear();
-          Swal.fire('Account Deleted', 'Your account has been permanently deleted.', 'success');
-          navigate('/');
+      if (result.isConfirmed) {
+        try {
+          setLoading(true);
+          const token = localStorage.getItem('token');
+          
+          const response = await axios.delete(`${API_BASE_URL}/api/patient/account`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { password: password }
+          });
+
+          if (response.data.success) {
+            // Clear local storage and redirect
+            localStorage.clear();
+            Swal.fire('Account Deleted', 'Your account has been permanently deleted.', 'success');
+            navigate('/');
+          }
+        } catch (error) {
+          console.error('Error deleting account:', error);
+          const errorMessage = error.response?.data?.message || 'Failed to delete account';
+          Swal.fire('Error', errorMessage, 'error');
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error deleting account:', error);
-        Swal.fire('Error', 'Failed to delete account', 'error');
-      } finally {
-        setLoading(false);
       }
     }
   };
@@ -323,264 +347,154 @@ const Settings = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Quick Access */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center mb-6">
-              <CalendarDaysIcon className="h-6 w-6 text-blue-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Quick Access</h2>
+          {/* Invoices Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div 
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('invoices')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <DocumentTextIcon className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
+                    <p className="text-sm text-gray-500">View your payment history and receipts</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{invoices.length} invoices</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'invoices' ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button
-                onClick={() => handleQuickAccessClick('invoices')}
-                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
-                  activeQuickAccess === 'invoices'
-                    ? 'border-orange-300 bg-orange-50'
-                    : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                }`}
-              >
-                <DocumentTextIcon className="h-8 w-8 text-orange-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Invoices</span>
-                <span className="text-xs text-gray-500">View payment history</span>
-              </button>
-              
-              <button
-                onClick={() => handleQuickAccessClick('consulted')}
-                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
-                  activeQuickAccess === 'consulted'
-                    ? 'border-purple-300 bg-purple-50'
-                    : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                }`}
-              >
-                <ClockIcon className="h-8 w-8 text-purple-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Appointment History</span>
-                <span className="text-xs text-gray-500">Past consultations</span>
-              </button>
-              
-              <button
-                onClick={() => handleQuickAccessClick('cancelled')}
-                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
-                  activeQuickAccess === 'cancelled'
-                    ? 'border-red-300 bg-red-50'
-                    : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
-                }`}
-              >
-                <XMarkIcon className="h-8 w-8 text-red-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Cancelled Appointments</span>
-                <span className="text-xs text-gray-500">Cancelled bookings</span>
-              </button>
-              
-              <button
-                onClick={() => handleQuickAccessClick('appointments')}
-                className={`flex flex-col items-center p-4 border rounded-lg transition-colors duration-200 ${
-                  activeQuickAccess === 'appointments'
-                    ? 'border-green-300 bg-green-50'
-                    : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
-                }`}
-              >
-                <CalendarDaysIcon className="h-8 w-8 text-green-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">My Appointments</span>
-                <span className="text-xs text-gray-500">Upcoming bookings</span>
-              </button>
-            </div>
+            {activeQuickAccess === 'invoices' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                    <span className="ml-3 text-gray-600">Loading invoices...</span>
+                  </div>
+                ) : (
+                  <InvoicesContent invoices={invoices} />
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Quick Access Content */}
-          {activeQuickAccess && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {activeQuickAccess === 'invoices' && 'Invoices'}
-                  {activeQuickAccess === 'appointments' && 'My Appointments'}
-                  {activeQuickAccess === 'consulted' && 'Appointment History'}
-                  {activeQuickAccess === 'cancelled' && 'Cancelled Appointments'}
-                </h2>
-                <button
-                  onClick={() => setActiveQuickAccess(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
+          {/* My Appointments Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div 
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('appointments')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CalendarDaysIcon className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">My Appointments</h3>
+                    <p className="text-sm text-gray-500">View your upcoming appointments</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{appointments.length} appointments</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'appointments' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                </div>
               </div>
-
-              {loadingData ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">Loading...</span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {activeQuickAccess === 'invoices' && (
-                    <InvoicesContent invoices={invoices} />
-                  )}
-                  {activeQuickAccess === 'appointments' && (
-                    <AppointmentsContent appointments={appointments} />
-                  )}
-                  {activeQuickAccess === 'consulted' && (
-                    <ConsultedAppointmentsContent appointments={consultedAppointments} />
-                  )}
-                  {activeQuickAccess === 'cancelled' && (
-                    <CancelledAppointmentsContent appointments={cancelledAppointments} />
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Notifications Settings */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center mb-6">
-              <BellIcon className="h-6 w-6 text-blue-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Notifications</h2>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
-                  <p className="text-sm text-gray-500">Receive updates via email</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifications.emailNotifications}
-                    onChange={(e) => handleNotificationChange('emailNotifications', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+            {activeQuickAccess === 'appointments' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                    <span className="ml-3 text-gray-600">Loading appointments...</span>
+                  </div>
+                ) : (
+                  <AppointmentsContent appointments={appointments} />
+                )}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">SMS Notifications</h3>
-                  <p className="text-sm text-gray-500">Receive updates via SMS</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifications.smsNotifications}
-                    onChange={(e) => handleNotificationChange('smsNotifications', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Appointment Reminders</h3>
-                  <p className="text-sm text-gray-500">Get reminded about upcoming appointments</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifications.appointmentReminders}
-                    onChange={(e) => handleNotificationChange('appointmentReminders', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Prescription Ready</h3>
-                  <p className="text-sm text-gray-500">Get notified when prescriptions are ready</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={notifications.prescriptionReady}
-                    onChange={(e) => handleNotificationChange('prescriptionReady', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Privacy Settings */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center mb-6">
-              <ShieldCheckIcon className="h-6 w-6 text-green-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Privacy & Security</h2>
+          {/* Appointment History Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div 
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('consulted')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <ClockIcon className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Appointment History</h3>
+                    <p className="text-sm text-gray-500">View your past consultations and medical records</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{consultedAppointments.length} consultations</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'consulted' ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Profile Visibility</h3>
-                  <p className="text-sm text-gray-500">Control who can see your profile</p>
-                </div>
-                <select
-                  value={privacy.profileVisibility}
-                  onChange={(e) => handlePrivacyChange('profileVisibility', e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="private">Private</option>
-                  <option value="doctors">Doctors Only</option>
-                  <option value="public">Public</option>
-                </select>
+            {activeQuickAccess === 'consulted' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-3 text-gray-600">Loading history...</span>
+                  </div>
+                ) : (
+                  <ConsultedAppointmentsContent appointments={consultedAppointments} />
+                )}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Share Medical Data</h3>
-                  <p className="text-sm text-gray-500">Allow doctors to access your medical history</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={privacy.shareMedicalData}
-                    onChange={(e) => handlePrivacyChange('shareMedicalData', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Data Collection</h3>
-                  <p className="text-sm text-gray-500">Allow anonymous data collection for service improvement</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={privacy.allowDataCollection}
-                    onChange={(e) => handlePrivacyChange('allowDataCollection', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Account Security */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center mb-6">
-              <CogIcon className="h-6 w-6 text-gray-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Account Security</h2>
+          {/* Cancelled Appointments Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div 
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('cancelled')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <XMarkIcon className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Cancelled Appointments</h3>
+                    <p className="text-sm text-gray-500">View your cancelled or rescheduled appointments</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{cancelledAppointments.length} cancelled</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'cancelled' ? 'bg-red-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Change Password</h3>
-                  <p className="text-sm text-gray-500">Update your account password</p>
-                </div>
-                <button
-                  onClick={handlePasswordChange}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Change Password
-                </button>
+            {activeQuickAccess === 'cancelled' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <span className="ml-3 text-gray-600">Loading cancelled appointments...</span>
+                  </div>
+                ) : (
+                  <CancelledAppointmentsContent appointments={cancelledAppointments} />
+                )}
               </div>
-            </div>
+            )}
           </div>
+
 
           {/* Danger Zone */}
           <div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
@@ -605,16 +519,6 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <button
-              onClick={saveSettings}
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
         </div>
 
         {/* Delete Account Modal */}
@@ -671,6 +575,8 @@ const Settings = () => {
 
 // Content Components
 const InvoicesContent = ({ invoices }) => {
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -698,9 +604,13 @@ const InvoicesContent = ({ invoices }) => {
   return (
     <div className="space-y-4">
       {invoices.map((invoice) => (
-        <div key={invoice.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+        <div 
+          key={invoice.id} 
+          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          onClick={() => setSelectedInvoice(selectedInvoice === invoice.id ? null : invoice.id)}
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <h3 className="font-medium text-gray-900">Invoice #{invoice.invoice_number || invoice.id}</h3>
               <p className="text-sm text-gray-500">Date: {formatDate(invoice.created_at || invoice.appointment?.appointmentDate)}</p>
               {invoice.appointment && (
@@ -718,6 +628,30 @@ const InvoicesContent = ({ invoices }) => {
               </span>
             </div>
           </div>
+          
+          {/* Expanded Details */}
+          {selectedInvoice === invoice.id && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Payment Method:</span>
+                  <p className="font-medium">{invoice.payment_method || 'Card'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Transaction ID:</span>
+                  <p className="font-medium">{invoice.transaction_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Service:</span>
+                  <p className="font-medium">{invoice.appointment?.departmentName || 'General Consultation'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Duration:</span>
+                  <p className="font-medium">{invoice.appointment?.duration || '30 minutes'}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -725,6 +659,8 @@ const InvoicesContent = ({ invoices }) => {
 };
 
 const AppointmentsContent = ({ appointments }) => {
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -745,9 +681,13 @@ const AppointmentsContent = ({ appointments }) => {
   return (
     <div className="space-y-4">
       {appointments.map((appointment) => (
-        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+        <div 
+          key={appointment.id} 
+          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          onClick={() => setSelectedAppointment(selectedAppointment === appointment.id ? null : appointment.id)}
+        >
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
               <p className="text-sm text-gray-500">{appointment.departmentName}</p>
               <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
@@ -764,6 +704,36 @@ const AppointmentsContent = ({ appointments }) => {
               </span>
             </div>
           </div>
+          
+          {/* Expanded Details */}
+          {selectedAppointment === appointment.id && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Token Number:</span>
+                  <p className="font-medium">{appointment.tokenNumber || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Appointment Type:</span>
+                  <p className="font-medium">{appointment.appointmentType || 'In-Person'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Estimated Wait:</span>
+                  <p className="font-medium">{appointment.estimatedWaitTime || '30 minutes'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Fee:</span>
+                  <p className="font-medium">₹{appointment.fee || '500'}</p>
+                </div>
+                {appointment.meetingLink && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500">Meeting Link:</span>
+                    <p className="font-medium text-blue-600">{appointment.meetingLink}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>

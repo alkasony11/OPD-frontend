@@ -97,20 +97,32 @@ export const validateName = (name) => {
     return { isValid: false, message: 'Name is required' };
   }
   
-  if (name.trim().length < 2) {
+  // Normalize multiple spaces to single space
+  const normalizedName = name.replace(/\s{2,}/g, ' ').trim();
+  
+  if (normalizedName.length < 2) {
     return { isValid: false, message: 'Name must be at least 2 characters long' };
   }
   
-  if (name.trim().length > 50) {
+  if (normalizedName.length > 50) {
     return { isValid: false, message: 'Name is too long (max 50 characters)' };
   }
   
   const nameRegex = /^[a-zA-Z\s'-]+$/;
-  if (!nameRegex.test(name.trim())) {
+  if (!nameRegex.test(normalizedName)) {
     return { isValid: false, message: 'Name can only contain letters, spaces, hyphens, and apostrophes' };
   }
   
   return { isValid: true, message: '' };
+};
+
+// Sanitize name input - remove numbers and normalize spaces
+export const sanitizeNameInput = (value) => {
+  // Remove numbers and special characters except spaces, hyphens, apostrophes
+  let sanitized = value.replace(/[^a-zA-Z\s'-]/g, '');
+  // Normalize multiple spaces to single space
+  sanitized = sanitized.replace(/\s{2,}/g, ' ');
+  return sanitized;
 };
 
 /**

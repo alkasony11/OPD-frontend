@@ -32,6 +32,17 @@ export default function DoctorsSection() {
 
   const handleBookAppointment = (doctorId, e) => {
     e.stopPropagation();
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (!token || !user) {
+      // Redirect to login page if not logged in
+      navigate('/login');
+      return;
+    }
+    
     navigate(`/booking?doctor=${doctorId}`);
   };
 

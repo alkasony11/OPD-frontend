@@ -633,7 +633,7 @@ export default function NewBookingPage() {
       
       // Now fetch additional family members from API
       try {
-        const familyResponse = await axios.get('${API_BASE_URL}/api/patient/family-members', {
+        const familyResponse = await axios.get(`${API_BASE_URL}/api/patient/family-members`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -693,7 +693,7 @@ export default function NewBookingPage() {
   const analyzeSymptoms = async (symptoms) => {
     try {
       setLoading(true);
-      const response = await axios.post('${API_BASE_URL}/api/patient/analyze-symptoms', {
+      const response = await axios.post(`${API_BASE_URL}/api/patient/analyze-symptoms`, {
         symptoms
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -899,7 +899,7 @@ export default function NewBookingPage() {
         return;
       }
       
-      const response = await axios.post('${API_BASE_URL}/api/patient/family-members', familyMemberValidation.values, {
+      const response = await axios.post(`${API_BASE_URL}/api/patient/family-members`, familyMemberValidation.values, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -1926,7 +1926,7 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
     const init = async () => {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.get('${API_BASE_URL}/api/patient/payment/key', {
+        const { data } = await axios.get(`${API_BASE_URL}/api/patient/payment/key`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setKeyId(data.keyId || 'rzp_test_dummy_key');
@@ -1944,7 +1944,7 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
 
       // 1) Create order (or dummy order)
       const amount = bookingData.fee || bookingData.doctorFee || 500;
-      const { data: orderRes } = await axios.post('${API_BASE_URL}/api/patient/payment/create-order', {
+      const { data: orderRes } = await axios.post(`${API_BASE_URL}/api/patient/payment/create-order`, {
         amount,
         currency: 'INR',
         receipt: `apt_${bookingData.tokenNumber || Date.now()}`
@@ -1989,12 +1989,12 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
               appointmentType: bookingData.appointmentType
             };
 
-            const appointmentResponse = await axios.post('${API_BASE_URL}/api/patient/book-appointment', appointmentData, {
+            const appointmentResponse = await axios.post(`${API_BASE_URL}/api/patient/book-appointment`, appointmentData, {
               headers: { Authorization: `Bearer ${token}` }
             });
 
             // Then mark payment as paid
-            await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
+            await axios.post(`${API_BASE_URL}/api/patient/payment/mark-paid`, {
               appointmentId: appointmentResponse.data?.appointment?.id,
               amount,
               method: bookingData.paymentMethod || 'card',
@@ -2211,14 +2211,14 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
   // Fetch key
   let keyId = 'rzp_test_dummy_key';
   try {
-    const { data } = await axios.get('${API_BASE_URL}/api/patient/payment/key', {
+    const { data } = await axios.get(`${API_BASE_URL}/api/patient/payment/key`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     keyId = data.keyId || keyId;
   } catch {}
 
   // Create order (or dummy)
-  const { data: orderRes } = await axios.post('${API_BASE_URL}/api/patient/payment/create-order', {
+  const { data: orderRes } = await axios.post(`${API_BASE_URL}/api/patient/payment/create-order`, {
     amount,
     currency: 'INR',
     receipt: `apt_${tokenNumber || Date.now()}`
@@ -2227,7 +2227,7 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
   const order = orderRes.order;
   const isDummy = orderRes.dummy || !window.Razorpay;
   if (isDummy) {
-    await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
+    await axios.post(`${API_BASE_URL}/api/patient/payment/mark-paid`, {
       appointmentId,
       amount,
       method: paymentMethod,
@@ -2250,7 +2250,7 @@ async function initiatePaymentFlow({ appointmentId, tokenNumber, amount = 500, p
       order_id: order.id,
       handler: async function (response) {
         try {
-          await axios.post('${API_BASE_URL}/api/patient/payment/mark-paid', {
+          await axios.post(`${API_BASE_URL}/api/patient/payment/mark-paid`, {
             appointmentId,
             amount,
             method: paymentMethod,

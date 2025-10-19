@@ -47,6 +47,16 @@ export default function VideoConsultationSection() {
   ];
 
   const handleBookVideoConsultation = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (!token || !user) {
+      // Redirect to login page if not logged in
+      navigate('/login');
+      return;
+    }
+    
     // Navigate to booking page with video consultation flag
     navigate('/booking?type=video');
   };

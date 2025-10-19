@@ -515,7 +515,7 @@ const ManageAccount = () => {
     if (!member) return;
 
     setEditingMember(member);
-    setNewMember({
+    const memberData = {
       name: member.name,
       age: member.age,
       gender: member.gender,
@@ -524,7 +524,24 @@ const ManageAccount = () => {
       bloodGroup: member.bloodGroup || '',
       allergies: member.allergies || '',
       chronicConditions: member.chronicConditions || ''
+    };
+    
+    setNewMember(memberData);
+    
+    // Update the validation form state with the member data
+    familyMemberValidation.setValues(memberData);
+    familyMemberValidation.setTouched({
+      name: false,
+      age: false,
+      gender: false,
+      phone: false,
+      relation: false,
+      bloodGroup: false,
+      allergies: false,
+      chronicConditions: false
     });
+    familyMemberValidation.setErrors({});
+    
     setShowAddMember(true);
   };
 
@@ -702,14 +719,14 @@ const ManageAccount = () => {
                   {getMissingFields().map((field, index) => (
                     <li key={index}>{field}</li>
                   ))}
-                </ul>
+                    </ul>
                 <p className="text-xs text-blue-600 mt-2">
                   This helps us provide better healthcare services.
                 </p>
               </div>
             </div>
-          </div>
-        )}
+                  </div>
+                )}
 
         {/* Profile Complete Success Message */}
         {user && isProfileComplete() && (
@@ -808,7 +825,7 @@ const ManageAccount = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                     <input
@@ -1013,7 +1030,7 @@ const ManageAccount = () => {
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900">Medical Information</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
                     <select
@@ -1072,7 +1089,7 @@ const ManageAccount = () => {
 
                 <div className="border-t pt-6">
                   <h4 className="text-md font-medium text-gray-900 mb-4">Emergency Contact</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                       <input
@@ -1303,7 +1320,7 @@ const ManageAccount = () => {
               </button>
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input

@@ -8,6 +8,7 @@ import { HiArrowLeft } from 'react-icons/hi';
 import { useRegistrationValidation } from '../hooks/useFormValidation';
 import { ValidatedInput, PasswordInput, ValidatedSelect, PhoneInput, OTPInput } from '../Components/FormComponents';
 import { API_ENDPOINTS } from '../config/api';
+import { sanitizeNameInput } from '../utils/validation';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -30,9 +31,9 @@ export default function Register() {
     validateForm,
     setFieldValue
   } = useRegistrationValidation();
-  // Sanitize name: collapse multiple spaces on change; trim on blur
+  // Sanitize name: remove numbers and normalize spaces
   const handleNameChange = (e) => {
-    const sanitized = e.target.value.replace(/\s{2,}/g, ' ');
+    const sanitized = sanitizeNameInput(e.target.value);
     setFieldValue('name', sanitized);
   };
 
