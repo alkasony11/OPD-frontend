@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowRight, HiStar, HiClock, HiCurrencyRupee } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DoctorProfilesPage() {
   const [doctors, setDoctors] = useState([]);
@@ -18,7 +19,7 @@ export default function DoctorProfilesPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/patient/doctors');
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/doctors');
       setDoctors(response.data);
     } catch (error) {
       console.error('Error fetching doctors:', error);
@@ -29,7 +30,7 @@ export default function DoctorProfilesPage() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/patient/departments');
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/departments');
       setDepartments(response.data.departments || []);
     } catch (error) {
       console.error('Error fetching departments:', error);

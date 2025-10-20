@@ -3,6 +3,7 @@ import { HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, HiPencil, H
 import axios from 'axios';
 import PatientDetailsModal from './PatientDetailsModal';
 import PrescriptionModal from './PrescriptionModal';
+import { API_BASE_URL } from '../../config/api';
 
 export default function AppointmentList() {
   const [appointments, setAppointments] = useState([]);
@@ -30,7 +31,7 @@ export default function AppointmentList() {
         return;
       }
 
-      const response = await axios.get(`http://localhost:5001/api/doctor/appointments?filter=${filter}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=${filter}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -86,7 +87,7 @@ export default function AppointmentList() {
       const token = localStorage.getItem('token');
 
       await axios.patch(
-        `http://localhost:5001/api/doctor/appointments/${appointmentId}/status`,
+        `${API_BASE_URL}/api/doctor/appointments/${appointmentId}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -138,7 +139,7 @@ export default function AppointmentList() {
       const token = localStorage.getItem('token');
 
       await axios.patch(
-        `http://localhost:5001/api/doctor/appointments/${selectedAppointment._id}/notes`,
+        `${API_BASE_URL}/api/doctor/appointments/${selectedAppointment._id}/notes`,
         { doctorNotes: notes, diagnosis },
         { headers: { Authorization: `Bearer ${token}` } }
       );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiX, HiPlus, HiTrash, HiPrinter } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function PrescriptionModal({ appointment, isOpen, onClose, onPrescriptionAdded }) {
   const [prescriptions, setPrescriptions] = useState([]);
@@ -39,7 +40,7 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
       const token = localStorage.getItem('token');
       
       const response = await axios.post(
-        `http://localhost:5001/api/doctor/appointments/${appointment._id}/prescriptions`,
+        `${API_CONFIG.BASE_URL}/api/doctor/appointments/${appointment._id}/prescriptions`,
         newPrescription,
         { headers: { Authorization: `Bearer ${token}` } }
       );

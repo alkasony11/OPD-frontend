@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiUsers, HiClock, HiCheckCircle, HiExclamation, HiRefresh } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function QueueManagement() {
   const [queueData, setQueueData] = useState(null);
@@ -18,7 +19,7 @@ export default function QueueManagement() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/receptionist/queue/status', {
+      const response = await fetch('${API_CONFIG.BASE_URL}/api/receptionist/queue/status', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -42,7 +43,7 @@ export default function QueueManagement() {
   const updateAppointmentStatus = async (appointmentId, newStatus) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/receptionist/appointments/${appointmentId}/status`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/appointments/${appointmentId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

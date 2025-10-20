@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { HiSearch, HiDownload, HiX, HiPencil, HiPlus, HiTrash, HiBan, HiCheckCircle, HiEye } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function RegisteredPatients() {
   const [patients, setPatients] = useState([]);
@@ -39,7 +40,7 @@ export default function RegisteredPatients() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5001/api/admin/registered-patients', {
+      const res = await axios.get('${API_CONFIG.BASE_URL}/api/admin/registered-patients', {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('Primary API response:', res.data);
@@ -57,7 +58,7 @@ export default function RegisteredPatients() {
       // Fallback: if empty, try generic users endpoint (role=patient)
       if (Array.isArray(list) && list.length === 0) {
         try {
-          const usersRes = await axios.get('http://localhost:5001/api/admin/users', {
+          const usersRes = await axios.get('${API_CONFIG.BASE_URL}/api/admin/users', {
             params: { role: 'patient', page: 1, limit: 500 },
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -154,9 +155,9 @@ export default function RegisteredPatients() {
       console.log('Viewing patient ID:', id);
       console.log('Row object:', row);
       const [dRes, fRes, hRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/admin/patients/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`http://localhost:5001/api/admin/patients/${id}/family`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`http://localhost:5001/api/admin/patients/${id}/history`, { headers: { Authorization: `Bearer ${token}` } })
+        axios.get(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}/family`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}/history`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       setDetails(dRes.data);
       setEditProfile({
@@ -196,7 +197,7 @@ export default function RegisteredPatients() {
     try {
       const token = localStorage.getItem('token');
       const id = row.patientId || row.regId || row._id;
-      const fRes = await axios.get(`http://localhost:5001/api/admin/patients/${id}/family`, { headers: { Authorization: `Bearer ${token}` } });
+      const fRes = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}/family`, { headers: { Authorization: `Bearer ${token}` } });
       const fam = (fRes.data?.familyMembers || []).map(m => ({
         id: m.patientId || m._id,
         name: m.name,
@@ -218,7 +219,7 @@ export default function RegisteredPatients() {
     const id = target.patientId || target.regId || target._id;
     try {
       const isBlocked = !!target.isBlocked;
-      const url = `http://localhost:5001/api/admin/patients/${id}/block`;
+      const url = `${API_CONFIG.BASE_URL}/api/admin/patients/${id}/block`;
       await axios.put(url, { blocked: !isBlocked }, { headers: { Authorization: `Bearer ${token}` } });
       if (!row) {
         const updatedViewing = { ...target, isBlocked: !isBlocked };
@@ -241,7 +242,7 @@ export default function RegisteredPatients() {
     try {
       const token = localStorage.getItem('token');
       const id = viewing.patientId || viewing.regId || viewing._id;
-      await axios.put(`http://localhost:5001/api/admin/patients/${id}`, editProfile, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.put(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}`, editProfile, { headers: { Authorization: `Bearer ${token}` } });
       setDetails(prev => ({ ...(prev || {}), ...editProfile }));
       setViewing(prev => ({ ...(prev || {}), name: editProfile.name, phone: editProfile.phone, email: editProfile.email }));
       setPatients(prev => prev.map(p => {
@@ -279,7 +280,7 @@ export default function RegisteredPatients() {
       const token = localStorage.getItem('token');
       const id = viewing.patientId || viewing.regId || viewing._id;
       const mid = member.id;
-      await axios.put(`http://localhost:5001/api/admin/patients/${id}/family/${mid}/block`, { active: false }, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.put(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}/family/${mid}/block`, { active: false }, { headers: { Authorization: `Bearer ${token}` } });
       setFamily(prev => prev.map(m => m.id === mid ? { ...m, isActive: false } : m));
     } catch (e) {
       console.error('Remove family failed', e);
@@ -297,7 +298,7 @@ export default function RegisteredPatients() {
       const id = viewing.patientId || viewing.regId || viewing._id;
       const mid = member.id;
       const willActivate = member.isActive === false;
-      await axios.put(`http://localhost:5001/api/admin/patients/${id}/family/${mid}/block`, { active: willActivate }, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.put(`${API_CONFIG.BASE_URL}/api/admin/patients/${id}/family/${mid}/block`, { active: willActivate }, { headers: { Authorization: `Bearer ${token}` } });
       setFamily(prev => prev.map(m => m.id === mid ? { ...m, isActive: willActivate } : m));
     } catch (e) {
       console.error('Toggle family member active failed', e);
@@ -707,7 +708,7 @@ export default function RegisteredPatients() {
 function Avatar({ person, size = 'md' }) {
   const dimension = size === 'lg' ? 'h-14 w-14' : size === 'sm' ? 'h-8 w-8' : 'h-10 w-10';
   const url = (person?.profilePhoto || person?.profile_photo || person?.avatar || '').trim();
-  const resolved = url ? (url.startsWith('http') ? url : `http://localhost:5001${url}`) : '';
+  const resolved = url ? (url.startsWith('http') ? url : `${API_CONFIG.BASE_URL}${url}`) : '';
   const initials = (person?.name || '')
     .split(' ')
     .map(part => part[0])

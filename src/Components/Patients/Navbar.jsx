@@ -35,6 +35,14 @@ export default function Navbar() {
   const profilePhoto = user?.profilePhoto || user?.profile_photo || user?.profileImage;
 
   const userName = user?.name || 'User';
+  
+  // Debug profile photo in navbar
+  console.log('🔍 Navbar profile photo debug:', {
+    user: !!user,
+    profilePhoto: profilePhoto,
+    profilePhotoUrl: profilePhoto ? getProfileImageUrl(profilePhoto, 'small') : null,
+    userName: userName
+  });
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -75,7 +83,7 @@ export default function Navbar() {
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const response = await fetch('${API_BASE_URL}/api/patient/profile', {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'}/api/patient/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         

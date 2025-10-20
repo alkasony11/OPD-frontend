@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiX, HiUser, HiPhone, HiMail, HiCalendar, HiClock, HiHeart, HiExclamation } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function PatientDetailsModal({ appointment, isOpen, onClose }) {
   const [patientDetails, setPatientDetails] = useState(null);
@@ -20,7 +21,7 @@ export default function PatientDetailsModal({ appointment, isOpen, onClose }) {
       
       // Fetch detailed appointment info (includes patient details)
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/appointments/${appointment._id}`,
+        `${API_CONFIG.BASE_URL}/api/doctor/appointments/${appointment._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       

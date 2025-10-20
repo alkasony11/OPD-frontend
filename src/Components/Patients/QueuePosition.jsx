@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiClock, HiUser, HiRefresh } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function QueuePosition({ appointmentId, appointmentStatus }) {
   const [queueData, setQueueData] = useState(null);
@@ -17,7 +18,7 @@ export default function QueuePosition({ appointmentId, appointmentStatus }) {
       setError('');
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:5001/api/patient/appointments/${appointmentId}/queue-position`,
+        `${API_CONFIG.BASE_URL}/api/patient/appointments/${appointmentId}/queue-position`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setQueueData(response.data);

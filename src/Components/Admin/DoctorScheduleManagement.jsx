@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { HiCalendar, HiClock, HiPlus, HiPencil, HiTrash, HiCheck, HiX, HiFilter, HiRefresh, HiEye, HiCog } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DoctorScheduleManagement() {
   const [doctors, setDoctors] = useState([]);
@@ -135,7 +136,7 @@ export default function DoctorScheduleManagement() {
   const fetchDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/doctors', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/doctors', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data);
@@ -159,7 +160,7 @@ export default function DoctorScheduleManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/departments', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/departments', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -185,7 +186,7 @@ export default function DoctorScheduleManagement() {
   const handleSaveSchedule = async () => {
     try {
       const token = localStorage.getItem('token');
-      const url = `http://localhost:5001/api/admin/doctor-schedules/${selectedDoctor.id}`;
+      const url = `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}`;
       
       // Handle repeat schedules
       if (scheduleForm.repeatOption !== 'none') {
@@ -210,7 +211,7 @@ export default function DoctorScheduleManagement() {
 
   const handleRepeatScheduleCreation = async () => {
     const token = localStorage.getItem('token');
-    const url = `http://localhost:5001/api/admin/doctor-schedules/${selectedDoctor.id}`;
+    const url = `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}`;
     
     const startDate = new Date(scheduleForm.date);
     const endDate = scheduleForm.repeatEndDate ? new Date(scheduleForm.repeatEndDate) : new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); // Default 30 days
@@ -262,7 +263,7 @@ export default function DoctorScheduleManagement() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `http://localhost:5001/api/admin/doctor-schedules/${selectedDoctor.id}/bulk`,
+        `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}/bulk`,
         bulkForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -281,7 +282,7 @@ export default function DoctorScheduleManagement() {
     if (window.confirm('Are you sure you want to delete this schedule?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/admin/doctor-schedules/${scheduleId}`, {
+        await axios.delete(`${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${scheduleId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchSchedules(selectedDoctor.id);
@@ -329,12 +330,12 @@ export default function DoctorScheduleManagement() {
       };
 
       console.log('Bulk delete request:', {
-        url: `http://localhost:5001/api/admin/doctor-schedules/${selectedDoctor.id}/bulk-delete`,
+        url: `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}/bulk-delete`,
         data: deleteData,
         doctorId: selectedDoctor.id
       });
 
-      const response = await axios.post(`http://localhost:5001/api/admin/doctor-schedules/${selectedDoctor.id}/bulk-delete`, deleteData, {
+      const response = await axios.post(`${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}/bulk-delete`, deleteData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

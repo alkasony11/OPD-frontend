@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 // Register Chart.js components
 ChartJS.register(
@@ -44,17 +45,17 @@ export default function DashboardCharts() {
       const token = localStorage.getItem('token');
       
       // Fetch user statistics
-      const usersResponse = await axios.get('http://localhost:5001/api/admin/users', {
+      const usersResponse = await axios.get('${API_CONFIG.BASE_URL}/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Fetch appointment statistics
-      const statsResponse = await axios.get('http://localhost:5001/api/admin/stats', {
+      const statsResponse = await axios.get('${API_CONFIG.BASE_URL}/api/admin/stats', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Fetch appointment stats for charts
-      const appointmentStatsResponse = await axios.get('http://localhost:5001/api/admin/appointment-stats', {
+      const appointmentStatsResponse = await axios.get('${API_CONFIG.BASE_URL}/api/admin/appointment-stats', {
         headers: { Authorization: `Bearer ${token}` }
       });
 

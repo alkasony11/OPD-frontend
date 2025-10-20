@@ -13,7 +13,7 @@ class RealtimeSyncService {
       this.disconnect();
     }
 
-    this.socket = io('http://localhost:5001', {
+    this.socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001', {
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,

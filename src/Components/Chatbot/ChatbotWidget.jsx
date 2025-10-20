@@ -5,6 +5,7 @@ import axios from 'axios';
 import ChatMessage from './ChatMessage';
 import QuickActions from './QuickActions';
 import TypingIndicator from './TypingIndicator';
+import { API_CONFIG } from '../../config/urls';
 
 const ChatbotWidget = () => {
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ const ChatbotWidget = () => {
       if (!token) return;
 
       // Load quick actions
-      const actionsResponse = await axios.get('http://localhost:5001/api/chatbot/quick-actions', {
+      const actionsResponse = await axios.get('${API_CONFIG.BASE_URL}/api/chatbot/quick-actions', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQuickActions(actionsResponse.data.quickActions || []);
@@ -96,7 +97,7 @@ const ChatbotWidget = () => {
       setIsTyping(true);
 
       const response = await axios.post(
-        'http://localhost:5001/api/chatbot/message',
+        '${API_CONFIG.BASE_URL}/api/chatbot/message',
         { message: messageText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -177,7 +178,7 @@ const ChatbotWidget = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.delete('http://localhost:5001/api/chatbot/clear-conversation', {
+      await axios.delete('${API_CONFIG.BASE_URL}/api/chatbot/clear-conversation', {
         headers: { Authorization: `Bearer ${token}` }
       });
 

@@ -1,6 +1,17 @@
 // API Configuration
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 
+// Add a function to test API connectivity
+export const testApiConnection = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/test`);
+    return response.ok;
+  } catch (error) {
+    console.error('API connection test failed:', error);
+    return false;
+  }
+};
+
 // Centralized API endpoints
 export const API_ENDPOINTS = {
   AUTH: {

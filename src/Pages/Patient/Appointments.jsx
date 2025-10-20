@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { HiArrowLeft, HiCalendar, HiClock, HiTag, HiX, HiPencil, HiUser, HiDocumentText, HiClipboardList, HiCash, HiCheckCircle, HiExclamationCircle, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 import QueuePosition from '../../Components/Patients/QueuePosition';
+import { API_CONFIG } from '../../config/urls';
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function Appointments() {
         params.append('familyMemberId', memberId);
       }
       
-      const response = await axios.get(`http://localhost:5001/api/patient/appointments?${params.toString()}`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/appointments?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAppointments(response.data.appointments || []);
@@ -66,7 +67,7 @@ export default function Appointments() {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/patient/profile', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(response.data.user);
@@ -81,7 +82,7 @@ export default function Appointments() {
   const fetchFamilyMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/patient/family-members', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/family-members', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const members = (response.data.familyMembers || []).map(m => ({
@@ -151,7 +152,7 @@ export default function Appointments() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `http://localhost:5001/api/patient/appointments/${showCancelModal.id}/cancel`, 
+        `${API_CONFIG.BASE_URL}/api/patient/appointments/${showCancelModal.id}/cancel`, 
         { 
           reason: cancelReason || 'Cancelled by patient',
           refundMethod: refundMethod
@@ -188,7 +189,7 @@ export default function Appointments() {
     if (!rescheduling || !rescheduleDate) return;
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get(`http://localhost:5001/api/patient/doctors/${rescheduling.doctorId}/availability/${rescheduleDate}`, {
+      const { data } = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/doctors/${rescheduling.doctorId}/availability/${rescheduleDate}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRescheduleSlots(data.slots || []);
@@ -200,7 +201,7 @@ export default function Appointments() {
   const submitReschedule = async (slotTime) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5001/api/patient/appointments/${rescheduling.id}/reschedule`, {
+      await axios.post(`${API_CONFIG.BASE_URL}/api/patient/appointments/${rescheduling.id}/reschedule`, {
         doctorId: rescheduling.doctorId,
         newDate: rescheduleDate,
         newTime: slotTime
@@ -357,7 +358,7 @@ export default function Appointments() {
                             <img
                               src={(user.profilePhoto || user.profile_photo).startsWith('http') 
                                 ? (user.profilePhoto || user.profile_photo)
-                                : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                                : `${API_CONFIG.BASE_URL}${user.profilePhoto || user.profile_photo}`
                               }
                               alt="Profile"
                               className="h-4 w-4 rounded-full object-cover border border-white shadow-sm"

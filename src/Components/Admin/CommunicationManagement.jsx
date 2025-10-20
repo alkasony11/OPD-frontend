@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 import { 
   HiChat, HiMail, HiPhone, HiUser, HiCalendar, HiClock, 
   HiSearch, HiFilter, HiRefresh, HiDownload, HiEye, 
@@ -47,7 +48,7 @@ export default function CommunicationManagement() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/messages', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/messages', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessages(response.data.messages || []);
@@ -62,10 +63,10 @@ export default function CommunicationManagement() {
     try {
       const token = localStorage.getItem('token');
       const [patientsRes, doctorsRes] = await Promise.all([
-        axios.get('http://localhost:5001/api/admin/patients', {
+        axios.get('${API_CONFIG.BASE_URL}/api/admin/patients', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:5001/api/admin/doctors', {
+        axios.get('${API_CONFIG.BASE_URL}/api/admin/doctors', {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -128,7 +129,7 @@ export default function CommunicationManagement() {
       setSending(true);
       const token = localStorage.getItem('token');
       
-      await axios.post('http://localhost:5001/api/admin/messages', messageData, {
+      await axios.post('${API_CONFIG.BASE_URL}/api/admin/messages', messageData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

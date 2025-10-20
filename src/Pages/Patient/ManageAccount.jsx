@@ -212,6 +212,7 @@ const ManageAccount = () => {
         profileImage: userData.profileImage
       });
       
+      
       setUser(userData);
       
       // Update both legacy state and validation hooks
@@ -780,19 +781,23 @@ const ManageAccount = () => {
                         src={getProfileImageUrl(user.profilePhoto || user.profile_photo, 'xlarge')}
                         alt="Profile"
                         className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+                        onLoad={(e) => {
+                          console.log('✅ Image displayed successfully');
+                        }}
                         onError={(e) => {
-                          console.log('Image load error:', e.target.src);
+                          console.error('❌ Image load error:', e.target.src);
                           e.target.style.display = 'none';
                           e.target.nextSibling.style.display = 'block';
                         }}
                       />
-                    ) : null}
-                    <UserCircleIcon 
-                      className={`h-24 w-24 text-gray-400 ${user?.profilePhoto || user?.profile_photo ? 'hidden' : 'block'}`} 
-                    />
+                    ) : (
+                      <UserCircleIcon 
+                        className="h-24 w-24 text-gray-400" 
+                      />
+                    )}
                     <button
                       onClick={() => setShowPhotoUpload(true)}
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700 transition-colors shadow-lg"
+                      className="absolute -bottom-1 -right-1 bg-blue-600 text-white rounded-full p-1.5 hover:bg-blue-700 transition-colors shadow-lg border-2 border-white"
                       title="Change Photo"
                     >
                       <CameraIcon className="h-4 w-4" />

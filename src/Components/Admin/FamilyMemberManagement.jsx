@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 import { 
   HiUsers, HiEye, HiBan, HiCheckCircle,
   HiSearch, HiFilter, HiDownload, HiRefresh, HiUser, HiCalendar,
@@ -45,7 +46,7 @@ export default function FamilyMemberManagement() {
       params.append('limit', String(pageSize));
       if (searchTerm) params.append('search', searchTerm);
 
-      const response = await axios.get(`http://localhost:5001/api/admin/family-members?${params.toString()}`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/family-members?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -91,7 +92,7 @@ export default function FamilyMemberManagement() {
   const handleToggleStatus = async (memberId, currentStatus) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5001/api/admin/family-members/${memberId}/status`, {
+      await axios.put(`${API_CONFIG.BASE_URL}/api/admin/family-members/${memberId}/status`, {
         isActive: !currentStatus
       }, {
         headers: { Authorization: `Bearer ${token}` }

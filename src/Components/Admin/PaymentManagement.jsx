@@ -6,6 +6,7 @@ import {
   HiClock, HiUser, HiCalendar, HiTag, HiCurrencyDollar,
   HiDocumentText, HiMail, HiPhone, HiArrowLeft, HiArrowRight
 } from 'react-icons/hi';
+import { API_BASE_URL } from '../../config/api';
 
 export default function PaymentManagement() {
   const [payments, setPayments] = useState([]);
@@ -55,7 +56,7 @@ export default function PaymentManagement() {
       query.append('page', currentPage);
       query.append('limit', paymentsPerPage);
 
-      const response = await axios.get(`http://localhost:5001/api/admin/payments?${query.toString()}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/payments?${query.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -104,7 +105,7 @@ export default function PaymentManagement() {
       setProcessingRefund(true);
       const token = localStorage.getItem('token');
       
-      await axios.post(`http://localhost:5001/api/admin/payments/${selectedPayment._id}/refund`, refundData, {
+      await axios.post(`${API_BASE_URL}/api/admin/payments/${selectedPayment._id}/refund`, refundData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

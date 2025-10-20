@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiCalendar, HiClock, HiUser, HiPlus } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function AppointmentScheduler() {
   const [appointments, setAppointments] = useState([]);
@@ -15,7 +16,7 @@ export default function AppointmentScheduler() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/receptionist/appointments/today`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/appointments/today`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiCalendar, HiClock, HiPlus, HiPencil, HiTrash, HiCheck, HiX } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function ScheduleManagement() {
   const [schedules, setSchedules] = useState([]);
@@ -48,7 +49,7 @@ export default function ScheduleManagement() {
       endDate.setDate(endDate.getDate() + 30);
 
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `${API_CONFIG.BASE_URL}/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSchedules(response.data.schedules || []);
@@ -61,7 +62,7 @@ export default function ScheduleManagement() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/appointments?date=${selectedDate}`,
+        `${API_CONFIG.BASE_URL}/api/doctor/appointments?date=${selectedDate}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setAppointments(response.data.appointments || []);
@@ -76,8 +77,8 @@ export default function ScheduleManagement() {
     try {
       const token = localStorage.getItem('token');
       const url = editingSchedule 
-        ? `http://localhost:5001/api/doctor/schedules/${editingSchedule.id}`
-        : 'http://localhost:5001/api/doctor/schedules';
+        ? `${API_CONFIG.BASE_URL}/api/doctor/schedules/${editingSchedule.id}`
+        : '${API_CONFIG.BASE_URL}/api/doctor/schedules';
       
       const method = editingSchedule ? 'PUT' : 'POST';
       
@@ -103,7 +104,7 @@ export default function ScheduleManagement() {
     if (window.confirm('Are you sure you want to delete this schedule?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:5001/api/doctor/schedules/${scheduleId}`, {
+        await axios.delete(`${API_CONFIG.BASE_URL}/api/doctor/schedules/${scheduleId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchSchedules();
@@ -159,7 +160,7 @@ export default function ScheduleManagement() {
   const handleAddSchedule = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5001/api/doctor/schedules', newSchedule, {
+      await axios.post('${API_CONFIG.BASE_URL}/api/doctor/schedules', newSchedule, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiSearch, HiFilter, HiDownload, HiCalendar, HiUser, HiClock } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function AdvancedSearch() {
   const [searchResults, setSearchResults] = useState([]);
@@ -55,7 +56,7 @@ export default function AdvancedSearch() {
       });
 
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/search-appointments?${queryParams}`,
+        `${API_CONFIG.BASE_URL}/api/doctor/search-appointments?${queryParams}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -78,7 +79,7 @@ export default function AdvancedSearch() {
       });
 
       const response = await axios.get(
-        `http://localhost:5001/api/doctor/export-appointments?${queryParams}`,
+        `${API_CONFIG.BASE_URL}/api/doctor/export-appointments?${queryParams}`,
         { 
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob'

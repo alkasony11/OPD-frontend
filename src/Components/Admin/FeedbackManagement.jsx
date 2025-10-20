@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 import { 
   HiChat, HiEye, HiPencil, HiCheckCircle, HiClock, HiExclamation,
   HiSearch, HiFilter, HiDownload, HiRefresh, HiUser, HiCalendar,
@@ -38,7 +39,7 @@ export default function FeedbackManagement() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/feedback', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/feedback', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFeedbacks(response.data.items || []);
@@ -92,7 +93,7 @@ export default function FeedbackManagement() {
     try {
       setUpdating(true);
       const token = localStorage.getItem('token');
-      await axios.patch(`http://localhost:5001/api/admin/feedback/${selectedFeedback._id}`, updateData, {
+      await axios.patch(`${API_CONFIG.BASE_URL}/api/admin/feedback/${selectedFeedback._id}`, updateData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

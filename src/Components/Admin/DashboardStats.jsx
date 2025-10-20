@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiUsers, HiUserGroup, HiClipboardList, HiTrendingUp } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DashboardStats() {
   const [stats, setStats] = useState({
@@ -17,7 +18,7 @@ export default function DashboardStats() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/admin/stats', {
+      const response = await fetch('${API_CONFIG.BASE_URL}/api/admin/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

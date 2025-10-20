@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiSearch, HiUser, HiPhone, HiMail, HiCalendar, HiEye } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function PatientSearch() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +21,7 @@ export default function PatientSearch() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/receptionist/patients/search?query=${encodeURIComponent(searchQuery)}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/patients/search?query=${encodeURIComponent(searchQuery)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -45,7 +46,7 @@ export default function PatientSearch() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/receptionist/patients/${patientId}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/patients/${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

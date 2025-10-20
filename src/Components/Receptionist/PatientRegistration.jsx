@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HiUser, HiPhone, HiMail, HiLocationMarker, HiCalendar } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function PatientRegistration() {
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ export default function PatientRegistration() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5001/api/receptionist/patients', {
+      const response = await fetch('${API_CONFIG.BASE_URL}/api/receptionist/patients', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowRight, HiClock, HiCurrencyRupee } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DoctorsSection() {
   const [doctors, setDoctors] = useState([]);
@@ -14,10 +15,14 @@ export default function DoctorsSection() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/patient/doctors');
+      console.log('🔍 Fetching doctors from API...');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/doctors`);
+      console.log('✅ Doctors API response:', response.data);
+      console.log('📊 Number of doctors:', response.data.length);
       setDoctors(response.data);
     } catch (error) {
-      console.error('Error fetching doctors:', error);
+      console.error('❌ Error fetching doctors:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -25,6 +30,14 @@ export default function DoctorsSection() {
 
   // Show all doctors on landing page (no filtering)
   const filteredDoctors = doctors;
+  
+  // Debug rendering
+  console.log('🔍 DoctorsSection render:', {
+    loading,
+    doctorsCount: doctors.length,
+    filteredDoctorsCount: filteredDoctors.length,
+    doctors: doctors
+  });
 
   const handleDoctorClick = (doctorId) => {
     navigate(`/doctors/${doctorId}`);

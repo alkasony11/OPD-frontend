@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiUsers, HiClock, HiTrendingUp, HiTrendingDown } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DoctorLoadAnalytics() {
   const [doctors, setDoctors] = useState([]);
@@ -21,7 +22,7 @@ export default function DoctorLoadAnalytics() {
   const fetchDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/doctors', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/doctors', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data);
@@ -34,7 +35,7 @@ export default function DoctorLoadAnalytics() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/admin/doctor-load-analytics?date=${selectedDate}`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/doctor-load-analytics?date=${selectedDate}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAnalytics(response.data.analytics || []);

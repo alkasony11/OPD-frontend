@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { HiPlus, HiPencil, HiTrash, HiOfficeBuilding, HiCheck, HiX } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState([]);
@@ -21,7 +22,7 @@ export default function DepartmentManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/departments', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/departments', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -39,12 +40,12 @@ export default function DepartmentManagement() {
       
       if (editingDepartment) {
         // Update existing department
-        await axios.put(`http://localhost:5001/api/admin/departments/${editingDepartment._id}`, formData, {
+        await axios.put(`${API_CONFIG.BASE_URL}/api/admin/departments/${editingDepartment._id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
         // Create new department
-        await axios.post('http://localhost:5001/api/admin/departments', formData, {
+        await axios.post('${API_CONFIG.BASE_URL}/api/admin/departments', formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -76,7 +77,7 @@ export default function DepartmentManagement() {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`http://localhost:5001/api/admin/departments/${departmentId}/status`, {
+      await axios.patch(`${API_CONFIG.BASE_URL}/api/admin/departments/${departmentId}/status`, {
         isActive: !currentStatus
       }, {
         headers: { Authorization: `Bearer ${token}` }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiClock, HiX, HiCheck, HiExclamation, HiCalendar, HiUser, HiMail, HiPhone, HiOfficeBuilding, HiDocumentText, HiRefresh } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function ScheduleRequests() {
   const [requests, setRequests] = useState([]);
@@ -15,7 +16,7 @@ export default function ScheduleRequests() {
   const fetchScheduleRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/admin/schedule-requests', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/schedule-requests', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRequests(response.data.requests || []);
@@ -29,7 +30,7 @@ export default function ScheduleRequests() {
   const handleApprove = async (requestId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5001/api/admin/schedule-requests/${requestId}/approve`, {}, {
+      await axios.post(`${API_CONFIG.BASE_URL}/api/admin/schedule-requests/${requestId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Schedule request approved successfully');
@@ -51,7 +52,7 @@ export default function ScheduleRequests() {
   const handleReject = async (requestId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:5001/api/admin/schedule-requests/${requestId}/reject`, {}, {
+      await axios.post(`${API_CONFIG.BASE_URL}/api/admin/schedule-requests/${requestId}/reject`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert('Schedule request rejected successfully');

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { HiCheck, HiX, HiClock, HiCalendar, HiUser, HiExclamation, HiEye, HiRefresh, HiFilter } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function LeaveRequests() {
   const [leaves, setLeaves] = useState([]);
@@ -18,7 +19,7 @@ export default function LeaveRequests() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/admin/leave-requests${filter ? `?status=${filter}` : ''}`,
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/leave-requests${filter ? `?status=${filter}` : ''}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLeaves(response.data.leaves || []);
@@ -52,8 +53,8 @@ export default function LeaveRequests() {
       const token = localStorage.getItem('token');
       
       const endpoint = actionType === 'approve' 
-        ? `http://localhost:5001/api/admin/leave-requests/${selectedLeave._id}/approve`
-        : `http://localhost:5001/api/admin/leave-requests/${selectedLeave._id}/reject`;
+        ? `${API_CONFIG.BASE_URL}/api/admin/leave-requests/${selectedLeave._id}/approve`
+        : `${API_CONFIG.BASE_URL}/api/admin/leave-requests/${selectedLeave._id}/reject`;
       
       await axios.post(endpoint, 
         { admin_comment: adminComment }, 

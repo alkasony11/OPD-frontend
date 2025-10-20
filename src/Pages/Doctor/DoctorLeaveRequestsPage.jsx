@@ -15,6 +15,7 @@ import {
   HiTrash
 } from 'react-icons/hi';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
+import { API_CONFIG } from '../../config/urls';
 
 export default function DoctorLeaveRequestsPage() {
   const navigate = useNavigate();
@@ -68,8 +69,8 @@ export default function DoctorLeaveRequestsPage() {
     try {
       const token = localStorage.getItem('token');
       const url = filter === 'all' 
-        ? 'http://localhost:5001/api/doctor/leave-requests'
-        : `http://localhost:5001/api/doctor/leave-requests?status=${filter}`;
+        ? '${API_CONFIG.BASE_URL}/api/doctor/leave-requests'
+        : `${API_CONFIG.BASE_URL}/api/doctor/leave-requests?status=${filter}`;
       
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
@@ -110,7 +111,7 @@ export default function DoctorLeaveRequestsPage() {
       };
 
       await axios.post(
-        'http://localhost:5001/api/doctor/leave-requests',
+        '${API_CONFIG.BASE_URL}/api/doctor/leave-requests',
         requestData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -141,7 +142,7 @@ export default function DoctorLeaveRequestsPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:5001/api/doctor/leave-requests/${leaveId}/cancel`,
+        `${API_CONFIG.BASE_URL}/api/doctor/leave-requests/${leaveId}/cancel`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

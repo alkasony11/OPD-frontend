@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { HiBell, HiExclamation, HiClock, HiUser, HiRefresh, HiBan } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function RealTimeAlerts() {
   const [loading, setLoading] = useState(true);
@@ -23,13 +24,13 @@ export default function RealTimeAlerts() {
       const token = localStorage.getItem('token');
 
       const [loadRes, leavesRes, cancelsRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/admin/doctor-load-analytics?date=${todayYMD}`, {
+        axios.get(`${API_BASE_URL}/api/admin/doctor-load-analytics?date=${todayYMD}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get('http://localhost:5001/api/admin/leave-requests?status=approved', {
+        axios.get(`${API_BASE_URL}/api/admin/leave-requests?status=approved`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`http://localhost:5001/api/admin/appointments?status=cancelled&startDate=${todayYMD}&endDate=${todayYMD}`, {
+        axios.get(`${API_BASE_URL}/api/admin/appointments?status=cancelled&startDate=${todayYMD}&endDate=${todayYMD}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);

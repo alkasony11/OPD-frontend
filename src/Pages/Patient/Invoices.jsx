@@ -11,6 +11,7 @@ import {
   HiX
 } from 'react-icons/hi';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 
 export default function Invoices() {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ export default function Invoices() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/patient/invoices', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/invoices', {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('Invoices response:', response.data);
@@ -93,7 +94,7 @@ export default function Invoices() {
       setError(''); // Clear any previous errors
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5001/api/patient/invoices/${invoiceId}/download`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/invoices/${invoiceId}/download`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });

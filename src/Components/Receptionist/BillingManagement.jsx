@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiCash, HiCheckCircle, HiClock, HiExclamation, HiRefresh } from 'react-icons/hi';
+import { API_CONFIG } from '../../config/urls';
 
 export default function BillingManagement() {
   const [billingData, setBillingData] = useState(null);
@@ -22,7 +23,7 @@ export default function BillingManagement() {
         status: paymentStatus
       });
 
-      const response = await fetch(`http://localhost:5001/api/receptionist/billing/appointments?${params}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/billing/appointments?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -46,7 +47,7 @@ export default function BillingManagement() {
   const updatePaymentStatus = async (appointmentId, newStatus, paymentMethod, paidAmount) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5001/api/receptionist/billing/appointments/${appointmentId}/payment`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/receptionist/billing/appointments/${appointmentId}/payment`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

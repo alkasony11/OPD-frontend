@@ -2,6 +2,7 @@ import { HiPhone, HiMail, HiLocationMarker, HiClock, HiCheckCircle, HiExclamatio
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { sanitizeNameInput } from '../../utils/validation';
+import { API_BASE_URL } from '../../config/api';
 
 export default function ContactSection() {
   const [firstName, setFirstName] = useState('');
@@ -271,7 +272,7 @@ export default function ContactSection() {
         message
       };
 
-      await axios.post('http://localhost:5001/api/admin/feedback', payload, {
+      await axios.post(`${API_BASE_URL}/api/admin/feedback`, payload, {
         headers: isGuest ? {} : { 'Authorization': `Bearer ${token}` }
       });
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_CONFIG } from '../../config/urls';
 import { 
   HiArrowLeft, 
   HiCalendar, 
@@ -38,7 +39,7 @@ export default function CancelledAppointments() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/patient/appointments', {
+      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/appointments', {
         headers: { Authorization: `Bearer ${token}` }
       });
 

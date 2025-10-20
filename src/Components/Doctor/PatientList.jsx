@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiUser, HiPhone, HiMail, HiEye, HiDocumentText } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function PatientList() {
   const [patients, setPatients] = useState([]);
@@ -21,7 +22,7 @@ export default function PatientList() {
         return;
       }
 
-      const response = await axios.get('http://localhost:5001/api/doctor/patients', {
+      const response = await axios.get(`${API_BASE_URL}/api/doctor/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

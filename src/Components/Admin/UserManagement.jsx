@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { HiSearch, HiArrowLeft, HiArrowRight } from 'react-icons/hi';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { API_CONFIG } from '../../config/urls';
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -24,7 +25,7 @@ export default function UserManagement() {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('token');
-      const { data } = await axios.get(`http://localhost:5001/api/admin/users`, {
+      const { data } = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -77,7 +78,7 @@ export default function UserManagement() {
 
     try {
       const token = localStorage.getItem('token');
-      const { data: updated } = await axios.patch(`http://localhost:5001/api/admin/users/${userId}`, { status: next }, {
+      const { data: updated } = await axios.patch(`${API_CONFIG.BASE_URL}/api/admin/users/${userId}`, { status: next }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

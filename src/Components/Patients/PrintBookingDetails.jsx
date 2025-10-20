@@ -1,5 +1,6 @@
 import React from 'react';
 import { PrinterIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { API_CONFIG } from '../../config/urls';
 
 const PrintBookingDetails = ({ bookingData, user, onPrint }) => {
   const handlePrint = () => {
@@ -277,7 +278,7 @@ const PrintBookingDetails = ({ bookingData, user, onPrint }) => {
           <div class="contact-text">
             <strong>Reception:</strong> +91-9876543210<br>
             <strong>Emergency:</strong> +91-8589062432 or +91-9061493022<br>
-            <strong>Website:</strong> http://localhost:5173<br>
+            <strong>Website:</strong> ${FRONTEND_CONFIG.BASE_URL}<br>
             <strong>Address:</strong> 123 Medical Street, Health City, PIN - 123456
           </div>
         </div>

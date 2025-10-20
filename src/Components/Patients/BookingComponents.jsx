@@ -9,6 +9,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import PrintBookingDetails from './PrintBookingDetails.jsx';
+import { API_CONFIG } from '../../config/urls';
 
 // Enhanced Department Selection Component
 export function DepartmentSelection({ departments, onSelect, loading }) {
@@ -567,7 +568,7 @@ export function BookingConfirmation({ bookingData, onNewBooking, user }) {
               <img
                 src={(user.profilePhoto || user.profile_photo).startsWith('http') 
                   ? (user.profilePhoto || user.profile_photo)
-                  : `http://localhost:5001${user.profilePhoto || user.profile_photo}`
+                  : `${API_CONFIG.BASE_URL}${user.profilePhoto || user.profile_photo}`
                 }
                 alt="Profile"
                 className="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm"
