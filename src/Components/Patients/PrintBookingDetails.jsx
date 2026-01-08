@@ -4,20 +4,32 @@ import { API_CONFIG } from '../../config/urls';
 
 const PrintBookingDetails = ({ bookingData, user, onPrint }) => {
   const handlePrint = () => {
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    
-    // Get current date and time for the print
-    const currentDate = new Date().toLocaleDateString('en-IN', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    const currentTime = new Date().toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    // Try the popup method first
+    handlePrintPopup();
+  };
+
+  const handlePrintPopup = () => {
+    try {
+      // Create a new window for printing with better parameters
+      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      
+      // Check if popup was blocked
+      if (!printWindow || printWindow.closed || typeof printWindow.closed === 'undefined') {
+        alert('Popup blocked! Please allow popups for this site and try again.');
+        return;
+      }
+      
+      // Get current date and time for the print
+      const currentDate = new Date().toLocaleDateString('en-IN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const currentTime = new Date().toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
 
     // Create the print content
     const printContent = `
@@ -278,7 +290,7 @@ const PrintBookingDetails = ({ bookingData, user, onPrint }) => {
           <div class="contact-text">
             <strong>Reception:</strong> +91-9876543210<br>
             <strong>Emergency:</strong> +91-8589062432 or +91-9061493022<br>
-            <strong>Website:</strong> ${FRONTEND_CONFIG.BASE_URL}<br>
+            <strong>Website:</strong> ${window.location.origin}<br>
             <strong>Address:</strong> 123 Medical Street, Health City, PIN - 123456
           </div>
         </div>
@@ -299,21 +311,160 @@ const PrintBookingDetails = ({ bookingData, user, onPrint }) => {
       </html>
     `;
 
-    // Write content to the new window
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Wait for content to load, then print
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    };
+      // Write content to the new window
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          // Don't close immediately, let user see the print dialog
+          setTimeout(() => {
+            if (!printWindow.closed) {
+              printWindow.close();
+            }
+          }, 1000);
+        }, 100);
+      };
 
-    // Call the onPrint callback if provided
-    if (onPrint) {
-      onPrint();
+      // Call the onPrint callback if provided
+      if (onPrint) {
+        onPrint();
+      }
+    } catch (error) {
+      console.error('Print popup error:', error);
+      // Fallback to current window print
+      handlePrintCurrentWindow();
     }
+  };
+
+  const handlePrintCurrentWindow = () => {
+    try {
+      // Create a temporary div with print content
+      const printContent = generatePrintContent();
+      const printDiv = document.createElement('div');
+      printDiv.innerHTML = printContent;
+      printDiv.style.position = 'absolute';
+      printDiv.style.left = '-9999px';
+      printDiv.style.top = '-9999px';
+      
+      document.body.appendChild(printDiv);
+      
+      // Add print styles
+      const printStyles = document.createElement('style');
+      printStyles.textContent = `
+        @media print {
+          body * { visibility: hidden; }
+          .print-content, .print-content * { visibility: visible; }
+          .print-content { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+      `;
+      document.head.appendChild(printStyles);
+      
+      // Trigger print
+      window.print();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(printDiv);
+        document.head.removeChild(printStyles);
+      }, 1000);
+      
+      if (onPrint) {
+        onPrint();
+      }
+    } catch (error) {
+      console.error('Print current window error:', error);
+      alert('Print functionality is not available. Please use your browser\'s print function (Ctrl+P).');
+    }
+  };
+
+  const generatePrintContent = () => {
+    const currentDate = new Date().toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const currentTime = new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return `
+      <div class="print-content">
+        <div style="text-align: right; color: #6b7280; font-size: 12px; margin-bottom: 20px;">
+          Printed on: ${currentDate} at ${currentTime}
+        </div>
+        
+        <div style="text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
+          <div style="font-size: 28px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">🏥 MediQ Hospital</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 10px;">Your Health, Our Priority</div>
+          <div style="font-size: 20px; font-weight: bold; color: #059669; margin-top: 15px;">APPOINTMENT CONFIRMATION</div>
+        </div>
+        
+        <div style="background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 25px; margin: 20px 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Token Number:</span>
+            <span style="background: #dbeafe; color: #1e40af; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 16px;">#${bookingData.tokenNumber}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Patient Name:</span>
+            <span style="font-weight: 500; color: #111827; font-size: 14px;">${bookingData.familyMemberName || user?.name || 'N/A'}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Doctor:</span>
+            <span style="font-weight: 500; color: #111827; font-size: 14px;">Dr. ${bookingData.doctorName}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Department:</span>
+            <span style="font-weight: 500; color: #111827; font-size: 14px;">${bookingData.departmentName}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Appointment Date:</span>
+            <span style="font-weight: 500; color: #111827; font-size: 14px;">${new Date(bookingData.appointmentDate).toLocaleDateString('en-IN', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Appointment Time:</span>
+            <span style="font-weight: 500; color: #111827; font-size: 14px;">${bookingData.appointmentTime}</span>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+            <span style="font-weight: 600; color: #374151; font-size: 14px; min-width: 120px;">Status:</span>
+            <span style="color: #059669; font-weight: bold;">CONFIRMED</span>
+          </div>
+        </div>
+        
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 15px; margin: 20px 0;">
+          <div style="font-weight: bold; color: #92400e; margin-bottom: 8px; font-size: 14px;">📋 Important Instructions:</div>
+          <div style="color: #92400e; font-size: 13px; line-height: 1.5;">
+            • Please arrive 15 minutes before your scheduled appointment time<br>
+            • Bring a valid government-issued ID and any relevant medical documents<br>
+            • If you need to reschedule or cancel, please contact us at least 2 hours in advance<br>
+            • We'll send you a reminder 24 hours before your appointment<br>
+            • Please wear a mask and follow all safety protocols
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #6b7280; font-size: 12px;">
+          <p>This is a computer-generated document. No signature required.</p>
+          <p>&copy; 2024 MediQ Hospital. All rights reserved.</p>
+          <p>For any queries, please contact our reception desk.</p>
+        </div>
+      </div>
+    `;
   };
 
   return (

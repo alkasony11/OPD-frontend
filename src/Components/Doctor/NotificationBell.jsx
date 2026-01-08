@@ -89,7 +89,7 @@ export default function NotificationBell() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.put('${API_BASE_URL}/api/notifications/mark-all-read', {}, {
+      await axios.put(`${API_BASE_URL}/api/notifications/mark-all-read`, {}, {
         headers: {
           Authorization: `Bearer ${token}`
         }

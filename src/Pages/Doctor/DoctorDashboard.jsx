@@ -88,7 +88,7 @@ export default function DoctorDashboard() {
   const fetchLeaveRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('${API_BASE_URL}/api/doctor/leave-requests', {
+      const res = await axios.get(`${API_BASE_URL}/api/doctor/leave-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setLeaveRequests(Array.isArray(res.data?.leaveRequests) ? res.data.leaveRequests : []);
@@ -101,33 +101,42 @@ export default function DoctorDashboard() {
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('🔍 Doctor Dashboard - Fetching dashboard data...');
 
       // Fetch all appointments for stats
+      console.log('🔍 Doctor Dashboard - Fetching appointments from:', `${API_BASE_URL}/api/doctor/appointments`);
       const allAppointmentsResponse = await axios.get(
-        '${API_BASE_URL}/api/doctor/appointments',
+        `${API_BASE_URL}/api/doctor/appointments`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('🔍 Doctor Dashboard - Appointments response:', allAppointmentsResponse.data);
 
       // Fetch booked patients
+      console.log('🔍 Doctor Dashboard - Fetching booked patients from:', `${API_BASE_URL}/api/doctor/booked-patients`);
       const bookedPatientsResponse = await axios.get(
-        '${API_BASE_URL}/api/doctor/booked-patients',
+        `${API_BASE_URL}/api/doctor/booked-patients`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('🔍 Doctor Dashboard - Booked patients response:', bookedPatientsResponse.data);
 
       // Fetch patients
+      console.log('🔍 Doctor Dashboard - Fetching patients from:', `${API_BASE_URL}/api/doctor/patients`);
       const patientsResponse = await axios.get(
-        '${API_BASE_URL}/api/doctor/patients',
+        `${API_BASE_URL}/api/doctor/patients`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('🔍 Doctor Dashboard - Patients response:', patientsResponse.data);
 
       // Fetch schedules
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
+      console.log('🔍 Doctor Dashboard - Fetching schedules from:', `${API_BASE_URL}/api/doctor/schedules`);
       const schedulesResponse = await axios.get(
         `${API_BASE_URL}/api/doctor/schedules?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('🔍 Doctor Dashboard - Schedules response:', schedulesResponse.data);
 
       const allAppointmentsData = Array.isArray(allAppointmentsResponse.data?.appointments)
         ? allAppointmentsResponse.data.appointments
@@ -144,19 +153,25 @@ export default function DoctorDashboard() {
 
       // Calculate stats
       const today = new Date().toISOString().split('T')[0];
+      console.log('🔍 Doctor Dashboard - Today date:', today);
+      console.log('🔍 Doctor Dashboard - All appointments data:', allAppointmentsData);
+      
       const todayAppointments = allAppointmentsData.filter(apt => {
-        const d = apt?.booking_date;
+        const d = apt?.booking_date || apt?.appointmentDate;
         if (!d) return false;
         const isoDay = typeof d === 'string' && d.includes('T') ? d.split('T')[0] : new Date(d).toISOString().split('T')[0];
+        console.log('🔍 Doctor Dashboard - Comparing dates:', { aptDate: isoDay, today, match: isoDay === today });
         return isoDay === today;
       });
+      
+      console.log('🔍 Doctor Dashboard - Today appointments:', todayAppointments);
       const completedAppointments = allAppointmentsData.filter(apt => apt?.status === 'consulted').length;
       const pendingAppointments = allAppointmentsData.filter(apt => apt?.status === 'booked' || apt?.status === 'in_queue').length;
       const availableDays = schedules.filter(s => s?.isAvailable).length;
       const leaveDays = schedules.filter(s => !s.isAvailable).length;
       const activeTokens = allAppointmentsData.filter(apt => apt.status === 'booked' || apt.status === 'in_queue').length;
 
-      setStats({
+      const calculatedStats = {
         todayAppointments: todayAppointments.length,
         totalPatients: patients.length,
         bookedPatients: bookedPatientsData.length,
@@ -165,7 +180,10 @@ export default function DoctorDashboard() {
         activeTokens,
         completedAppointments,
         pendingAppointments
-      });
+      };
+      
+      console.log('🔍 Doctor Dashboard - Calculated stats:', calculatedStats);
+      setStats(calculatedStats);
       
       // Set booked patients
       setBookedPatients(bookedPatientsData);
@@ -180,7 +198,7 @@ export default function DoctorDashboard() {
   const fetchTodayQueue = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('${API_BASE_URL}/api/doctor/today-queue', {
+      const res = await axios.get(`${API_BASE_URL}/api/doctor/today-queue`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTodayQueue(res.data || { date: '', sessions: [] });
@@ -193,7 +211,7 @@ export default function DoctorDashboard() {
   const fetchNextPatient = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('${API_BASE_URL}/api/doctor/next-patient', {
+      const res = await axios.get(`${API_BASE_URL}/api/doctor/next-patient`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNextPatient(res.data?.next || null);
@@ -207,7 +225,7 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('${API_BASE_URL}/api/doctor/consultation/start', { tokenId: nextPatient.id }, {
+      await axios.post(`${API_BASE_URL}/api/doctor/consultation/start`, { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
@@ -222,7 +240,7 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('${API_BASE_URL}/api/doctor/consultation/skip', { tokenId: nextPatient.id }, {
+      await axios.post(`${API_BASE_URL}/api/doctor/consultation/skip`, { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
@@ -236,13 +254,46 @@ export default function DoctorDashboard() {
     if (!nextPatient) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.post('${API_BASE_URL}/api/doctor/consultation/no-show', { tokenId: nextPatient.id }, {
+      await axios.post(`${API_BASE_URL}/api/doctor/consultation/no-show`, { tokenId: nextPatient.id }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchTodayQueue();
       await fetchNextPatient();
     } catch (e) {
       console.error('No-show error:', e);
+    }
+  };
+
+  const handleDoctorJoinMeeting = async (appointmentId, meetingUrl) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Call the API to mark doctor as joined
+      const response = await axios.post(
+        `${API_BASE_URL}/api/doctor/join-video-consultation/${appointmentId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.message === 'Successfully joined video consultation') {
+        // Show success message
+        alert('You have successfully joined the video consultation. The patient has been notified and can now join the meeting.');
+        
+        // Open the meeting URL
+        window.open(meetingUrl, '_blank', 'noopener,noreferrer');
+        
+        // Refresh the next patient data to update the UI
+        await fetchNextPatient();
+      }
+    } catch (error) {
+      console.error('Error joining video consultation:', error);
+      if (error.response?.data?.message) {
+        alert(error.response.data.message);
+      } else {
+        alert('Failed to join video consultation. Please try again.');
+      }
     }
   };
 
@@ -593,7 +644,7 @@ export default function DoctorDashboard() {
                             </div>
                           </div>
                           <button
-                            onClick={() => window.open((nextPatient.meetingLink || nextPatient.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                            onClick={() => handleDoctorJoinMeeting(nextPatient._id, (nextPatient.meetingLink || nextPatient.meeting_link).meetingUrl)}
                             className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
                           >
                             <HiExternalLink className="h-4 w-4" />
@@ -891,7 +942,7 @@ export default function DoctorDashboard() {
                   try {
                     const token = localStorage.getItem('token');
                   await axios.post(
-                    '${API_BASE_URL}/api/doctor/leave-requests',
+                    `${API_BASE_URL}/api/doctor/leave-requests`,
                     { 
                       leave_type: 'full_day',
                       start_date: leaveForm.date,

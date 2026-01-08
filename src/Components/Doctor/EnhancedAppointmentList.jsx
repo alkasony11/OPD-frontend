@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
-  HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, HiPencil, 
+  HiCalendar, HiClock, HiUser, HiPhone, HiMail, HiCheck, HiX, 
   HiEye, HiClipboardList, HiVideoCamera, HiExternalLink, 
-  HiExclamation, HiArrowRight, HiDocumentText, HiCash, HiLocationMarker,
+  HiArrowRight, HiDocumentText, HiCash, HiLocationMarker,
   HiStatusOnline, HiStatusOffline
 } from 'react-icons/hi';
 import axios from 'axios';
@@ -10,6 +10,7 @@ import PatientDetailsModal from './PatientDetailsModal';
 import PrescriptionModal from './PrescriptionModal';
 import PatientConsultationModal from './PatientConsultationModal';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { API_BASE_URL } from '../../config/api';
 
 export default function EnhancedAppointmentList() {
   const [appointments, setAppointments] = useState([]);
@@ -17,12 +18,9 @@ export default function EnhancedAppointmentList() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // today, upcoming, all, completed, cancelled
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showNotesModal, setShowNotesModal] = useState(false);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
   const [updating, setUpdating] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -191,12 +189,6 @@ export default function EnhancedAppointmentList() {
     }
   };
 
-  const openNotesModal = (appointment) => {
-    setSelectedAppointment(appointment);
-    setNotes(appointment.doctorNotes || '');
-    setDiagnosis(appointment.diagnosis || '');
-    setShowNotesModal(true);
-  };
 
   const openPatientModal = (appointment) => {
     setSelectedAppointment(appointment);
@@ -208,24 +200,69 @@ export default function EnhancedAppointmentList() {
     setShowPrescriptionModal(true);
   };
 
-  const saveNotes = async () => {
-    try {
-      setUpdating(true);
-      const token = localStorage.getItem('token');
 
-      await axios.patch(
-        `${API_BASE_URL}/api/doctor/appointments/${selectedAppointment._id}/notes`,
-        { doctorNotes: notes, diagnosis },
-        { headers: { Authorization: `Bearer ${token}` } }
+  const handleDoctorJoinMeeting = async (appointmentId, meetingUrl) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Call the API to mark doctor as joined
+      const response = await axios.post(
+        `${API_BASE_URL}/api/doctor/join-video-consultation/${appointmentId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
       );
 
-      setShowNotesModal(false);
-      await fetchAppointments();
+      if (response.data.message === 'Successfully joined video consultation') {
+        // Show success message
+        alert('You have successfully joined the video consultation. The patient has been notified and can now join the meeting.');
+        
+        // Open the meeting URL
+        window.open(meetingUrl, '_blank', 'noopener,noreferrer');
+        
+        // Refresh the appointments data to update the UI
+        await fetchAppointments();
+      }
     } catch (error) {
-      console.error('Error saving notes:', error);
-      alert('Failed to save notes');
-    } finally {
-      setUpdating(false);
+      console.error('Error joining video consultation:', error);
+      if (error.response?.data?.message) {
+        alert(error.response.data.message);
+      } else {
+        alert('Failed to join video consultation. Please try again.');
+      }
+    }
+  };
+
+  const handleDoctorCloseMeeting = async (appointmentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Call the API to mark doctor as left the meeting
+      const response = await axios.post(
+        `${API_BASE_URL}/api/doctor/close-video-consultation/${appointmentId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.message === 'Successfully closed video consultation') {
+        // Show success message
+        alert('Video consultation has been closed. The patient has been notified that the meeting has ended.');
+        
+        // Refresh the appointments data to update the UI
+        await fetchAppointments();
+      }
+    } catch (error) {
+      console.error('Error closing video consultation:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      if (error.response?.data?.message) {
+        alert(error.response.data.message);
+      } else {
+        alert('Failed to close video consultation. Please try again.');
+      }
     }
   };
 
@@ -480,21 +517,88 @@ export default function EnhancedAppointmentList() {
                       </div>
 
                       {/* Video Consultation Link */}
-                      {appointment.appointmentType === 'video' && appointment.meeting_link && (
+                      {appointment.appointmentType === 'video' && appointment.meeting_link && appointment.status !== 'consulted' && (
                         <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <HiVideoCamera className="h-4 w-4 text-purple-600" />
                               <span className="text-sm font-medium text-purple-900">Video Consultation</span>
                             </div>
-                            <button
-                              onClick={() => window.open(appointment.meeting_link.meetingUrl, '_blank', 'noopener,noreferrer')}
-                              className="flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
-                            >
-                              <HiExternalLink className="h-3 w-3" />
-                              <span>Join Meeting</span>
-                            </button>
+                            <div className="flex items-center space-x-2">
+                              {!appointment.meeting_link.doctorJoined ? (
+                                <button
+                                  onClick={() => handleDoctorJoinMeeting(appointment._id, appointment.meeting_link.meetingUrl)}
+                                  className="flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 transition-colors"
+                                >
+                                  <HiExternalLink className="h-3 w-3" />
+                                  <span>Join Meeting</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDoctorCloseMeeting(appointment._id)}
+                                  className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
+                                >
+                                  <HiX className="h-3 w-3" />
+                                  <span>Close Meeting</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Consultation Data for Completed Appointments */}
+                      {appointment.status === 'consulted' && appointment.consultationData && (
+                        <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <HiCheck className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-900">Consultation Completed</span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {appointment.consultationData.chiefComplaint && (
+                              <div>
+                                <span className="text-xs font-medium text-gray-700">Chief Complaint:</span>
+                                <p className="text-sm text-gray-600 mt-1">{appointment.consultationData.chiefComplaint}</p>
+                              </div>
+                            )}
+                            
+                            {appointment.consultationData.diagnosis && (
+                              <div>
+                                <span className="text-xs font-medium text-gray-700">Diagnosis:</span>
+                                <p className="text-sm text-gray-600 mt-1">{appointment.consultationData.diagnosis}</p>
+                              </div>
+                            )}
+                            
+                            {appointment.consultationData.treatmentPlan && (
+                              <div>
+                                <span className="text-xs font-medium text-gray-700">Treatment Plan:</span>
+                                <p className="text-sm text-gray-600 mt-1">{appointment.consultationData.treatmentPlan}</p>
+                              </div>
+                            )}
+                            
+                            {appointment.consultationData.medications && (
+                              <div>
+                                <span className="text-xs font-medium text-gray-700">Prescription:</span>
+                                <p className="text-sm text-gray-600 mt-1">{appointment.consultationData.medications}</p>
+                              </div>
+                            )}
+                            
+                            {appointment.consultationData.followUpInstructions && (
+                              <div>
+                                <span className="text-xs font-medium text-gray-700">Follow-up Instructions:</span>
+                                <p className="text-sm text-gray-600 mt-1">{appointment.consultationData.followUpInstructions}</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {appointment.consultation_completed_at && (
+                            <div className="mt-3 pt-3 border-t border-green-200">
+                              <span className="text-xs text-green-600">
+                                Completed: {new Date(appointment.consultation_completed_at).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -513,19 +617,6 @@ export default function EnhancedAppointmentList() {
                         >
                           <HiClock className="h-3 w-3" />
                           <span>Start</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Mark this patient as no-show?')) {
-                              updateAppointmentStatus(appointment._id, 'missed');
-                            }
-                          }}
-                          disabled={updating}
-                          className="flex items-center space-x-1 px-3 py-1 bg-orange-600 text-white text-xs rounded-md hover:bg-orange-700 disabled:opacity-50"
-                          title="Mark as no-show"
-                        >
-                          <HiExclamation className="h-3 w-3" />
-                          <span>No Show</span>
                         </button>
                       </>
                     )}
@@ -582,14 +673,6 @@ export default function EnhancedAppointmentList() {
                           <span>Details</span>
                         </button>
 
-                        <button
-                          onClick={() => openNotesModal(appointment)}
-                          className="flex items-center space-x-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700"
-                          title="Add notes and diagnosis"
-                        >
-                          <HiPencil className="h-3 w-3" />
-                          <span>Notes</span>
-                        </button>
 
                         <button
                           onClick={() => openPrescriptionModal(appointment)}
@@ -625,68 +708,6 @@ export default function EnhancedAppointmentList() {
         )}
       </div>
 
-      {/* Notes Modal */}
-      {showNotesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Add Notes - {selectedAppointment?.patient_name}
-              </h3>
-              <button
-                onClick={() => setShowNotesModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <HiX className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Diagnosis
-                </label>
-                <input
-                  type="text"
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter diagnosis..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Doctor Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your notes..."
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowNotesModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveNotes}
-                disabled={updating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {updating ? 'Saving...' : 'Save Notes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Patient Details Modal */}
       <PatientDetailsModal

@@ -82,22 +82,25 @@ export default function AdminSidebar() {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className={`bg-gray-800 shadow-xl h-screen fixed left-0 top-0 z-50 transition-all duration-300 flex flex-col ${
-      isCollapsed ? 'w-16' : 'w-64'
+    <div className={`bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl h-screen fixed left-0 top-0 z-50 transition-all duration-300 flex flex-col ${
+      isCollapsed ? 'w-16' : 'w-16 lg:w-64'
     }`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-700">
         {!isCollapsed && (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
               <span className="text-white font-bold text-sm">MA</span>
             </div>
-            <span className="text-lg font-semibold text-white">MedAdmin</span>
+            <div className="hidden lg:block">
+              <span className="text-lg font-bold text-white">MedAdmin</span>
+              <p className="text-xs text-gray-300">Admin Panel</p>
+            </div>
           </div>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+          className="p-2 rounded-xl hover:bg-gray-700 transition-all duration-200 text-gray-300 hover:text-white hover:shadow-lg"
         >
           {isCollapsed ? <HiMenu className="h-5 w-5" /> : <HiX className="h-5 w-5" />}
         </button>
@@ -115,11 +118,11 @@ export default function AdminSidebar() {
               <li key={item.name}>
                 <Link
                   to={item.path}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                     isActive(item.path)
-                      ? 'bg-gray-700 text-white shadow-lg border-l-4 border-white'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border-l-4 border-white transform scale-105'
                       : item.status === 'working'
-                      ? 'text-white hover:bg-gray-700 hover:text-white hover:shadow-md'
+                      ? 'text-white hover:bg-gray-700 hover:text-white hover:shadow-md hover:transform hover:scale-105'
                       : 'text-gray-400 hover:bg-gray-700 hover:text-gray-300 hover:shadow-md cursor-not-allowed'
                   }`}
                   title={isCollapsed ? (item.status === 'working' ? item.name : `${item.name} (Coming Soon)`) : ''}
@@ -136,7 +139,7 @@ export default function AdminSidebar() {
                       : 'text-gray-400 group-hover:text-gray-300'
                   }`} />
                   {!isCollapsed && (
-                    <span className={`text-sm font-medium truncate ${
+                    <span className={`text-sm font-medium truncate hidden lg:block ${
                       item.status === 'working' ? 'text-white' : 'text-gray-400'
                     }`}>{item.name}</span>
                   )}
@@ -148,17 +151,17 @@ export default function AdminSidebar() {
       </nav>
 
       {/* User Profile & Logout */}
-      <div className="p-4 border-t border-gray-700 flex-shrink-0">
+      <div className="p-4 border-t border-gray-700 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-700">
         {!isCollapsed && (
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+          <div className="flex items-center space-x-3 mb-4 p-3 bg-gray-700/50 rounded-xl">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
               <HiUser className="h-5 w-5 text-white" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+            <div className="flex-1 min-w-0 hidden lg:block">
+              <p className="text-sm font-semibold text-white truncate">
                 {adminUser?.name || 'Admin'}
               </p>
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-xs text-gray-300 truncate">
                 {adminUser?.email || 'System Administrator'}
               </p>
             </div>
@@ -166,13 +169,13 @@ export default function AdminSidebar() {
         )}
         <button
           onClick={handleLogout}
-          className={`flex items-center space-x-3 w-full px-4 py-3 text-white hover:bg-red-600 hover:text-white rounded-lg transition-all duration-200 ${
+          className={`flex items-center space-x-3 w-full px-4 py-3 text-white hover:bg-red-600 hover:text-white rounded-xl transition-all duration-200 hover:shadow-lg hover:transform hover:scale-105 ${
             isCollapsed ? 'justify-center' : ''
           }`}
           title={isCollapsed ? 'Logout' : ''}
         >
           <HiLogout className="h-5 w-5 flex-shrink-0 text-white" />
-          {!isCollapsed && <span className="text-sm font-medium text-white">Logout</span>}
+          {!isCollapsed && <span className="text-sm font-medium text-white hidden lg:block">Logout</span>}
         </button>
       </div>
     </div>

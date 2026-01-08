@@ -64,7 +64,7 @@ const ChatbotWidget = () => {
       if (!token) return;
 
       // Load quick actions
-      const actionsResponse = await axios.get('${API_CONFIG.BASE_URL}/api/chatbot/quick-actions', {
+      const actionsResponse = await axios.get(`${API_CONFIG.BASE_URL}/api/chatbot/quick-actions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQuickActions(actionsResponse.data.quickActions || []);
@@ -97,7 +97,7 @@ const ChatbotWidget = () => {
       setIsTyping(true);
 
       const response = await axios.post(
-        '${API_CONFIG.BASE_URL}/api/chatbot/message',
+        `${API_CONFIG.BASE_URL}/api/chatbot/message`,
         { message: messageText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -178,7 +178,7 @@ const ChatbotWidget = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.delete('${API_CONFIG.BASE_URL}/api/chatbot/clear-conversation', {
+      await axios.delete(`${API_CONFIG.BASE_URL}/api/chatbot/clear-conversation`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -240,10 +240,10 @@ const ChatbotWidget = () => {
               </div>
               <div>
                 <h3 className="font-bold text-lg">MediQ Assistant</h3>
-                <p className="text-xs text-blue-100 flex items-center">
+                <div className="text-xs text-blue-100 flex items-center">
                   <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
                   Online now
-                </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-1">

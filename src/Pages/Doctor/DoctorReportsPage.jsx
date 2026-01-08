@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiChartBar, HiCalendar, HiUsers, HiDocumentText, HiDownload, HiTrendingUp, HiTrendingDown } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 import {
   Chart as ChartJS,
@@ -103,7 +104,7 @@ export default function DoctorReportsPage() {
 
       // Fetch patients
       const patientsResponse = await axios.get(
-        '${API_BASE_URL}/api/doctor/patients',
+        `${API_BASE_URL}/api/doctor/patients`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -115,7 +116,7 @@ export default function DoctorReportsPage() {
 
       // Fetch medical records
       const recordsResponse = await axios.get(
-        '${API_BASE_URL}/api/doctor/medical-records',
+        `${API_BASE_URL}/api/doctor/medical-records`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

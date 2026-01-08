@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiUser, HiUsers, HiPhone, HiMail, HiEye, HiDocumentText, HiSearch } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import PatientDetailsModal from '../../Components/Doctor/PatientDetailsModal';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
@@ -55,7 +56,7 @@ export default function DoctorPatientsPage() {
         return;
       }
 
-      const response = await axios.get('${API_BASE_URL}/api/doctor/patients', {
+      const response = await axios.get(`${API_BASE_URL}/api/doctor/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

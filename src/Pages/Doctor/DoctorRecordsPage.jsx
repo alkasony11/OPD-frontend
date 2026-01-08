@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiDocument, HiDocumentText, HiUser, HiCalendar, HiSearch, HiDownload, HiEye } from 'react-icons/hi';
+import { HiArrowLeft, HiDocument, HiDocumentText, HiUser, HiCalendar, HiSearch, HiDownload, HiEye, HiClock } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
 export default function DoctorRecordsPage() {
@@ -55,7 +56,7 @@ export default function DoctorRecordsPage() {
         return;
       }
 
-      const response = await axios.get('${API_BASE_URL}/api/doctor/medical-records', {
+      const response = await axios.get(`${API_BASE_URL}/api/doctor/medical-records`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -97,10 +98,17 @@ export default function DoctorRecordsPage() {
   const exportRecord = (record) => {
     const data = {
       patient: record.patient_name,
-      date: new Date(record.date).toLocaleDateString(),
+      date: new Date(record.appointment_date).toLocaleDateString(),
+      time: record.appointment_time,
       diagnosis: record.diagnosis,
+      chief_complaint: record.chief_complaint,
+      history_of_present_illness: record.history_of_present_illness,
+      physical_examination: record.physical_examination,
+      vital_signs: record.vital_signs,
+      medications: record.medications,
       notes: record.notes,
-      prescription: record.prescription || 'No prescription',
+      follow_up_required: record.follow_up_required,
+      follow_up_date: record.follow_up_date,
       status: record.status
     };
 
@@ -289,21 +297,34 @@ export default function DoctorRecordsPage() {
                         <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
                           <div className="flex items-center space-x-1">
                             <HiCalendar className="h-4 w-4" />
-                            <span>{new Date(record.date).toLocaleDateString()}</span>
+                            <span>{new Date(record.appointment_date).toLocaleDateString()}</span>
                           </div>
+                          {record.appointment_time && (
+                            <div className="flex items-center space-x-1">
+                              <HiClock className="h-4 w-4" />
+                              <span>{record.appointment_time}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="mt-2">
-                          <p className="text-sm text-gray-600">
-                            <strong>Diagnosis:</strong> {record.diagnosis}
-                          </p>
+                          {record.diagnosis && (
+                            <p className="text-sm text-gray-600">
+                              <strong>Diagnosis:</strong> {record.diagnosis}
+                            </p>
+                          )}
+                          {record.chief_complaint && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              <strong>Chief Complaint:</strong> {record.chief_complaint.length > 100 ? `${record.chief_complaint.substring(0, 100)}...` : record.chief_complaint}
+                            </p>
+                          )}
                           {record.notes && (
                             <p className="text-sm text-gray-600 mt-1">
                               <strong>Notes:</strong> {record.notes.length > 100 ? `${record.notes.substring(0, 100)}...` : record.notes}
                             </p>
                           )}
-                          {record.prescription && (
+                          {record.medications && record.medications.length > 0 && (
                             <p className="text-sm text-gray-600 mt-1">
-                              <strong>Prescription:</strong> {record.prescription.length > 100 ? `${record.prescription.substring(0, 100)}...` : record.prescription}
+                              <strong>Medications:</strong> {record.medications.length} prescribed
                             </p>
                           )}
                         </div>
@@ -352,21 +373,66 @@ export default function DoctorRecordsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Date</label>
-                  <p className="mt-1 text-sm text-gray-900">{new Date(selectedRecord.date).toLocaleDateString()}</p>
+                  <p className="mt-1 text-sm text-gray-900">{new Date(selectedRecord.appointment_date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Time</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedRecord.appointment_time}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedRecord.status)}`}>
+                    {selectedRecord.status.replace('_', ' ')}
+                  </span>
                 </div>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedRecord.status)}`}>
-                  {selectedRecord.status.replace('_', ' ')}
-                </span>
-              </div>
+              {selectedRecord.chief_complaint && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Chief Complaint</label>
+                  <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedRecord.chief_complaint}</p>
+                </div>
+              )}
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Diagnosis</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedRecord.diagnosis}</p>
-              </div>
+              {selectedRecord.diagnosis && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Diagnosis</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedRecord.diagnosis}</p>
+                </div>
+              )}
+              
+              {selectedRecord.history_of_present_illness && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">History of Present Illness</label>
+                  <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedRecord.history_of_present_illness}</p>
+                </div>
+              )}
+              
+              {selectedRecord.physical_examination && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Physical Examination</label>
+                  <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedRecord.physical_examination}</p>
+                </div>
+              )}
+              
+              {selectedRecord.medications && selectedRecord.medications.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Medications</label>
+                  <div className="mt-1 space-y-2">
+                    {selectedRecord.medications.map((med, index) => (
+                      <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm font-medium text-gray-900">{med.medication_name || med.name}</p>
+                        <p className="text-sm text-gray-600">Dosage: {med.dosage}</p>
+                        <p className="text-sm text-gray-600">Frequency: {med.frequency}</p>
+                        <p className="text-sm text-gray-600">Duration: {med.duration}</p>
+                        {med.instructions && (
+                          <p className="text-sm text-gray-600">Instructions: {med.instructions}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {selectedRecord.notes && (
                 <div>
@@ -375,10 +441,13 @@ export default function DoctorRecordsPage() {
                 </div>
               )}
               
-              {selectedRecord.prescription && (
+              {selectedRecord.follow_up_required && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Prescription</label>
-                  <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedRecord.prescription}</p>
+                  <label className="block text-sm font-medium text-gray-700">Follow-up Required</label>
+                  <p className="mt-1 text-sm text-gray-900">Yes</p>
+                  {selectedRecord.follow_up_date && (
+                    <p className="mt-1 text-sm text-gray-600">Follow-up Date: {new Date(selectedRecord.follow_up_date).toLocaleDateString()}</p>
+                  )}
                 </div>
               )}
             </div>

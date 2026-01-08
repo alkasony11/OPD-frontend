@@ -13,7 +13,6 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   MapPinIcon,
-  HeartIcon,
   ExclamationTriangleIcon,
   UserGroupIcon,
   XMarkIcon,
@@ -44,15 +43,7 @@ const ManageAccount = () => {
     gender: 'male',
     phone: '',
     email: '',
-    address: '',
-    bloodGroup: '',
-    allergies: '',
-    chronicConditions: '',
-    emergencyContact: {
-      name: '',
-      phone: '',
-      relation: ''
-    }
+    address: ''
   });
 
   const familyMemberValidation = useFamilyMemberValidation({
@@ -679,8 +670,7 @@ const ManageAccount = () => {
 
   const tabs = [
     { id: 'profile', name: 'Profile', icon: UserCircleIcon },
-    { id: 'family', name: 'Family Members', icon: UserGroupIcon },
-    { id: 'medical', name: 'Medical Details', icon: HeartIcon }
+    { id: 'family', name: 'Family Members', icon: UserGroupIcon }
   ];
 
   if (initialLoading) {
@@ -1030,170 +1020,6 @@ const ManageAccount = () => {
               </div>
             )}
 
-            {/* Medical Details Tab */}
-            {activeTab === 'medical' && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium text-gray-900">Medical Information</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
-                    <select
-                      name="bloodGroup"
-                      value={profileValidation.values.bloodGroup}
-                      onChange={profileValidation.handleChange}
-                      onBlur={profileValidation.handleBlur}
-                      onFocus={profileValidation.handleFocus}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                        profileValidation.errors.bloodGroup && profileValidation.touched.bloodGroup
-                          ? 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 focus:ring-blue-500'
-                      }`}
-                    >
-                      <option value="">Select Blood Group</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                    </select>
-                    {profileValidation.errors.bloodGroup && profileValidation.touched.bloodGroup && (
-                      <p className="mt-1 text-sm text-red-600">{profileValidation.errors.bloodGroup}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
-                    <input
-                      type="text"
-                      name="allergies"
-                      value={profileValidation.values.allergies}
-                      onChange={profileValidation.handleChange}
-                      onBlur={profileValidation.handleBlur}
-                      onFocus={profileValidation.handleFocus}
-                      placeholder="List any allergies (comma separated)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chronic Conditions</label>
-                    <textarea
-                      name="chronicConditions"
-                      value={profileValidation.values.chronicConditions}
-                      onChange={profileValidation.handleChange}
-                      onBlur={profileValidation.handleBlur}
-                      onFocus={profileValidation.handleFocus}
-                      placeholder="List any chronic conditions (e.g., Diabetes, Hypertension)"
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Emergency Contact</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input
-                        type="text"
-                        name="emergencyContact.name"
-                        value={profileValidation.values.emergencyContact.name}
-                        onChange={(e) => {
-                          const { name, value } = e.target;
-                          const [parent, child] = name.split('.');
-                          profileValidation.setFieldValue('emergencyContact', {
-                            ...profileValidation.values.emergencyContact,
-                            [child]: value
-                          });
-                        }}
-                        onBlur={profileValidation.handleBlur}
-                        onFocus={profileValidation.handleFocus}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                          profileValidation.errors['emergencyContact.name'] && profileValidation.touched['emergencyContact.name']
-                            ? 'border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                      />
-                      {profileValidation.errors['emergencyContact.name'] && profileValidation.touched['emergencyContact.name'] && (
-                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.name']}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                      <input
-                        type="tel"
-                        name="emergencyContact.phone"
-                        value={profileValidation.values.emergencyContact.phone}
-                        onChange={(e) => {
-                          const { name, value } = e.target;
-                          const [parent, child] = name.split('.');
-                          profileValidation.setFieldValue('emergencyContact', {
-                            ...profileValidation.values.emergencyContact,
-                            [child]: value
-                          });
-                        }}
-                        onBlur={profileValidation.handleBlur}
-                        onFocus={profileValidation.handleFocus}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                          profileValidation.errors['emergencyContact.phone'] && profileValidation.touched['emergencyContact.phone']
-                            ? 'border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                      />
-                      {profileValidation.errors['emergencyContact.phone'] && profileValidation.touched['emergencyContact.phone'] && (
-                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.phone']}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Relation</label>
-                      <select
-                        name="emergencyContact.relation"
-                        value={profileValidation.values.emergencyContact.relation}
-                        onChange={(e) => {
-                          const { name, value } = e.target;
-                          const [parent, child] = name.split('.');
-                          profileValidation.setFieldValue('emergencyContact', {
-                            ...profileValidation.values.emergencyContact,
-                            [child]: value
-                          });
-                        }}
-                        onBlur={profileValidation.handleBlur}
-                        onFocus={profileValidation.handleFocus}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                          profileValidation.errors['emergencyContact.relation'] && profileValidation.touched['emergencyContact.relation']
-                            ? 'border-red-500 focus:ring-red-500'
-                            : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                      >
-                        <option value="">Select Relation</option>
-                        <option value="spouse">Spouse</option>
-                        <option value="parent">Parent</option>
-                        <option value="child">Child</option>
-                        <option value="sibling">Sibling</option>
-                        <option value="friend">Friend</option>
-                        <option value="other">Other</option>
-                      </select>
-                      {profileValidation.errors['emergencyContact.relation'] && profileValidation.touched['emergencyContact.relation'] && (
-                        <p className="mt-1 text-sm text-red-600">{profileValidation.errors['emergencyContact.relation']}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleProfileUpdate}
-                    disabled={loading || !profileValidation.isValid}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {loading ? 'Updating...' : 'Update Medical Info'}
-                  </button>
-                </div>
-              </div>
-            )}
 
           </div>
         </div>

@@ -79,6 +79,26 @@ export default function QueuePosition({ appointmentId, appointmentStatus }) {
     return null;
   }
 
+  // If appointment is for a future date, don't show queue position
+  if (queueData.queuePosition === null && queueData.message) {
+    // Only show a message if the appointment is scheduled for a future date
+    if (queueData.message === 'Appointment is scheduled for a future date') {
+      return (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <HiClock className="h-4 w-4 text-gray-600" />
+            <div>
+              <span className="text-sm text-gray-800 font-medium">Scheduled for {new Date(queueData.appointmentDate).toLocaleDateString()}</span>
+              <div className="text-xs text-gray-600">Appointment time: {queueData.appointmentTime}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // For other messages (like "Appointment is not in queue"), don't show anything
+    return null;
+  }
+
   const getQueueColor = () => {
     // If patient is referred, use purple to indicate referral
     if (queueData?.referredDoctor) return 'bg-purple-50 border-purple-200 text-purple-800';

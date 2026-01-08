@@ -13,6 +13,7 @@ import {
   HiExclamationCircle
 } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DiagnosisModal({ appointment, onClose, onSave }) {
   const [loading, setLoading] = useState(false);
@@ -21,11 +22,11 @@ export default function DiagnosisModal({ appointment, onClose, onSave }) {
   const [consultationEnded, setConsultationEnded] = useState(false);
   const [formData, setFormData] = useState({
     // Patient Information
-    patient_name: appointment?.patient_id?.name || '',
-    patient_age: appointment?.patient_id?.patient_info?.age || '',
-    patient_gender: appointment?.patient_id?.patient_info?.gender || '',
-    patient_phone: appointment?.patient_id?.phone || '',
-    patient_email: appointment?.patient_id?.email || '',
+    patient_name: appointment?.patientName || '',
+    patient_age: appointment?.patientAge || '',
+    patient_gender: appointment?.patientGender || '',
+    patient_phone: appointment?.patientPhone || '',
+    patient_email: appointment?.patientEmail || '',
     
     // Medical History
     chief_complaint: '',
@@ -196,12 +197,12 @@ export default function DiagnosisModal({ appointment, onClose, onSave }) {
       const token = localStorage.getItem('token');
       const diagnosisData = {
         ...formData,
-        appointment_id: appointment._id,
-        patient_id: appointment.patient_id._id,
-        doctor_id: appointment.doctor_id._id
+        appointment_id: appointment.id,
+        patient_id: appointment.patient_id,
+        doctor_id: appointment.doctor_id
       };
 
-      const response = await axios.post('/api/diagnosis', diagnosisData, {
+      const response = await axios.post(`${API_BASE_URL}/api/diagnosis`, diagnosisData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

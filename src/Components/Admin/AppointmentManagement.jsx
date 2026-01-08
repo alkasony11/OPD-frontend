@@ -5,17 +5,14 @@ import {
   HiUser, 
   HiPhone, 
   HiMail, 
-  HiEye, 
-  HiCheckCircle,
   HiXCircle,
-  HiRefresh,
   HiFilter,
   HiSearch,
   HiChevronDown,
   HiChevronUp
 } from 'react-icons/hi';
 import axios from 'axios';
-import DiagnosisModal from './DiagnosisModal';
+import { API_BASE_URL } from '../../config/api';
 
 export default function AppointmentManagement() {
   const [appointments, setAppointments] = useState([]);
@@ -25,8 +22,6 @@ export default function AppointmentManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [departments, setDepartments] = useState([]);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -40,7 +35,7 @@ export default function AppointmentManagement() {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      let url = '/api/admin/appointments?';
+      let url = `${API_BASE_URL}/api/admin/appointments?`;
       const params = new URLSearchParams();
       
       if (selectedDepartment !== 'all') {
@@ -71,7 +66,7 @@ export default function AppointmentManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('/api/admin/departments', {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/departments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -80,16 +75,6 @@ export default function AppointmentManagement() {
     }
   };
 
-  const handleAttendAppointment = (appointment) => {
-    setSelectedAppointment(appointment);
-    setShowDiagnosisModal(true);
-  };
-
-  const handleDiagnosisSaved = () => {
-    setShowDiagnosisModal(false);
-    setSelectedAppointment(null);
-    fetchAppointments(); // Refresh the list
-  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -111,7 +96,7 @@ export default function AppointmentManagement() {
       case 'booked':
         return <HiCalendar className="h-4 w-4" />;
       case 'consulted':
-        return <HiCheckCircle className="h-4 w-4" />;
+        return <HiUser className="h-4 w-4" />;
       case 'cancelled':
         return <HiXCircle className="h-4 w-4" />;
       case 'missed':
@@ -123,9 +108,9 @@ export default function AppointmentManagement() {
 
   const filteredAppointments = appointments.filter(appointment => {
     const matchesSearch = !searchTerm || 
-      appointment.patient_id?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.token_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.doctor_id?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      appointment.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.tokenNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.doctor?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesSearch;
   });
@@ -161,15 +146,6 @@ export default function AppointmentManagement() {
             <HiFilter className="h-5 w-5" />
             <span>Filters</span>
             {showFilters ? <HiChevronUp className="h-4 w-4" /> : <HiChevronDown className="h-4 w-4" />}
-          </button>
-
-          {/* Refresh */}
-          <button
-            onClick={fetchAppointments}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <HiRefresh className="h-5 w-5" />
-            <span>Refresh</span>
           </button>
         </div>
 
@@ -235,25 +211,40 @@ export default function AppointmentManagement() {
             {/* Table Header */}
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-700">
-                <div className="col-span-2">Token</div>
+                <div className="col-span-1">SI No.</div>
+                <div className="col-span-1">Token</div>
+                <div className="col-span-1">Patient ID</div>
                 <div className="col-span-2">Patient</div>
                 <div className="col-span-2">Doctor</div>
                 <div className="col-span-2">Department</div>
                 <div className="col-span-2">Date & Time</div>
                 <div className="col-span-1">Status</div>
-                <div className="col-span-1">Actions</div>
               </div>
             </div>
 
             {/* Table Body */}
             <div className="divide-y divide-gray-200">
-              {filteredAppointments.map((appointment) => (
-                <div key={appointment._id} className="px-6 py-4 hover:bg-gray-50">
+              {filteredAppointments.map((appointment, index) => (
+                <div key={appointment.id} className="px-6 py-4 hover:bg-gray-50">
                   <div className="grid grid-cols-12 gap-4 items-center">
+                    {/* SI No. */}
+                    <div className="col-span-1">
+                      <span className="font-medium text-gray-600">
+                        {index + 1}
+                      </span>
+                    </div>
+
                     {/* Token */}
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <span className="font-medium text-blue-600">
-                        #{appointment.token_number}
+                        #{appointment.tokenNumber || 'N/A'}
+                      </span>
+                    </div>
+
+                    {/* Patient ID */}
+                    <div className="col-span-1">
+                      <span className="font-medium text-gray-600 text-sm">
+                        {appointment.patientId ? `#${appointment.patientId.toString().slice(-6).toUpperCase()}` : 'N/A'}
                       </span>
                     </div>
 
@@ -263,23 +254,23 @@ export default function AppointmentManagement() {
                         <HiUser className="h-4 w-4 text-gray-400" />
                         <div>
                           <p className="font-medium text-gray-900">
-                            {appointment.patient_id?.name || 'N/A'}
+                            {appointment.patientName || 'N/A'}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {appointment.family_member_id?.name && 
-                              `(${appointment.family_member_id.relation})`
-                            }
-                          </p>
-            </div>
-          </div>
-        </div>
+                          {appointment.linkedAccount && (
+                            <p className="text-sm text-gray-500">
+                              ({appointment.linkedAccount})
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Doctor */}
                     <div className="col-span-2">
                       <p className="font-medium text-gray-900">
-                        Dr. {appointment.doctor_id?.name || 'N/A'}
+                        Dr. {appointment.doctor || 'N/A'}
                       </p>
-              </div>
+                    </div>
 
                     {/* Department */}
                     <div className="col-span-2">
@@ -294,13 +285,13 @@ export default function AppointmentManagement() {
                         <HiCalendar className="h-4 w-4 text-gray-400" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {new Date(appointment.booking_date).toLocaleDateString()}
+                            {appointment.date ? new Date(appointment.date).toLocaleDateString() : 'N/A'}
                           </p>
                           <p className="text-sm text-gray-500 flex items-center">
                             <HiClock className="h-3 w-3 mr-1" />
-                            {appointment.time_slot}
+                            {appointment.time || 'N/A'}
                           </p>
-                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -310,29 +301,6 @@ export default function AppointmentManagement() {
                         {getStatusIcon(appointment.status)}
                         <span className="ml-1 capitalize">{appointment.status}</span>
                       </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="col-span-1">
-                      {appointment.status === 'booked' ? (
-                        <button
-                          onClick={() => handleAttendAppointment(appointment)}
-                          className="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          <HiCheckCircle className="h-4 w-4 mr-1" />
-                          Attend
-                        </button>
-                      ) : appointment.status === 'consulted' ? (
-                        <button
-                          onClick={() => handleAttendAppointment(appointment)}
-                          className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <HiEye className="h-4 w-4 mr-1" />
-                          View
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
                     </div>
                   </div>
                           </div>
@@ -369,17 +337,6 @@ export default function AppointmentManagement() {
               )}
             </div>
 
-      {/* Diagnosis Modal */}
-      {showDiagnosisModal && selectedAppointment && (
-        <DiagnosisModal
-          appointment={selectedAppointment}
-          onClose={() => {
-            setShowDiagnosisModal(false);
-            setSelectedAppointment(null);
-          }}
-          onSave={handleDiagnosisSaved}
-        />
-      )}
     </div>
   );
 }

@@ -63,10 +63,10 @@ const ChatbotPage = () => {
       // Load quick actions and FAQ categories
       try {
         const [actionsResponse, faqResponse] = await Promise.all([
-          axios.get('${API_CONFIG.BASE_URL}/api/chatbot/quick-actions', {
+          axios.get(`${API_CONFIG.BASE_URL}/api/chatbot/quick-actions`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('${API_CONFIG.BASE_URL}/api/chatbot/faq-categories', {
+          axios.get(`${API_CONFIG.BASE_URL}/api/chatbot/faq-categories`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -145,7 +145,7 @@ const ChatbotPage = () => {
       setIsTyping(true);
 
       const response = await axios.post(
-        '${API_CONFIG.BASE_URL}/api/chatbot/message',
+        `${API_CONFIG.BASE_URL}/api/chatbot/message`,
         { message: messageText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -227,7 +227,7 @@ const ChatbotPage = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.delete('${API_CONFIG.BASE_URL}/api/chatbot/clear-conversation', {
+      await axios.delete(`${API_CONFIG.BASE_URL}/api/chatbot/clear-conversation`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

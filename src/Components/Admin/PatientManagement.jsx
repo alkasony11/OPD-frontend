@@ -8,6 +8,7 @@ import {
 } from 'react-icons/hi';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import PatientProfile from '../../Pages/Admin/PatientProfile';
+import { API_BASE_URL } from '../../config/api';
 
 export default function PatientManagement() {
   const navigate = useNavigate();
@@ -61,17 +62,22 @@ export default function PatientManagement() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/admin/patients', {
+      console.log('🔍 Patient Management - Fetching patients from:', `${API_BASE_URL}/api/admin/patients`);
+      const response = await axios.get(`${API_BASE_URL}/api/admin/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('🔍 Patient Management - API Response:', response.data);
       const data = Array.isArray(response.data) ? response.data : (response.data?.patients || []);
+      console.log('🔍 Patient Management - Processed data:', data);
       const onlyPatients = (data || []).filter((user) => {
         const role = typeof user.role === 'string' ? user.role.toLowerCase() : '';
         return role === 'patient' || user.isPatient === true;
       });
+      console.log('🔍 Patient Management - Filtered patients:', onlyPatients);
       setPatients(onlyPatients);
     } catch (error) {
       console.error('Error fetching patients:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -81,8 +87,8 @@ export default function PatientManagement() {
     try {
       const token = localStorage.getItem('token');
       const [deptRes, docRes] = await Promise.all([
-        axios.get('${API_BASE_URL}/api/admin/departments', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('${API_BASE_URL}/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } })
+        axios.get(`${API_BASE_URL}/api/admin/departments`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_BASE_URL}/api/admin/doctors`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       setDepartments(deptRes.data?.departments || []);
       setDoctors((docRes.data || []).filter(d => d.role === 'doctor'));
@@ -95,7 +101,7 @@ export default function PatientManagement() {
     try {
       setAppointmentsLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get('${API_BASE_URL}/api/admin/appointments', {
+      const res = await axios.get(`${API_BASE_URL}/api/admin/appointments`, {
         params: { limit: 200, status: apptStatus || undefined, doctorId: apptDoctorId || undefined },
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -116,6 +122,7 @@ export default function PatientManagement() {
   }, [apptStatus, apptDoctorId]);
 
   const applyFilters = () => {
+    console.log('🔍 Patient Management - Applying filters to patients:', patients);
     let filtered = [...patients];
 
     // Search filter
@@ -181,6 +188,7 @@ export default function PatientManagement() {
       filtered = filtered.filter(p => (p.doctorId || p.doctor?._id) === doctorId);
     }
 
+    console.log('🔍 Patient Management - Filtered result:', filtered);
     setFilteredPatients(filtered);
   };
 

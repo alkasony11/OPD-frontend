@@ -85,80 +85,136 @@ export default function AdminDashboard() {
               <RealTimeAlerts />
             </div>
             {/* Dashboard Overview Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
               {/* Patient Management */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Patient Management</h3>
-                  <div className="text-gray-400">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div className="p-3 bg-blue-100 rounded-xl">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                     </svg>
                   </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Quick Access</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">View, search, and manage all registered patients</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Patient Management</h3>
+                <p className="text-gray-600 text-sm mb-4">View, search, and manage all registered patients in the system</p>
                 <button
                   onClick={() => navigate('/admin/patients')}
-                  className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   View Patients
                 </button>
               </div>
 
               {/* Doctor Management */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Doctor Management</h3>
-                  <div className="text-gray-400">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                  <div className="p-3 bg-green-100 rounded-xl">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Quick Access</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">Add, edit, and manage doctor profiles</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Doctor Management</h3>
+                <p className="text-gray-600 text-sm mb-4">Add, edit, and manage doctor profiles and schedules</p>
                 <button
                   onClick={() => navigate('/admin/doctors')}
-                  className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   Manage Doctors
                 </button>
               </div>
 
               {/* User Management */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">User Management</h3>
-                  <div className="text-gray-400">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                  <div className="p-3 bg-purple-100 rounded-xl">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                     </svg>
                   </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Quick Access</p>
+                  </div>
                 </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">User Management</h3>
                 <p className="text-gray-600 text-sm mb-4">Add doctors and receptionists, manage user accounts</p>
                 <button
                   onClick={() => navigate('/admin/users')}
-                  className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 px-4 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   Manage Users
                 </button>
               </div>
 
               {/* Department Management */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Department Management</h3>
-                  <div className="text-gray-400">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                  <div className="p-3 bg-orange-100 rounded-xl">
+                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
                     </svg>
                   </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Quick Access</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">Create and manage hospital departments</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Department Management</h3>
+                <p className="text-gray-600 text-sm mb-4">Create and manage hospital departments and specialties</p>
                 <button
                   onClick={() => navigate('/admin/departments')}
-                  className="w-full bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="w-full bg-gradient-to-r from-orange-600 to-orange-700 text-white py-3 px-4 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
                 >
                   Manage Departments
+                </button>
+              </div>
+
+              {/* Appointment Management */}
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-indigo-100 rounded-xl">
+                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Quick Access</p>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Appointment Management</h3>
+                <p className="text-gray-600 text-sm mb-4">Schedule, manage, and track all patient appointments</p>
+                <button
+                  onClick={() => navigate('/admin/appointments')}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 px-4 rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  Manage Appointments
+                </button>
+              </div>
+
+              {/* System Analytics */}
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-red-100 rounded-xl">
+                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Analytics</p>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">System Analytics</h3>
+                <p className="text-gray-600 text-sm mb-4">View comprehensive reports and system performance metrics</p>
+                <button
+                  onClick={() => navigate('/admin/doctor-load')}
+                  className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3 px-4 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  View Analytics
                 </button>
               </div>
             </div>
@@ -291,11 +347,34 @@ export default function AdminDashboard() {
       <AdminSidebar />
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 overflow-y-auto">
-        <div className="p-6 space-y-6 pb-20">
-          {/* Header */}
-         
+      <div className="flex-1 ml-16 lg:ml-64 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* Professional Header */}
+        <div className="bg-white shadow-xl border-b border-gray-200 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-50"></div>
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-6 sm:py-8 space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="h-6 w-6 sm:h-7 sm:w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">{getPageTitle()}</h1>
+                  <p className="text-base sm:text-lg text-gray-600 mt-1">Welcome back, Administrator</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
+                <div className="text-right bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 shadow-sm">
+                  <p className="text-sm text-gray-500">Last updated</p>
+                  <p className="text-sm font-medium text-gray-900">{new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
           {/* Dynamic Content */}
           {renderContent()}
         </div>

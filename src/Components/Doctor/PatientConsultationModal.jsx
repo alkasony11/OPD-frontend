@@ -4,6 +4,7 @@ import {
   HiClock, HiClipboardList, HiPencil, HiCheckCircle 
 } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function PatientConsultationModal({ 
   appointment, 
@@ -61,8 +62,19 @@ export default function PatientConsultationModal({
     try {
       setSaving(true);
       const token = localStorage.getItem('token');
+      
+      console.log('🔍 Saving consultation data:', {
+        appointmentId: appointment._id,
+        consultationData,
+        medications: consultationData.medications,
+        hasMedications: !!consultationData.medications,
+        medicationsLength: consultationData.medications?.length,
+        apiUrl: `${API_BASE_URL}/api/doctor/appointments/${appointment._id}/consultation`,
+        hasToken: !!token,
+        tokenLength: token?.length
+      });
 
-      await axios.patch(
+      const response = await axios.patch(
         `${API_BASE_URL}/api/doctor/appointments/${appointment._id}/consultation`,
         {
           consultationData,
@@ -71,11 +83,27 @@ export default function PatientConsultationModal({
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log('✅ Consultation saved successfully:', response.data);
       setLastSaved(new Date());
       if (onSave) onSave();
+      
+      // Show success message
+      alert('Consultation data saved successfully!');
     } catch (error) {
-      console.error('Error saving consultation:', error);
-      alert('Failed to save consultation data');
+      console.error('❌ Error saving consultation:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      let errorMessage = 'Failed to save consultation data';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Unauthorized: You do not have permission to access this appointment';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Appointment not found';
+      }
+      
+      alert(errorMessage);
     } finally {
       setSaving(false);
     }

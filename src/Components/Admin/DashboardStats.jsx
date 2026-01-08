@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HiUsers, HiUserGroup, HiClipboardList, HiTrendingUp } from 'react-icons/hi';
-import { API_CONFIG } from '../../config/urls';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DashboardStats() {
   const [stats, setStats] = useState({
@@ -18,19 +18,25 @@ export default function DashboardStats() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('${API_CONFIG.BASE_URL}/api/admin/stats', {
+      console.log('🔍 DashboardStats - Fetching stats from:', `${API_BASE_URL}/api/admin/stats`);
+      const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
+      console.log('🔍 DashboardStats - Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 DashboardStats - Stats data:', data);
         setStats(data);
+      } else {
+        console.error('🔍 DashboardStats - Response not ok:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+      console.error('Error details:', error.message);
     } finally {
       setLoading(false);
     }
@@ -39,7 +45,7 @@ export default function DashboardStats() {
   const statCards = [
     {
       title: 'Total Patients',
-      value: stats.totalUsers || '0',
+      value: stats.totalPatients || stats.totalUsers || '0',
       icon: HiUsers,
       color: 'bg-gray-600'
     },
@@ -51,7 +57,7 @@ export default function DashboardStats() {
     },
     {
       title: "Today's Appointments",
-      value: stats.totalAppointments || '0',
+      value: stats.appointments?.today || stats.totalAppointments || '0',
       icon: HiClipboardList,
       color: 'bg-gray-600'
     },

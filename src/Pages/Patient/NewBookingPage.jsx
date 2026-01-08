@@ -1781,16 +1781,20 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
             <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <h4 className="font-semibold text-purple-900 mb-2">Video Consultation Details</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-purple-700">Meeting Link:</span>
-                  <a 
-                    href={(bookingData.meetingLink || bookingData.meeting_link).meetingUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-purple-600 hover:text-purple-800 underline break-all"
-                  >
-                    Join Video Call
-                  </a>
+                  {(bookingData.meetingLink || bookingData.meeting_link).doctorJoined ? (
+                    <a 
+                      href={(bookingData.meetingLink || bookingData.meeting_link).meetingUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-purple-600 hover:text-purple-800 underline break-all"
+                    >
+                      Join Video Call
+                    </a>
+                  ) : (
+                    <span className="text-gray-500 text-xs">Waiting for doctor to join</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-700">Meeting ID:</span>
@@ -1800,6 +1804,11 @@ function PreBookingConfirmation({ bookingData, onConfirm, loading }) {
                   <span className="text-purple-700">Password:</span>
                   <span className="font-mono text-purple-900">{(bookingData.meetingLink || bookingData.meeting_link).meetingPassword}</span>
                 </div>
+                {!(bookingData.meetingLink || bookingData.meeting_link).doctorJoined && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                    <strong>Note:</strong> You will be able to join the video call once your doctor joins the meeting. You will receive a notification when the doctor is ready.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1899,8 +1908,11 @@ function BookingSuccess({ bookingData, onNewBooking, user }) {
           }}
         />
         <button
-          onClick={() => navigate('/appointments')}
-          className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+          onClick={() => {
+            console.log('Navigating to appointments page...');
+            navigate('/appointments');
+          }}
+          className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
         >
           View My Appointments
         </button>
@@ -1920,6 +1932,8 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [keyId, setKeyId] = useState('');
+  const [showRefundPolicy, setShowRefundPolicy] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(1); // 1: Initial, 2: Payment
   // No dummy modal for professional Razorpay UI
 
   useEffect(() => {
@@ -1936,6 +1950,10 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
     };
     init();
   }, []);
+
+  const handleFirstConfirmPayment = () => {
+    setPaymentStep(2);
+  };
 
   const openRazorpay = async () => {
     setLoading(true);
@@ -2011,6 +2029,7 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
               meetingLink: appointmentResponse.data?.appointment?.meetingLink || appointmentResponse.data?.appointment?.meeting_link || null
             }));
 
+            try { window.dispatchEvent(new CustomEvent('notifications:refresh')); } catch (_) {}
             onPaid();
           } catch (e) {
             console.error('Error creating appointment or verifying payment:', e);
@@ -2044,6 +2063,17 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment</h2>
+      
+      {paymentStep === 2 && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-gray-800 font-medium">Payment details confirmed. Ready to proceed with Razorpay payment.</span>
+          </div>
+        </div>
+      )}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <div className="space-y-3 text-sm">
           <div className="flex justify-between"><span className="text-gray-600">Doctor</span><span className="font-medium">{bookingData.doctorName}</span></div>
@@ -2056,8 +2086,62 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
       </div>
 
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-sm text-gray-700">
-        <div className="font-semibold mb-1">Refund policy</div>
-        <div>Full refund up to 2 hours before the appointment; no refund after.</div>
+        <div className="flex items-center justify-between">
+          <div className="font-semibold mb-1">Refund Policy</div>
+          <button
+            onClick={() => setShowRefundPolicy(!showRefundPolicy)}
+            className="flex items-center space-x-1 text-black hover:text-gray-700 transition-colors"
+          >
+            <span className="text-sm font-medium">View Details</span>
+            <svg 
+              className={`w-4 h-4 transition-transform duration-200 ${showRefundPolicy ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+        <div className="text-gray-600">Full refund up to 2 hours before the appointment; no refund after.</div>
+        
+        {showRefundPolicy && (
+          <div className="mt-4 pt-4 border-t border-gray-300">
+            <div className="space-y-3 text-sm">
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-2">📋 Refund Policy Details</h4>
+                <div className="space-y-2 text-gray-700">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-black font-bold">✓</span>
+                    <span><strong>Full Refund:</strong> Available up to 2 hours before your scheduled appointment time</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-gray-600 font-bold">✗</span>
+                    <span><strong>No Refund:</strong> After the 2-hour cutoff or if you miss your appointment</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-black font-bold">ℹ</span>
+                    <span><strong>Processing Time:</strong> Refunds are processed within 3-5 business days</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-black font-bold">🔄</span>
+                    <span><strong>Rescheduling:</strong> You can reschedule up to 2 hours before your appointment at no extra cost</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
+                <h5 className="font-semibold text-gray-800 mb-2">💡 Important Notes</h5>
+                <ul className="text-gray-700 space-y-1 text-xs">
+                  <li>• Refund amount will be credited to your original payment method</li>
+                  <li>• Processing fees (if any) are non-refundable</li>
+                  <li>• Emergency cancellations may be considered on a case-by-case basis</li>
+                  <li>• Contact our support team for any refund-related queries</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {(error || bookingError) && (
@@ -2069,14 +2153,31 @@ function PaymentStep({ bookingData, onPaid, setBookingData, bookingError, onClea
         </div>
       )}
 
-      <div className="flex justify-end">
-        <button
-          onClick={openRazorpay}
-          disabled={loading}
-          className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
-        >
-          {loading ? 'Processing...' : 'Confirm Payment'}
-        </button>
+      <div className="flex justify-end space-x-3">
+        {paymentStep === 1 ? (
+          <button
+            onClick={handleFirstConfirmPayment}
+            className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Confirm Payment
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setPaymentStep(1)}
+              className="px-6 py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={openRazorpay}
+              disabled={loading}
+              className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Processing...' : 'Proceed to Payment'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

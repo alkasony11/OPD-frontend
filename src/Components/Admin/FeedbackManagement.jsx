@@ -39,7 +39,7 @@ export default function FeedbackManagement() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/feedback', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/feedback`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFeedbacks(response.data.items || []);

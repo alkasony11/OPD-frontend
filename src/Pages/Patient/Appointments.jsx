@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { HiArrowLeft, HiCalendar, HiClock, HiTag, HiX, HiPencil, HiUser, HiDocumentText, HiClipboardList, HiCash, HiCheckCircle, HiExclamationCircle, HiVideoCamera, HiExternalLink } from 'react-icons/hi';
 import QueuePosition from '../../Components/Patients/QueuePosition';
-import { API_CONFIG } from '../../config/urls';
+import realtimeSyncService from '../../services/realtimeSyncService';
+import { API_BASE_URL } from '../../config/api';
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -24,6 +25,10 @@ export default function Appointments() {
   const [refundMethod, setRefundMethod] = useState('wallet');
   const [cancelling, setCancelling] = useState(false);
   const [user, setUser] = useState(null);
+  const [showJoinMeetingAlert, setShowJoinMeetingAlert] = useState(false);
+  const [joinMeetingData, setJoinMeetingData] = useState(null);
+  const [showMeetingEndedAlert, setShowMeetingEndedAlert] = useState(false);
+  const [meetingEndedData, setMeetingEndedData] = useState(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -42,6 +47,50 @@ export default function Appointments() {
     applyFilter(filter);
   }, [appointments, filter, selectedFamilyMember]);
 
+  // Real-time sync for video consultation updates
+  useEffect(() => {
+    // Connect to real-time sync service with user ID
+    if (user && user._id) {
+      realtimeSyncService.connect('patient', user._id);
+
+      // Listen for appointment updates
+      const handleAppointmentUpdate = (data) => {
+        console.log('🔍 Patient Appointments - Received real-time update:', data);
+        if (data.type === 'doctor_joined_video') {
+          console.log('🔍 Patient Appointments - Doctor joined video, refreshing appointments...');
+          
+          // Play notification sound
+          playNotificationSound();
+          
+          // Show notification to user with better styling
+          showJoinMeetingNotification(data);
+          
+          // Refresh appointments to get updated doctor join status
+          fetchAppointments();
+        } else if (data.type === 'doctor_left_video') {
+          console.log('🔍 Patient Appointments - Doctor left video, refreshing appointments...');
+          
+          // Play notification sound
+          playNotificationSound();
+          
+          // Show meeting ended notification
+          showMeetingEndedNotification(data);
+          
+          // Refresh appointments to get updated meeting status
+          fetchAppointments();
+        }
+      };
+
+      realtimeSyncService.on('your-appointment-updated', handleAppointmentUpdate);
+
+      // Cleanup on unmount
+      return () => {
+        realtimeSyncService.off('your-appointment-updated', handleAppointmentUpdate);
+        realtimeSyncService.disconnect();
+      };
+    }
+  }, [user]);
+
   const fetchAppointments = async (overrideFamilyMemberId) => {
     try {
       setLoading(true);
@@ -53,9 +102,16 @@ export default function Appointments() {
         params.append('familyMemberId', memberId);
       }
       
-      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/appointments?${params.toString()}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/patient/appointments?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('🔍 Patient Appointments - Fetched appointments:', response.data);
+      console.log('🔍 Patient Appointments - Meeting links:', response.data.appointments?.map(apt => ({
+        id: apt.id,
+        patientName: apt.patientName,
+        meetingLink: apt.meetingLink || apt.meeting_link,
+        doctorJoined: apt.meetingLink?.doctorJoined || apt.meeting_link?.doctorJoined
+      })));
       setAppointments(response.data.appointments || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load appointments');
@@ -67,7 +123,7 @@ export default function Appointments() {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/profile', {
+      const response = await axios.get(`${API_BASE_URL}/api/patient/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(response.data.user);
@@ -82,7 +138,7 @@ export default function Appointments() {
   const fetchFamilyMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/family-members', {
+      const response = await axios.get(`${API_BASE_URL}/api/patient/family-members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const members = (response.data.familyMembers || []).map(m => ({
@@ -111,6 +167,73 @@ export default function Appointments() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       setFamilyMembers([{ id: 'self', name: user?.name || 'Me', relation: 'self', patientId: user?.patientId || 'P001' }]);
     }
+  };
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    try {
+      // Create a simple notification sound using Web Audio API
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Create a pleasant notification tone
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+      
+      console.log('🔊 Notification sound played');
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+      // Fallback to browser notification sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBS13yO/eizEIHWq+8+OWT');
+        audio.play().catch(() => {
+          console.log('Audio playback not supported');
+        });
+      } catch (fallbackError) {
+        console.error('Fallback audio also failed:', fallbackError);
+      }
+    }
+  };
+
+  // Show join meeting notification
+  const showJoinMeetingNotification = (data) => {
+    setJoinMeetingData(data);
+    setShowJoinMeetingAlert(true);
+    
+    // Remove auto-hide - alert stays until user manually closes it
+    // setTimeout(() => {
+    //   setShowJoinMeetingAlert(false);
+    // }, 10000);
+  };
+
+  // Handle join meeting from notification
+  const handleJoinMeetingFromNotification = () => {
+    if (joinMeetingData?.meetingUrl) {
+      window.open(joinMeetingData.meetingUrl, '_blank', 'noopener,noreferrer');
+      setShowJoinMeetingAlert(false);
+    }
+  };
+
+  // Show meeting ended notification
+  const showMeetingEndedNotification = (data) => {
+    setMeetingEndedData(data);
+    setShowMeetingEndedAlert(true);
+    
+    // Remove auto-hide - alert stays until user manually closes it
+    // setTimeout(() => {
+    //   setShowMeetingEndedAlert(false);
+    // }, 8000);
   };
 
   const applyFilter = (type) => {
@@ -152,7 +275,7 @@ export default function Appointments() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${API_CONFIG.BASE_URL}/api/patient/appointments/${showCancelModal.id}/cancel`, 
+        `${API_BASE_URL}/api/patient/appointments/${showCancelModal.id}/cancel`, 
         { 
           reason: cancelReason || 'Cancelled by patient',
           refundMethod: refundMethod
@@ -174,6 +297,7 @@ export default function Appointments() {
       
       alert(message);
       setShowCancelModal(null);
+      try { window.dispatchEvent(new CustomEvent('notifications:refresh')); } catch (_) {}
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to cancel appointment');
     } finally {
@@ -189,7 +313,7 @@ export default function Appointments() {
     if (!rescheduling || !rescheduleDate) return;
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/doctors/${rescheduling.doctorId}/availability/${rescheduleDate}`, {
+      const { data } = await axios.get(`${API_BASE_URL}/api/patient/doctors/${rescheduling.doctorId}/availability/${rescheduleDate}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRescheduleSlots(data.slots || []);
@@ -201,7 +325,7 @@ export default function Appointments() {
   const submitReschedule = async (slotTime) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_CONFIG.BASE_URL}/api/patient/appointments/${rescheduling.id}/reschedule`, {
+      await axios.post(`${API_BASE_URL}/api/patient/appointments/${rescheduling.id}/reschedule`, {
         doctorId: rescheduling.doctorId,
         newDate: rescheduleDate,
         newTime: slotTime
@@ -213,6 +337,7 @@ export default function Appointments() {
       setRescheduleSlots([]);
       await fetchAppointments();
       alert('Appointment rescheduled');
+      try { window.dispatchEvent(new CustomEvent('notifications:refresh')); } catch (_) {}
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reschedule');
     }
@@ -253,6 +378,11 @@ export default function Appointments() {
     if (apt.appointmentType !== 'video') return false;
     if (!(apt.meetingLink || apt.meeting_link)) return false;
     if (!['booked', 'in_queue'].includes(apt.status)) return false;
+    
+    // Check if doctor has joined the meeting
+    const meetingLink = apt.meetingLink || apt.meeting_link;
+    if (!meetingLink.doctorJoined) return false;
+    
     // Optional: gate by time window around appointment time (±6 hours)
     try {
       const dateStr = apt.appointmentDate;
@@ -358,7 +488,7 @@ export default function Appointments() {
                             <img
                               src={(user.profilePhoto || user.profile_photo).startsWith('http') 
                                 ? (user.profilePhoto || user.profile_photo)
-                                : `${API_CONFIG.BASE_URL}${user.profilePhoto || user.profile_photo}`
+                                : `${API_BASE_URL}${user.profilePhoto || user.profile_photo}`
                               }
                               alt="Profile"
                               className="h-4 w-4 rounded-full object-cover border border-white shadow-sm"
@@ -420,21 +550,28 @@ export default function Appointments() {
                     </div>
                   </div>
 
-                  {/* Video Consultation Join Button */}
-                  {canShowJoinMeeting(apt) && (
+                  {/* Video Consultation Section */}
+                  {apt.appointmentType === 'video' && (apt.meetingLink || apt.meeting_link) && (
                     <div className="mb-3 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <HiVideoCamera className="h-4 w-4 text-purple-600" />
                           <span className="text-xs font-medium text-purple-900">Video Consultation</span>
                         </div>
-                        <button
-                          onClick={() => window.open((apt.meetingLink || apt.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
-                          className="px-2.5 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 flex items-center gap-1"
-                        >
-                          <HiExternalLink className="h-3 w-3" />
-                          Join Meeting
-                        </button>
+                        {canShowJoinMeeting(apt) ? (
+                          <button
+                            onClick={() => window.open((apt.meetingLink || apt.meeting_link).meetingUrl, '_blank', 'noopener,noreferrer')}
+                            className="px-2.5 py-1.5 bg-purple-600 text-white text-xs rounded-md hover:bg-purple-700 flex items-center gap-1"
+                          >
+                            <HiExternalLink className="h-3 w-3" />
+                            Join Meeting
+                          </button>
+                        ) : (
+                          <div className="px-2.5 py-1.5 bg-gray-300 text-gray-600 text-xs rounded-md flex items-center gap-1">
+                            <HiClock className="h-3 w-3" />
+                            Waiting for Doctor
+                          </div>
+                        )}
                       </div>
                       <div className="mt-1.5 text-[11px] text-purple-700 flex items-center gap-2 flex-wrap">
                         <span>
@@ -848,6 +985,89 @@ export default function Appointments() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Join Meeting Notification Alert */}
+      {showJoinMeetingAlert && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-lg shadow-xl p-6 border border-green-400 animate-pulse">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center animate-bounce">
+                  <HiVideoCamera className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-1">🎥 Doctor Joined Meeting!</h3>
+                <p className="text-sm text-green-100 mb-3">
+                  {joinMeetingData?.message || 'Your doctor has joined the video consultation. You can now join the meeting!'}
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleJoinMeetingFromNotification}
+                    className="bg-white text-green-600 px-4 py-2 rounded-lg font-medium hover:bg-green-50 transition-colors flex items-center space-x-2 shadow-md"
+                  >
+                    <HiExternalLink className="h-4 w-4" />
+                    <span>Join Meeting</span>
+                  </button>
+                  <button
+                    onClick={() => setShowJoinMeetingAlert(false)}
+                    className="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg font-medium hover:bg-opacity-30 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-xs text-green-200 mt-2 opacity-75">
+                  This notification will stay until you close it
+                </p>
+              </div>
+              <button
+                onClick={() => setShowJoinMeetingAlert(false)}
+                className="flex-shrink-0 text-white hover:text-green-200 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
+              >
+                <HiX className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Meeting Ended Notification Alert */}
+      {showMeetingEndedAlert && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg shadow-xl p-6 border border-orange-400">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <HiCheckCircle className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-1">✅ Consultation Completed</h3>
+                <p className="text-sm text-orange-100 mb-3">
+                  {meetingEndedData?.message || 'Your doctor has ended the video consultation. The meeting has been completed.'}
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowMeetingEndedAlert(false)}
+                    className="bg-white text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors shadow-md"
+                  >
+                    OK
+                  </button>
+                </div>
+                <p className="text-xs text-orange-200 mt-2 opacity-75">
+                  This notification will stay until you close it
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMeetingEndedAlert(false)}
+                className="flex-shrink-0 text-white hover:text-orange-200 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
+              >
+                <HiX className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>

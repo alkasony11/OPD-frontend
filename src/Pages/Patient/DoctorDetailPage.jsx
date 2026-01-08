@@ -92,18 +92,21 @@ export default function DoctorDetailPage() {
             <div className="bg-white rounded-xl shadow-lg p-8 sticky top-8 border border-gray-100">
               {/* Doctor Photo */}
               <div className="flex justify-center mb-8">
-                <div className="w-36 h-36 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden ring-4 ring-blue-50">
-                  {doctor.profile_photo ? (
+                <div className="w-36 h-36 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden ring-4 ring-blue-50 shadow-lg">
+                  {doctor.profile_photo || doctor.profileImage ? (
                     <img
-                      src={doctor.profile_photo}
+                      src={doctor.profile_photo || doctor.profileImage}
                       alt={doctor.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
                     />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-5xl font-bold">
-                      {doctor.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  ) : null}
+                  <div className={`w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-5xl font-bold ${doctor.profile_photo || doctor.profileImage ? 'hidden' : 'flex'}`}>
+                    {doctor.name.charAt(0).toUpperCase()}
+                  </div>
                 </div>
               </div>
 

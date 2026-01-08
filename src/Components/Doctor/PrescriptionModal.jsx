@@ -17,7 +17,25 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
 
   useEffect(() => {
     if (isOpen && appointment) {
-      setPrescriptions(appointment.prescriptions || []);
+      // For completed appointments, show consultation data instead of separate prescriptions
+      if (appointment.status === 'consulted' && appointment.consultationData) {
+        // Convert consultation data to prescription format
+        const consultationPrescriptions = [];
+        if (appointment.consultationData.medications) {
+          consultationPrescriptions.push({
+            medicationName: 'Prescription from Consultation',
+            dosage: 'As prescribed',
+            frequency: 'As prescribed',
+            duration: 'As prescribed',
+            instructions: appointment.consultationData.medications,
+            prescribedAt: appointment.consultation_completed_at || new Date(),
+            fromConsultation: true
+          });
+        }
+        setPrescriptions(consultationPrescriptions);
+      } else {
+        setPrescriptions(appointment.prescriptions || []);
+      }
     }
   }, [isOpen, appointment]);
 
@@ -117,10 +135,17 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
               <div class="prescription-item">
                 <div class="medication-name">${index + 1}. ${prescription.medicationName}</div>
                 <div class="details">
-                  <p><strong>Dosage:</strong> ${prescription.dosage}</p>
-                  <p><strong>Frequency:</strong> ${prescription.frequency}</p>
-                  <p><strong>Duration:</strong> ${prescription.duration}</p>
-                  ${prescription.instructions ? `<p><strong>Instructions:</strong> ${prescription.instructions}</p>` : ''}
+                  ${prescription.fromConsultation ? `
+                    <p><strong>Prescription Details:</strong></p>
+                    <p style="white-space: pre-wrap; margin-left: 20px;">${prescription.instructions}</p>
+                    ${appointment?.consultationData?.diagnosis ? `<p><strong>Diagnosis:</strong> ${appointment.consultationData.diagnosis}</p>` : ''}
+                    ${appointment?.consultationData?.treatmentPlan ? `<p><strong>Treatment Plan:</strong> ${appointment.consultationData.treatmentPlan}</p>` : ''}
+                  ` : `
+                    <p><strong>Dosage:</strong> ${prescription.dosage}</p>
+                    <p><strong>Frequency:</strong> ${prescription.frequency}</p>
+                    <p><strong>Duration:</strong> ${prescription.duration}</p>
+                    ${prescription.instructions ? `<p><strong>Instructions:</strong> ${prescription.instructions}</p>` : ''}
+                  `}
                 </div>
               </div>
             `).join('')}
@@ -148,10 +173,15 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              Prescription Management
+              {appointment?.status === 'consulted' ? 'Prescription Details' : 'Prescription Management'}
             </h2>
             <p className="text-sm text-gray-500">
               Patient: {appointment?.patientName} | Date: {formatDate(appointment?.appointmentDate)}
+              {appointment?.status === 'consulted' && (
+                <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Consultation Completed
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -166,7 +196,9 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
           {/* Existing Prescriptions */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Current Prescriptions</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {appointment?.status === 'consulted' ? 'Prescription from Consultation' : 'Current Prescriptions'}
+              </h3>
               {prescriptions.length > 0 && (
                 <button
                   onClick={printPrescription}
@@ -180,39 +212,71 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
             
             {prescriptions.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-500">No prescriptions added yet</p>
+                <p className="text-gray-500">
+                  {appointment?.status === 'consulted' ? 'No prescription data found in consultation' : 'No prescriptions added yet'}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {prescriptions.map((prescription, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <div key={index} className={`rounded-lg p-4 ${prescription.fromConsultation ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 mb-2">
                           {index + 1}. {prescription.medicationName}
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-gray-700">Dosage:</span>
-                            <span className="text-gray-600 ml-2">{prescription.dosage}</span>
+                        
+                        {prescription.fromConsultation ? (
+                          // Show consultation prescription in a more readable format
+                          <div className="space-y-3">
+                            <div className="bg-white p-4 rounded-lg border border-green-200">
+                              <h5 className="font-medium text-gray-800 mb-2">Prescription Details:</h5>
+                              <div className="text-gray-700 whitespace-pre-wrap">
+                                {prescription.instructions}
+                              </div>
+                            </div>
+                            {appointment?.consultationData?.diagnosis && (
+                              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                <h5 className="font-medium text-blue-800 mb-1">Diagnosis:</h5>
+                                <p className="text-blue-700">{appointment.consultationData.diagnosis}</p>
+                              </div>
+                            )}
+                            {appointment?.consultationData?.treatmentPlan && (
+                              <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                                <h5 className="font-medium text-purple-800 mb-1">Treatment Plan:</h5>
+                                <p className="text-purple-700">{appointment.consultationData.treatmentPlan}</p>
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <span className="font-medium text-gray-700">Frequency:</span>
-                            <span className="text-gray-600 ml-2">{prescription.frequency}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-700">Duration:</span>
-                            <span className="text-gray-600 ml-2">{prescription.duration}</span>
-                          </div>
-                        </div>
-                        {prescription.instructions && (
-                          <div className="mt-2 text-sm">
-                            <span className="font-medium text-gray-700">Instructions:</span>
-                            <span className="text-gray-600 ml-2">{prescription.instructions}</span>
-                          </div>
+                        ) : (
+                          // Show regular prescription format
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-700">Dosage:</span>
+                                <span className="text-gray-600 ml-2">{prescription.dosage}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">Frequency:</span>
+                                <span className="text-gray-600 ml-2">{prescription.frequency}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">Duration:</span>
+                                <span className="text-gray-600 ml-2">{prescription.duration}</span>
+                              </div>
+                            </div>
+                            {prescription.instructions && (
+                              <div className="mt-2 text-sm">
+                                <span className="font-medium text-gray-700">Instructions:</span>
+                                <span className="text-gray-600 ml-2">{prescription.instructions}</span>
+                              </div>
+                            )}
+                          </>
                         )}
-                        <div className="mt-2 text-xs text-gray-500">
-                          Prescribed on: {formatDate(prescription.prescribedAt)}
+                        
+                        <div className="mt-3 text-xs text-gray-500">
+                          {prescription.fromConsultation ? 'From consultation on: ' : 'Prescribed on: '}
+                          {formatDate(prescription.prescribedAt)}
                         </div>
                       </div>
                     </div>
@@ -222,9 +286,10 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
             )}
           </div>
 
-          {/* Add New Prescription */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Prescription</h3>
+          {/* Add New Prescription - Only show for non-completed appointments */}
+          {appointment?.status !== 'consulted' && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Prescription</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -319,7 +384,8 @@ export default function PrescriptionModal({ appointment, isOpen, onClose, onPres
                 <span>{adding ? 'Adding...' : 'Add Prescription'}</span>
               </button>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

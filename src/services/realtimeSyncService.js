@@ -8,7 +8,7 @@ class RealtimeSyncService {
   }
 
   // Initialize connection
-  connect(userRole) {
+  connect(userRole, userId = null) {
     if (this.socket) {
       this.disconnect();
     }
@@ -35,6 +35,12 @@ class RealtimeSyncService {
       } else if (userRole === 'patient') {
         this.socket.emit('join-patient');
         console.log('👤 Joined patient room');
+        
+        // Also join user-specific room if userId is provided
+        if (userId) {
+          this.socket.emit('join-patient-room', userId);
+          console.log(`👤 Joined patient-${userId} room`);
+        }
       }
     });
 

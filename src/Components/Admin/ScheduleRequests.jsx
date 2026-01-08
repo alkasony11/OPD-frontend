@@ -16,7 +16,7 @@ export default function ScheduleRequests() {
   const fetchScheduleRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/schedule-requests', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/schedule-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRequests(response.data.requests || []);

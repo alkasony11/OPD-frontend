@@ -23,6 +23,21 @@ export default function HeroSection() {
     }
   };
 
+  const handleLearnMore = () => {
+    if (!isLoggedIn) {
+      setRedirectPath('/#about');
+      navigate('/login');
+    } else {
+      // Scroll to about section if already on home page
+      const aboutSection = document.getElementById('about');
+      if (aboutSection) {
+        aboutSection.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        navigate('/#about');
+      }
+    }
+  };
+
   return (
     <section className="bg-white py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,7 +63,10 @@ System aims to digitize appointment booking, reduce wait queues, and provide tra
               >
                 Book Appointment
               </button>
-              <button className="border-2 border-gray-300 text-black px-8 py-4 rounded-lg font-semibold text-lg hover:border-black transition-colors duration-200">
+              <button 
+                onClick={handleLearnMore}
+                className="border-2 border-gray-300 text-black px-8 py-4 rounded-lg font-semibold text-lg hover:border-black transition-colors duration-200"
+              >
                 Learn More
               </button>
             </div>

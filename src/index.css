@@ -51,11 +51,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: transparent;
   cursor: pointer;
   height: auto;
-  left: 0;
+  left: auto;
   position: absolute;
-  right: 0;
+  right: 8px;
   top: 0;
-  width: auto;
+  width: 20px;
+  z-index: 1;
 }
 
 /* Smooth scrolling for date picker year selection */

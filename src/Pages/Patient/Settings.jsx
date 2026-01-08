@@ -433,8 +433,8 @@ const Settings = () => {
                     <ClockIcon className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Appointment History</h3>
-                    <p className="text-sm text-gray-500">View your past consultations and medical records</p>
+                    <h3 className="text-lg font-semibold text-gray-900">Consultation History</h3>
+                    <p className="text-sm text-gray-500">View your completed video consultations and medical records</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -576,6 +576,8 @@ const Settings = () => {
 // Content Components
 const InvoicesContent = ({ invoices }) => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
   
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -590,6 +592,54 @@ const InvoicesContent = ({ invoices }) => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const downloadInvoice = async (invoiceId) => {
+    try {
+      setDownloading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/invoices/${invoiceId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice-${invoiceId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      alert('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const sendInvoiceEmail = async (invoiceId) => {
+    try {
+      setEmailing(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/api/patient/invoices/${invoiceId}/email`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        alert(`Invoice sent successfully to your email address: ${response.data.email}`);
+      } else {
+        alert('Failed to send invoice email. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+      alert('Failed to send invoice email. Please try again.');
+    } finally {
+      setEmailing(false);
+    }
   };
 
   if (invoices.length === 0) {
@@ -632,7 +682,7 @@ const InvoicesContent = ({ invoices }) => {
           {/* Expanded Details */}
           {selectedInvoice === invoice.id && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                 <div>
                   <span className="text-gray-500">Payment Method:</span>
                   <p className="font-medium">{invoice.payment_method || 'Card'}</p>
@@ -649,6 +699,45 @@ const InvoicesContent = ({ invoices }) => {
                   <span className="text-gray-500">Duration:</span>
                   <p className="font-medium">{invoice.appointment?.duration || '30 minutes'}</p>
                 </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadInvoice(invoice.id);
+                  }}
+                  disabled={downloading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  <span>{downloading ? 'Downloading...' : 'Download PDF'}</span>
+                </button>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendInvoiceEmail(invoice.id);
+                  }}
+                  disabled={emailing}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emailing ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                  <span>{emailing ? 'Sending...' : 'Email Invoice'}</span>
+                </button>
               </div>
             </div>
           )}
@@ -749,11 +838,22 @@ const ConsultedAppointmentsContent = ({ appointments }) => {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (appointments.length === 0) {
     return (
       <div className="text-center py-8">
         <ClockIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-500">No consultation history found</p>
+        <p className="text-sm text-gray-400 mt-2">Your completed consultations will appear here</p>
       </div>
     );
   }
@@ -761,22 +861,100 @@ const ConsultedAppointmentsContent = ({ appointments }) => {
   return (
     <div className="space-y-4">
       {appointments.map((appointment) => (
-        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
-              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
-              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
-              {appointment.diagnosis && (
-                <p className="text-sm text-gray-600 mt-2">Diagnosis: {appointment.diagnosis}</p>
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 transition-colors">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <h3 className="font-semibold text-gray-900 text-lg">{appointment.doctorName}</h3>
+                {appointment.isVideoConsultation && (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                    📹 Video Consultation
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mb-1">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">
+                📅 {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}
+              </p>
+              {appointment.consultationCompletedAt && (
+                <p className="text-xs text-gray-400 mt-1">
+                  ✅ Completed: {formatDateTime(appointment.consultationCompletedAt)}
+                </p>
               )}
             </div>
             <div className="text-right">
-              <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                Consulted
+              <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                ✅ Completed
               </span>
             </div>
           </div>
+
+          {/* Video Consultation Details */}
+          {appointment.isVideoConsultation && appointment.meetingLink && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="text-sm font-medium text-purple-900">📹 Video Consultation Details</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Meeting ID:</span>
+                  <span className="ml-2 font-mono text-xs bg-white px-2 py-1 rounded border">
+                    {appointment.meetingLink.meetingId || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="ml-2">
+                    {appointment.meetingLink.meetingEndedAt && appointment.meetingLink.doctorJoinedAt 
+                      ? `${Math.round((new Date(appointment.meetingLink.meetingEndedAt) - new Date(appointment.meetingLink.doctorJoinedAt)) / 60000)} minutes`
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Consultation Data */}
+          {appointment.consultationData && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h4 className="text-sm font-medium text-blue-900 mb-3">📋 Consultation Summary</h4>
+              <div className="space-y-2 text-sm">
+                {appointment.consultationData.chiefComplaint && (
+                  <div>
+                    <span className="font-medium text-gray-700">Chief Complaint:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.chiefComplaint}</p>
+                  </div>
+                )}
+                {appointment.consultationData.diagnosis && (
+                  <div>
+                    <span className="font-medium text-gray-700">Diagnosis:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.diagnosis}</p>
+                  </div>
+                )}
+                {appointment.consultationData.treatmentPlan && (
+                  <div>
+                    <span className="font-medium text-gray-700">Treatment Plan:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.treatmentPlan}</p>
+                  </div>
+                )}
+                {appointment.consultationData.medications && (
+                  <div>
+                    <span className="font-medium text-gray-700">Medications:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.medications}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Legacy Diagnosis */}
+          {appointment.diagnosis && !appointment.consultationData?.diagnosis && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">📋 Diagnosis</h4>
+              <p className="text-sm text-gray-600">{appointment.diagnosis}</p>
+            </div>
+          )}
         </div>
       ))}
     </div>

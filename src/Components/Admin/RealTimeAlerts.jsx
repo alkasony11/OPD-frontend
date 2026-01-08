@@ -35,6 +35,10 @@ export default function RealTimeAlerts() {
         })
       ]);
 
+      console.log('🔍 RealTimeAlerts - Load analytics response:', loadRes.data);
+      console.log('🔍 RealTimeAlerts - Leave requests response:', leavesRes.data);
+      console.log('🔍 RealTimeAlerts - Cancellations response:', cancelsRes.data);
+      
       setAnalytics(Array.isArray(loadRes.data?.analytics) ? loadRes.data.analytics : []);
       setApprovedLeaves(Array.isArray(leavesRes.data?.leaves) ? leavesRes.data.leaves : []);
       setRecentCancellations(Array.isArray(cancelsRes.data?.appointments) ? cancelsRes.data.appointments.slice(0, 5) : []);
@@ -65,6 +69,12 @@ export default function RealTimeAlerts() {
   }, [analytics]);
 
   const hasAnyAlerts = (activeLeaveAlerts.length + queueDelayAlerts.length + recentCancellations.length) > 0;
+  console.log('🔍 RealTimeAlerts - Analytics:', analytics);
+  console.log('🔍 RealTimeAlerts - Approved leaves:', approvedLeaves);
+  console.log('🔍 RealTimeAlerts - Recent cancellations:', recentCancellations);
+  console.log('🔍 RealTimeAlerts - Active leave alerts:', activeLeaveAlerts);
+  console.log('🔍 RealTimeAlerts - Queue delay alerts:', queueDelayAlerts);
+  console.log('🔍 RealTimeAlerts - Has any alerts:', hasAnyAlerts);
 
   if (loading) {
     return (

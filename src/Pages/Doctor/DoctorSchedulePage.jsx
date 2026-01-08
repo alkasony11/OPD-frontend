@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiCalendar, HiChevronLeft, HiChevronRight, HiX, HiPencil, HiClock, HiExclamation } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 
 export default function DoctorSchedulePage() {
@@ -153,7 +154,7 @@ export default function DoctorSchedulePage() {
       console.log('🚀 Sending schedule request:', requestData);
       console.log('🚀 Token exists:', !!token);
       
-      const response = await axios.post('${API_BASE_URL}/api/doctor/schedule-requests', requestData, {
+      const response = await axios.post(`${API_BASE_URL}/api/doctor/schedule-requests`, requestData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -199,7 +200,7 @@ export default function DoctorSchedulePage() {
       console.log('🚀 Sending reschedule request:', requestData);
       console.log('🚀 Token exists:', !!token);
       
-      const response = await axios.post('${API_BASE_URL}/api/doctor/schedule-requests', requestData, {
+      const response = await axios.post(`${API_BASE_URL}/api/doctor/schedule-requests`, requestData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       

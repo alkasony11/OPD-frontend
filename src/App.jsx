@@ -37,6 +37,8 @@ import DoctorDetailPage from './Pages/Patient/DoctorDetailPage';
 import Invoices from './Pages/Patient/Invoices';
 import ConsultedAppointments from './Pages/Patient/ConsultedAppointments';
 import CancelledAppointments from './Pages/Patient/CancelledAppointments';
+import Notifications from './Pages/Patient/Notifications';
+import Prescriptions from './Pages/Patient/Prescriptions';
 import { useClerkAuth } from './hooks/useClerkAuth';
 import { isAuthenticated } from './utils/auth';
 import { ProtectedRoute, GuestRoute } from './Components/ProtectedRoute';
@@ -100,7 +102,7 @@ function AppContent() {
     '/login', '/register', '/forgot-password', '/reset-password', '/terms', '/privacy',
     '/admin/dashboard', '/admin/users', '/admin/registered-patients', '/admin/doctors', '/admin/doctor-schedules', '/admin/schedule-requests', '/admin/patients', '/admin/family-members', '/admin/payments', '/admin/messages', '/admin/departments', '/admin/leave-requests', '/admin/feedback', '/admin/appointments', '/admin/reports', '/admin/logs', '/admin/doctor-load', '/admin/priority',
     '/admin/patient-category/registered', '/admin/patient-category/management', '/admin/patient-category/family', '/admin/patient-category/history', '/admin/patient-category/notifications', '/admin/patient-category/payments', '/admin/patient-category/blocking',
-    '/doctor', '/doctor/dashboard', '/doctor/appointments', '/doctor/patients',
+    '/doctor', '/doctor/dashboard', '/doctor/appointments', '/doctor/consultations', '/doctor/patients', '/doctor/history',
     '/doctor/schedule', '/doctor/leave-requests', '/doctor/records', '/doctor/reports', '/doctor/settings',
     '/receptionist/dashboard', '/receptionist/appointments', '/receptionist/patients',
     '/receptionist/queue', '/receptionist/billing', '/receptionist/reports', '/receptionist/settings',
@@ -130,6 +132,8 @@ function AppContent() {
           <Route path="/invoices" element={<ProtectedRoute requiredRole="patient"><Invoices /></ProtectedRoute>} />
           <Route path="/consulted-appointments" element={<ProtectedRoute requiredRole="patient"><ConsultedAppointments /></ProtectedRoute>} />
           <Route path="/cancelled-appointments" element={<ProtectedRoute requiredRole="patient"><CancelledAppointments /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute requiredRole="patient"><Notifications /></ProtectedRoute>} />
+          <Route path="/prescriptions" element={<ProtectedRoute requiredRole="patient"><Prescriptions /></ProtectedRoute>} />
           <Route path="/chatbot" element={<ProtectedRoute requiredRole="patient"><PatientChatbotPage /></ProtectedRoute>} />
           <Route path="/doctors" element={<DoctorProfilesPage />} />
           <Route path="/doctors/:doctorId" element={<DoctorDetailPage />} />
@@ -183,8 +187,8 @@ function AppContent() {
       </main>
       {!shouldHideNavbarFooter && !shouldHideFooterOnly && <Footer />}
       
-      {/* Chatbot Widget - Show only for authenticated patients, but not on chatbot page or admin pages */}
-      {isLoggedIn && location.pathname !== '/chatbot' && !location.pathname.startsWith('/admin') && <ChatbotWidget />}
+      {/* Chatbot Widget - Show only for authenticated patients, but not on chatbot page, admin pages, or doctor pages */}
+      {isLoggedIn && location.pathname !== '/chatbot' && !location.pathname.startsWith('/admin') && !location.pathname.startsWith('/doctor') && <ChatbotWidget />}
       
     </div>
   );

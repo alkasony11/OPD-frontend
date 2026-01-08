@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { HiPlus, HiPencil, HiTrash, HiEye, HiX } from 'react-icons/hi';
 import Swal from 'sweetalert2';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 
 export default function DoctorManagement() {
   const [doctors, setDoctors] = useState([]);
@@ -41,7 +42,7 @@ export default function DoctorManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/admin/departments', {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/departments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -53,7 +54,7 @@ export default function DoctorManagement() {
   const fetchDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_BASE_URL}/api/admin/doctors', {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/doctors`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data);
@@ -100,7 +101,7 @@ export default function DoctorManagement() {
         status: doctorForm.status // default 'pending' to allow login and complete profile
       };
 
-      const response = await axios.post('${API_BASE_URL}/api/admin/users', userData, {
+      const response = await axios.post(`${API_BASE_URL}/api/admin/users`, userData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

@@ -1,10 +1,11 @@
 import { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiMenu, HiX, HiUser, HiLogout, HiChevronDown, HiCalendar, HiClipboardList, HiVideoCamera } from 'react-icons/hi';
+import { HiMenu, HiX, HiUser, HiLogout, HiChevronDown, HiCalendar, HiClipboardList, HiVideoCamera, HiBell, HiDocumentText } from 'react-icons/hi';
 import { CogIcon } from '@heroicons/react/24/outline';
 import { useClerk, useUser } from '@clerk/clerk-react';
 import { AuthContext } from '../../App';
 import { getProfileImageUrl } from '../../utils/imageUtils';
+import { API_BASE_URL } from '../../config/api';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,6 +20,11 @@ export default function Navbar() {
   const { user: clerkUser } = useUser();
   const profileDropdownRef = useRef(null);
   const appointmentDropdownRef = useRef(null);
+  const notificationsDropdownRef = useRef(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   // Get user data - prioritize localStorage (updated profile) over Clerk data
   const localUser = isLoggedIn ? JSON.parse(localStorage.getItem('user') || '{}') : null;
@@ -53,6 +59,9 @@ export default function Navbar() {
       if (appointmentDropdownRef.current && !appointmentDropdownRef.current.contains(event.target)) {
         setIsAppointmentDropdownOpen(false);
       }
+      if (notificationsDropdownRef.current && !notificationsDropdownRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -73,6 +82,48 @@ export default function Navbar() {
       window.removeEventListener('userProfileUpdated', handleProfileUpdate);
     };
   }, []);
+
+  // Notifications: fetch unread count, poll, and react to refresh events
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUnreadCount(0);
+      setNotifications([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const list = data.notifications || [];
+        const count = list.filter(n => !n.read).length;
+        if (!isCancelled) {
+          setNotifications(list);
+          setUnreadCount(count);
+        }
+      } catch (e) {
+        // noop
+      }
+    };
+
+    fetchNotifications();
+    const intervalId = setInterval(fetchNotifications, 30000);
+    const onRefresh = () => fetchNotifications();
+    window.addEventListener('notifications:refresh', onRefresh);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('notifications:refresh', onRefresh);
+    };
+  }, [isLoggedIn]);
 
   // Fetch latest user data when component mounts or profile version changes
   useEffect(() => {
@@ -275,6 +326,8 @@ export default function Navbar() {
               <span>Video Consultation</span>
             </button>
 
+            {/* Notifications Bell moved next to Profile section */}
+
             {/* Appointment Dropdown - Only for logged-in users */}
             {isLoggedIn && (
               <div className="relative" ref={appointmentDropdownRef}>
@@ -307,6 +360,108 @@ export default function Navbar() {
                       <HiClipboardList className="mr-3 h-4 w-4 text-green-600" />
                       My Appointments
                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Notifications Bell - positioned between Appointment and Profile */}
+            {isLoggedIn && (
+              <div className="relative" ref={notificationsDropdownRef}>
+                <button
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  className={`relative text-gray-600 hover:text-black transition-colors duration-200 ${isNotificationsOpen ? 'text-black' : ''}`}
+                  aria-label="Notifications"
+                >
+                  <HiBell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] leading-none px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-6 py-10 text-center text-gray-500">
+                          <HiBell className="mx-auto h-8 w-8 text-gray-300 mb-3" />
+                          <p className="text-sm">No notifications</p>
+                        </div>
+                      ) : (
+                        notifications
+                          .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+                          .slice(0, 8)
+                          .map(n => (
+                            <button
+                              key={n.id}
+                              onClick={async () => {
+                                // mark read inline for UX
+                                if (!n.read) {
+                                  try {
+                                    const token = localStorage.getItem('token');
+                                    await fetch(`${API_BASE_URL}/api/notifications/${n.id}/read`, {
+                                      method: 'PUT',
+                                      headers: { Authorization: `Bearer ${token}` }
+                                    });
+                                  } catch (_) {}
+                                }
+                                setIsNotificationsOpen(false);
+                                window.dispatchEvent(new CustomEvent('notifications:refresh'));
+                              }}
+                              className={`w-full text-left px-4 py-3 flex items-start space-x-3 hover:bg-gray-50 ${!n.read ? 'bg-gray-50' : ''}`}
+                            >
+                              <div className="flex-shrink-0 mt-0.5">
+                                {(() => {
+                                  const type = n.type;
+                                  if (type === 'appointment') return <HiCalendar className="h-4 w-4 text-blue-600"/>;
+                                  if (type === 'payment') return <HiClipboardList className="h-4 w-4 text-green-600"/>;
+                                  return <HiBell className="h-4 w-4 text-gray-500"/>;
+                                })()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${!n.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{n.title}</p>
+                                <p className="text-xs text-gray-500 truncate">{n.message}</p>
+                                <p className="text-[11px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                              </div>
+                              {!n.read && <span className="inline-block mt-1 w-2 h-2 bg-blue-600 rounded-full"></span>}
+                            </button>
+                          ))
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+                      <button
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          // optional: navigate to full notifications page if kept
+                          // navigate('/notifications');
+                        }}
+                        className="text-sm text-gray-700 hover:text-black"
+                      >
+                        Close
+                      </button>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('token');
+                              await fetch(`${API_BASE_URL}/api/notifications/mark-all-read`, {
+                                method: 'PUT',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              window.dispatchEvent(new CustomEvent('notifications:refresh'));
+                            } catch (_) {}
+                          }}
+                          className="text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -354,6 +509,17 @@ export default function Navbar() {
                     >
                       <HiUser className="mr-3 h-4 w-4" />
                       Manage Account
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        navigate('/prescriptions');
+                        setIsProfileDropdownOpen(false);
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200"
+                    >
+                      <HiDocumentText className="mr-3 h-4 w-4" />
+                      Prescriptions
                     </button>
                     <button
                       onClick={() => {
@@ -486,6 +652,19 @@ export default function Navbar() {
                 >
                   <HiUser className="mr-3 h-5 w-5" />
                   Manage Account
+                </button>
+                
+                
+                
+                <button
+                  onClick={() => {
+                    navigate('/prescriptions');
+                    setIsOpen(false);
+                  }}
+                  className="flex items-center w-full px-4 py-3 text-base font-medium text-gray-600 hover:text-black hover:bg-gray-50"
+                >
+                  <HiDocumentText className="mr-3 h-5 w-5" />
+                  Prescriptions
                 </button>
                 
                 <button

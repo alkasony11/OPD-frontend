@@ -60,14 +60,37 @@ export default function VideoConsultationDetails({ meetingLink, appointmentDate,
             <p className="text-sm text-purple-700">with Dr. {doctorName}</p>
           </div>
         </div>
-        <button
-          onClick={handleJoinMeeting}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-        >
-          <HiExternalLink className="h-4 w-4" />
-          <span>Join Meeting</span>
-        </button>
+        {meetingLink.doctorJoined ? (
+          <button
+            onClick={handleJoinMeeting}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+          >
+            <HiExternalLink className="h-4 w-4" />
+            <span>Join Meeting</span>
+          </button>
+        ) : (
+          <div className="bg-gray-300 text-gray-600 px-4 py-2 rounded-lg font-medium flex items-center space-x-2">
+            <HiClock className="h-4 w-4" />
+            <span>Waiting for Doctor</span>
+          </div>
+        )}
       </div>
+
+      {/* Doctor Join Status */}
+      {!meetingLink.doctorJoined && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start space-x-2">
+            <HiInformationCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-yellow-800 mb-1">Waiting for Doctor</h4>
+              <p className="text-sm text-yellow-700">
+                Your doctor has not joined the meeting yet. You will be able to join the video consultation once your doctor is ready. 
+                You will receive a notification when the doctor joins the meeting.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Meeting Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

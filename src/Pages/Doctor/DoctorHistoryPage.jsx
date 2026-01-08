@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiUser, HiUsers, HiDocumentText, HiSearch, HiEye, HiCalendar, HiClock, HiMail, HiPhone, HiCheckCircle, HiArrowRight } from 'react-icons/hi';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import DoctorSidebar from '../../Components/Doctor/Sidebar';
 import PatientDetailsModal from '../../Components/Doctor/PatientDetailsModal';
 
@@ -21,12 +22,24 @@ export default function DoctorHistoryPage() {
   }, []);
 
   const checkDoctorAuth = () => {
+    const userData = localStorage.getItem('user');
     const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('userRole');
     
-    if (!token || userRole !== 'doctor') {
+    if (!userData || !token) {
       navigate('/login');
       return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(userData);
+      if (parsedUser.role !== 'doctor') {
+        alert('Access denied. Doctor privileges required.');
+        navigate('/');
+        return;
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      navigate('/login');
     }
   };
 
@@ -36,12 +49,12 @@ export default function DoctorHistoryPage() {
       const token = localStorage.getItem('token');
       
       // Fetch consulted patients (completed appointments)
-      const consultedResponse = await axios.get('/api/doctor/appointments?status=completed', {
+      const consultedResponse = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=completed`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       // Fetch referred patients
-      const referredResponse = await axios.get('/api/doctor/appointments?status=referred', {
+      const referredResponse = await axios.get(`${API_BASE_URL}/api/doctor/appointments?filter=referred`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -108,7 +121,7 @@ export default function DoctorHistoryPage() {
                   <HiArrowLeft className="h-5 w-5 text-gray-600" />
                 </button>
                 <div className="flex items-center space-x-3">
-                  <div className="h-12 w-12 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl flex items-center justify-center">
+                  <div className="h-12 w-12 bg-gray-800 rounded-lg flex items-center justify-center">
                     <HiDocumentText className="h-6 w-6 text-white" />
                   </div>
                   <div>
@@ -118,9 +131,9 @@ export default function DoctorHistoryPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                  <HiDocumentText className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-700">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg">
+                  <HiDocumentText className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">
                     {consultedPatients.length + referredPatients.length} Total Records
                   </span>
                 </div>
@@ -154,10 +167,10 @@ export default function DoctorHistoryPage() {
               <nav className="flex space-x-2">
                 <button
                   onClick={() => setActiveTab('consulted')}
-                  className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                  className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
                     activeTab === 'consulted'
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                   }`}
                 >
                   <HiCheckCircle className="h-4 w-4" />
@@ -165,10 +178,10 @@ export default function DoctorHistoryPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('referred')}
-                  className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                  className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
                     activeTab === 'referred'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                   }`}
                 >
                   <HiArrowRight className="h-4 w-4" />
@@ -179,17 +192,14 @@ export default function DoctorHistoryPage() {
           </div>
 
           {/* Content */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+          <div className="bg-white rounded-lg shadow border border-gray-200">
             {activeTab === 'consulted' ? (
-              <div className="p-6 sm:p-8">
+              <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">Consulted Patients</h2>
-                  <div className="flex items-center space-x-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
-                    <HiCheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">
-                      {getFilteredPatients(consultedPatients).length} Patients
+                  <h2 className="text-xl font-semibold text-gray-900">Consulted Patients</h2>
+                  <span className="text-sm text-gray-500">
+                    {getFilteredPatients(consultedPatients).length} patients
                     </span>
-                  </div>
                 </div>
 
                 {getFilteredPatients(consultedPatients).length === 0 ? (
@@ -198,67 +208,89 @@ export default function DoctorHistoryPage() {
                     <p className="text-gray-500">No consulted patients found</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            SI No.
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Patient Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Time
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Symptoms
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
                     {getFilteredPatients(consultedPatients).map((patient, index) => (
-                      <div key={patient._id} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                              <HiUser className="h-5 w-5 text-green-600" />
+                          <tr key={patient._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {index + 1}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-8 w-8">
+                                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <HiUser className="h-4 w-4 text-gray-600" />
+                                  </div>
                             </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-gray-900">{patient.patient_name}</h3>
-                              <p className="text-sm text-gray-500">Consultation completed</p>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{patient.patient_name}</div>
+                                  <div className="text-sm text-gray-500">{patient.patientEmail}</div>
                             </div>
                           </div>
-                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatDate(patient.booking_date)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatTime(patient.time_slot)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {patient.symptoms || 'Not provided'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
                             Completed
                           </span>
-                        </div>
-
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <HiCalendar className="h-4 w-4" />
-                            <span>{formatDate(patient.booking_date)}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <HiClock className="h-4 w-4" />
-                            <span>{formatTime(patient.time_slot)}</span>
-                          </div>
-                          {patient.symptoms && (
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium">Symptoms:</span> {patient.symptoms}
-                            </div>
-                          )}
-                          {patient.diagnosis && (
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium">Diagnosis:</span> {patient.diagnosis}
-                            </div>
-                          )}
-                        </div>
-
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => openPatientModal(patient)}
-                          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                                className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
                         >
-                          <HiDocumentText className="h-4 w-4" />
-                          <span>View Medical Records</span>
+                                <HiEye className="h-4 w-4" />
+                                <span>View</span>
                         </button>
-                      </div>
+                            </td>
+                          </tr>
                     ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-6 sm:p-8">
+              <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">Referred Patients</h2>
-                  <div className="flex items-center space-x-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-xl">
-                    <HiArrowRight className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm font-medium text-purple-700">
-                      {getFilteredPatients(referredPatients).length} Patients
+                  <h2 className="text-xl font-semibold text-gray-900">Referred Patients</h2>
+                  <span className="text-sm text-gray-500">
+                    {getFilteredPatients(referredPatients).length} patients
                     </span>
-                  </div>
                 </div>
 
                 {getFilteredPatients(referredPatients).length === 0 ? (
@@ -267,54 +299,79 @@ export default function DoctorHistoryPage() {
                     <p className="text-gray-500">No referred patients found</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            SI No.
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Patient Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Time
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Symptoms
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
                     {getFilteredPatients(referredPatients).map((patient, index) => (
-                      <div key={patient._id} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                              <HiUser className="h-5 w-5 text-purple-600" />
+                          <tr key={patient._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {index + 1}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-8 w-8">
+                                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <HiUser className="h-4 w-4 text-gray-600" />
+                                  </div>
                             </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-gray-900">{patient.patient_name}</h3>
-                              <p className="text-sm text-gray-500">Referred to specialist</p>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">{patient.patient_name}</div>
+                                  <div className="text-sm text-gray-500">{patient.patientEmail}</div>
                             </div>
                           </div>
-                          <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatDate(patient.booking_date)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatTime(patient.time_slot)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {patient.symptoms || 'Not provided'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
                             Referred
                           </span>
-                        </div>
-
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <HiCalendar className="h-4 w-4" />
-                            <span>{formatDate(patient.booking_date)}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <HiClock className="h-4 w-4" />
-                            <span>{formatTime(patient.time_slot)}</span>
-                          </div>
-                          {patient.referredDoctor && (
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium">Referred to:</span> {patient.referredDoctor}
-                            </div>
-                          )}
-                          {patient.symptoms && (
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium">Symptoms:</span> {patient.symptoms}
-                            </div>
-                          )}
-                        </div>
-
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => openPatientModal(patient)}
-                          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200"
+                                className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
                         >
-                          <HiDocumentText className="h-4 w-4" />
-                          <span>View Medical Records</span>
+                                <HiEye className="h-4 w-4" />
+                                <span>View</span>
                         </button>
-                      </div>
+                            </td>
+                          </tr>
                     ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

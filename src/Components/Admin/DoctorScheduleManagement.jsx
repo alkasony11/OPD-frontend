@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../../utils/api';
 import { HiCalendar, HiClock, HiPlus, HiPencil, HiTrash, HiCheck, HiX, HiFilter, HiRefresh, HiEye, HiCog } from 'react-icons/hi';
 import axios from 'axios';
@@ -100,6 +100,41 @@ export default function DoctorScheduleManagement() {
     deleteType: 'range' // 'range' or 'selected'
   });
 
+  // Ref to control date input focus
+  const dateInputRef = useRef(null);
+
+  // Function to prevent unwanted focus on date input
+  const preventDateInputFocus = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Blur the date input if it somehow gets focus
+    if (dateInputRef.current && document.activeElement === dateInputRef.current) {
+      dateInputRef.current.blur();
+    }
+  };
+
+  // Function to handle clicks on interactive elements
+  const handleInteractiveClick = (e) => {
+    e.stopPropagation();
+    // Ensure date input is not focused when clicking other elements
+    if (dateInputRef.current && document.activeElement === dateInputRef.current) {
+      dateInputRef.current.blur();
+    }
+  };
+
+  // Function to prevent form validation from auto-focusing date input
+  const preventFormValidationFocus = (e) => {
+    // Only prevent default for date inputs, not for other form elements
+    if (e.target.type === 'date') {
+      e.preventDefault();
+      e.stopPropagation();
+      // Prevent any form validation from focusing the date input
+      if (dateInputRef.current) {
+        dateInputRef.current.blur();
+      }
+    }
+  };
+
   // Today's date in YYYY-MM-DD for date input min attributes
   const todayStr = (() => {
     const d = new Date();
@@ -133,10 +168,47 @@ export default function DoctorScheduleManagement() {
     }
   }, [selectedDepartment]);
 
+  // Effect to prevent unwanted focus on date input
+  useEffect(() => {
+    const handleFocus = (e) => {
+      if (showAddModal && dateInputRef.current && e.target === dateInputRef.current) {
+        // Check if the focus was triggered by a click on another element
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement !== dateInputRef.current) {
+          // If focus was redirected to date input, blur it
+          setTimeout(() => {
+            if (dateInputRef.current && document.activeElement === dateInputRef.current) {
+              dateInputRef.current.blur();
+            }
+          }, 0);
+        }
+      }
+    };
+
+    const handleInvalid = (e) => {
+      // Prevent form validation from auto-focusing the date input
+      if (showAddModal && dateInputRef.current && e.target === dateInputRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        dateInputRef.current.blur();
+      }
+    };
+
+    // Temporarily disable global event listeners to test
+    // if (showAddModal) {
+    //   document.addEventListener('focusin', handleFocus);
+    //   document.addEventListener('invalid', handleInvalid, true);
+    //   return () => {
+    //     document.removeEventListener('focusin', handleFocus);
+    //     document.removeEventListener('invalid', handleInvalid, true);
+    //   };
+    // }
+  }, [showAddModal]);
+
   const fetchDoctors = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/doctors', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/doctors`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDoctors(response.data);
@@ -149,6 +221,11 @@ export default function DoctorScheduleManagement() {
 
   // Get filtered doctors based on selected department
   const getFilteredDoctors = () => {
+    // Ensure doctors is always an array
+    if (!Array.isArray(doctors)) {
+      return [];
+    }
+    
     if (selectedDepartment) {
       return doctors.filter(doctor => 
         doctor.doctor_info?.department?.name === selectedDepartment
@@ -160,7 +237,7 @@ export default function DoctorScheduleManagement() {
   const fetchDepartments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/admin/departments', {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/admin/departments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDepartments(response.data.departments || []);
@@ -183,17 +260,54 @@ export default function DoctorScheduleManagement() {
     }
   };
 
-  const handleSaveSchedule = async () => {
+  const handleSaveSchedule = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     try {
       const token = localStorage.getItem('token');
       const url = `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}`;
+      
+      // Convert date from dd-mm-yyyy to yyyy-mm-dd format
+      const formatDateForServer = (dateStr) => {
+        if (!dateStr) return '';
+        // If already in yyyy-mm-dd format, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return dateStr;
+        }
+        // Convert from dd-mm-yyyy to yyyy-mm-dd
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+        return dateStr;
+      };
+      
+      // Validate date format
+      if (!scheduleForm.date) {
+        alert('Please select a date');
+        return;
+      }
+      
+      const formattedDate = formatDateForServer(scheduleForm.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+        alert('Please enter a valid date in DD-MM-YYYY format');
+        return;
+      }
+      
+      // Prepare the form data with properly formatted date
+      const formData = {
+        ...scheduleForm,
+        date: formatDateForServer(scheduleForm.date)
+      };
       
       // Handle repeat schedules
       if (scheduleForm.repeatOption !== 'none') {
         await handleRepeatScheduleCreation();
       } else {
         // Single schedule
-      await axios.post(url, scheduleForm, {
+      await axios.post(url, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       }
@@ -213,8 +327,27 @@ export default function DoctorScheduleManagement() {
     const token = localStorage.getItem('token');
     const url = `${API_CONFIG.BASE_URL}/api/admin/doctor-schedules/${selectedDoctor.id}`;
     
-    const startDate = new Date(scheduleForm.date);
-    const endDate = scheduleForm.repeatEndDate ? new Date(scheduleForm.repeatEndDate) : new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); // Default 30 days
+    // Convert date from dd-mm-yyyy to yyyy-mm-dd format
+    const formatDateForServer = (dateStr) => {
+      if (!dateStr) return '';
+      // If already in yyyy-mm-dd format, return as is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+      }
+      // Convert from dd-mm-yyyy to yyyy-mm-dd
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const [day, month, year] = parts;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      return dateStr;
+    };
+    
+    const formattedStartDate = formatDateForServer(scheduleForm.date);
+    const formattedEndDate = scheduleForm.repeatEndDate ? formatDateForServer(scheduleForm.repeatEndDate) : null;
+    
+    const startDate = new Date(formattedStartDate);
+    const endDate = formattedEndDate ? new Date(formattedEndDate) : new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); // Default 30 days
     
     const schedules = [];
     
@@ -456,8 +589,19 @@ export default function DoctorScheduleManagement() {
 
   const openEditModal = (schedule) => {
     setEditingSchedule(schedule);
+    
+    // Convert date from YYYY-MM-DD to DD-MM-YYYY for display
+    const formatDateForDisplay = (dateStr) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+    
     setScheduleForm({
-      date: schedule.date.split('T')[0],
+      date: formatDateForDisplay(schedule.date),
       isAvailable: schedule.isAvailable,
       workingHours: schedule.workingHours,
       breakTime: schedule.breakTime,
@@ -661,6 +805,12 @@ export default function DoctorScheduleManagement() {
                   type="date"
                   value={dateRange.start}
                   onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
+                  onInvalid={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <label className="text-sm font-medium text-gray-700">To:</label>
@@ -668,6 +818,12 @@ export default function DoctorScheduleManagement() {
                   type="date"
                   value={dateRange.end}
                   onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
+                  onInvalid={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -976,8 +1132,20 @@ export default function DoctorScheduleManagement() {
 
       {/* Enhanced Add/Edit Schedule Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
-          <div className="relative top-8 mx-auto p-6 md:p-8 w-[800px] max-w-full rounded-xl bg-white shadow-xl border border-gray-100">
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50" onClick={(e) => {
+          e.stopPropagation();
+          // Prevent date input focus when clicking on modal background
+          if (dateInputRef.current && document.activeElement === dateInputRef.current) {
+            dateInputRef.current.blur();
+          }
+        }}>
+          <div className="relative top-8 mx-auto p-6 md:p-8 w-[800px] max-w-full rounded-xl bg-white shadow-xl border border-gray-100" onClick={(e) => {
+            e.stopPropagation();
+            // Prevent date input focus when clicking on modal content
+            if (dateInputRef.current && document.activeElement === dateInputRef.current) {
+              dateInputRef.current.blur();
+            }
+          }}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-semibold text-gray-900">
               {editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
@@ -994,25 +1162,83 @@ export default function DoctorScheduleManagement() {
               </button>
             </div>
             
-            <div className="space-y-6">
+            <form onSubmit={(e) => e.preventDefault()} noValidate>
+            <div className="space-y-6" onClick={(e) => {
+              e.stopPropagation();
+              // Only blur date input if clicking on non-interactive elements
+              if (e.target === e.currentTarget && dateInputRef.current && document.activeElement === dateInputRef.current) {
+                dateInputRef.current.blur();
+              }
+            }}>
               {/* Date and Repeat Options */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-800">Date</label>
-                <input
-                  type="date"
-                  value={scheduleForm.date}
-                  onChange={(e) => setScheduleForm(prev => ({ ...prev, date: e.target.value }))}
-                  min={todayStr}
+                <label htmlFor="schedule-date" className="block text-sm font-medium text-gray-800">Date</label>
+                <div className="relative">
+                  <input
+                    ref={dateInputRef}
+                    id="schedule-date"
+                    type="text"
+                    placeholder="dd-mm-yyyy"
+                    value={scheduleForm.date}
+                    onChange={(e) => {
+                      // Format the input as user types
+                      let value = e.target.value.replace(/\D/g, '');
+                      if (value.length >= 2) {
+                        value = value.substring(0, 2) + '-' + value.substring(2);
+                      }
+                      if (value.length >= 5) {
+                        value = value.substring(0, 5) + '-' + value.substring(5, 9);
+                      }
+                      setScheduleForm(prev => ({ ...prev, date: value }));
+                    }}
+                    onFocus={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onBlur={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onKeyDown={(e) => {
+                      // Allow only numbers and backspace
+                      if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
                     className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                    />
+                </div>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-800">Repeat Option</label>
                   <select
                     value={scheduleForm.repeatOption}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, repeatOption: e.target.value }))}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setScheduleForm(prev => ({ ...prev, repeatOption: e.target.value }));
+                    }}
+                    onFocus={(e) => {
+                      e.stopPropagation();
+                      // Ensure date input is blurred when focusing on select
+                      if (dateInputRef.current) {
+                        dateInputRef.current.blur();
+                      }
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      // Prevent any interference from date input
+                      if (dateInputRef.current) {
+                        dateInputRef.current.blur();
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Ensure date input is blurred when clicking select
+                      if (dateInputRef.current) {
+                        dateInputRef.current.blur();
+                      }
+                    }}
                     className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="none">One-time</option>
@@ -1028,11 +1254,12 @@ export default function DoctorScheduleManagement() {
                   <label className="block text-sm font-medium text-gray-800 mb-2">Repeat on Days</label>
                   <div className="flex flex-wrap gap-2">
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-                      <label key={day} className="flex items-center">
+                      <label key={day} className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                         <input
                           type="checkbox"
                           checked={scheduleForm.repeatDays.includes(day)}
                           onChange={(e) => {
+                            e.stopPropagation();
                             if (e.target.checked) {
                               setScheduleForm(prev => ({
                                 ...prev,
@@ -1045,6 +1272,7 @@ export default function DoctorScheduleManagement() {
                               }));
                             }
                           }}
+                          onClick={handleInteractiveClick}
                           className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-700">{day}</span>
@@ -1063,6 +1291,12 @@ export default function DoctorScheduleManagement() {
                     value={scheduleForm.repeatEndDate}
                     onChange={(e) => setScheduleForm(prev => ({ ...prev, repeatEndDate: e.target.value }))}
                     min={scheduleForm.date}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onInvalid={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     className="mt-2 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1072,26 +1306,34 @@ export default function DoctorScheduleManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-2">Consultation Types</label>
                 <div className="flex space-x-6">
-                  <label className="flex items-center">
+                  <label className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                     <input
                       type="checkbox"
                       checked={scheduleForm.consultationTypes.opd}
-                      onChange={(e) => setScheduleForm(prev => ({
-                        ...prev,
-                        consultationTypes: { ...prev.consultationTypes, opd: e.target.checked }
-                      }))}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setScheduleForm(prev => ({
+                          ...prev,
+                          consultationTypes: { ...prev.consultationTypes, opd: e.target.checked }
+                        }));
+                      }}
+                      onClick={handleInteractiveClick}
                       className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">OPD Slots</span>
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                     <input
                       type="checkbox"
                       checked={scheduleForm.consultationTypes.video}
-                      onChange={(e) => setScheduleForm(prev => ({
-                        ...prev,
-                        consultationTypes: { ...prev.consultationTypes, video: e.target.checked }
-                      }))}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setScheduleForm(prev => ({
+                          ...prev,
+                          consultationTypes: { ...prev.consultationTypes, video: e.target.checked }
+                        }));
+                      }}
+                      onClick={handleInteractiveClick}
                       className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700">Video Consultation Slots</span>
@@ -1117,11 +1359,15 @@ export default function DoctorScheduleManagement() {
               </div>
 
               <div>
-                <label className="flex items-center">
+                <label className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                   <input
                     type="checkbox"
                     checked={scheduleForm.isAvailable}
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, isAvailable: e.target.checked }))}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setScheduleForm(prev => ({ ...prev, isAvailable: e.target.checked }));
+                    }}
+                    onClick={handleInteractiveClick}
                     className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                   />
                   <span className="text-sm text-gray-800">Available</span>
@@ -1134,14 +1380,18 @@ export default function DoctorScheduleManagement() {
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 md:p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-base font-semibold text-gray-900">Morning Session</h4>
-                      <label className="flex items-center">
+                      <label className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                         <input
                           type="checkbox"
                           checked={scheduleForm.morningSession.available}
-                          onChange={(e) => setScheduleForm(prev => ({
-                            ...prev,
-                            morningSession: { ...prev.morningSession, available: e.target.checked }
-                          }))}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setScheduleForm(prev => ({
+                              ...prev,
+                              morningSession: { ...prev.morningSession, available: e.target.checked }
+                            }));
+                          }}
+                          onClick={handleInteractiveClick}
                           className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                         />
                         <span className="text-sm text-gray-800">Available</span>
@@ -1196,14 +1446,18 @@ export default function DoctorScheduleManagement() {
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 md:p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-base font-semibold text-gray-900">Afternoon Session</h4>
-                      <label className="flex items-center">
+                      <label className="flex items-center cursor-pointer" onClick={handleInteractiveClick}>
                         <input
                           type="checkbox"
                           checked={scheduleForm.afternoonSession.available}
-                          onChange={(e) => setScheduleForm(prev => ({
-                            ...prev,
-                            afternoonSession: { ...prev.afternoonSession, available: e.target.checked }
-                          }))}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setScheduleForm(prev => ({
+                              ...prev,
+                              afternoonSession: { ...prev.afternoonSession, available: e.target.checked }
+                            }));
+                          }}
+                          onClick={handleInteractiveClick}
                           className="mr-2 h-4 w-4 rounded border-gray-300 text-black focus:ring-black/20"
                         />
                         <span className="text-sm text-gray-800">Available</span>
@@ -1282,9 +1536,11 @@ export default function DoctorScheduleManagement() {
                 />
               </div>
             </div>
+            </form>
 
             <div className="flex justify-end space-x-3 mt-8">
               <button
+                type="button"
                 onClick={() => {
                   setShowAddModal(false);
                   setEditingSchedule(null);
@@ -1295,6 +1551,7 @@ export default function DoctorScheduleManagement() {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSaveSchedule}
                 className="px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-900 shadow-sm"
               >
@@ -1325,6 +1582,7 @@ export default function DoctorScheduleManagement() {
               </button>
             </div>
             
+            <form onSubmit={(e) => e.preventDefault()} noValidate>
             <div className="space-y-6">
               {/* Date Range Section */}
               <div className="bg-gray-50 rounded-lg p-6">
@@ -1340,6 +1598,12 @@ export default function DoctorScheduleManagement() {
                     value={bulkForm.startDate}
                     onChange={(e) => setBulkForm(prev => ({ ...prev, startDate: e.target.value }))}
                       min={todayStr}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onInvalid={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1350,6 +1614,12 @@ export default function DoctorScheduleManagement() {
                     value={bulkForm.endDate}
                     onChange={(e) => setBulkForm(prev => ({ ...prev, endDate: e.target.value }))}
                       min={bulkForm.startDate || todayStr}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onInvalid={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="block w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -1733,6 +2003,7 @@ export default function DoctorScheduleManagement() {
                 </div>
               )}
             </div>
+            </form>
 
             <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
               <div className="text-sm text-gray-500">
@@ -1782,6 +2053,7 @@ export default function DoctorScheduleManagement() {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Bulk Delete Schedules</h3>
             
+            <form onSubmit={(e) => e.preventDefault()} noValidate>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Delete Type</label>
@@ -1818,6 +2090,12 @@ export default function DoctorScheduleManagement() {
                       value={bulkDeleteForm.startDate}
                       onChange={(e) => setBulkDeleteForm(prev => ({ ...prev, startDate: e.target.value }))}
                       min={todayStr}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onInvalid={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     />
                   </div>
@@ -1828,6 +2106,12 @@ export default function DoctorScheduleManagement() {
                       value={bulkDeleteForm.endDate}
                       onChange={(e) => setBulkDeleteForm(prev => ({ ...prev, endDate: e.target.value }))}
                       min={bulkDeleteForm.startDate || todayStr}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onInvalid={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     />
                   </div>
@@ -1840,6 +2124,7 @@ export default function DoctorScheduleManagement() {
                 </div>
               )}
             </div>
+            </form>
 
             <div className="flex justify-end space-x-3 mt-6">
               <button

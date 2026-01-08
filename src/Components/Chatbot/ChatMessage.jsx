@@ -22,6 +22,7 @@ const ChatMessage = ({ message }) => {
         return <HiChat className="w-4 h-4 text-blue-500" />;
       case 'cancel_redirect':
       case 'reschedule_redirect':
+      case 'account_redirect':
         return <HiExternalLink className="w-4 h-4 text-purple-500" />;
       case 'hospital_info':
         return <HiOfficeBuilding className="w-4 h-4 text-green-500" />;
@@ -42,6 +43,7 @@ const ChatMessage = ({ message }) => {
         return 'bg-blue-50 border-blue-200 text-blue-800';
       case 'cancel_redirect':
       case 'reschedule_redirect':
+      case 'account_redirect':
         return 'bg-purple-50 border-purple-200 text-purple-800';
       case 'hospital_info':
         return 'bg-green-50 border-green-200 text-green-800';
@@ -51,6 +53,7 @@ const ChatMessage = ({ message }) => {
   };
 
   const handleLinkClick = (path) => {
+    console.log('🔗 Chatbot link clicked:', path);
     navigate(path);
   };
 
@@ -60,14 +63,17 @@ const ChatMessage = ({ message }) => {
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, path) => {
+        console.log('🔗 Processing link:', { match, linkText, path });
         return `<span class="text-blue-600 underline hover:text-blue-800 cursor-pointer font-medium" data-path="${path}">${linkText}</span>`;
       })
       .replace(/\n/g, '<br />');
     
+    console.log('📝 Formatted message:', formatted);
     return formatted;
   };
 
   const handleMessageClick = (e) => {
+    console.log('🖱️ Message clicked:', e.target, 'Dataset:', e.target.dataset);
     if (e.target.dataset.path) {
       handleLinkClick(e.target.dataset.path);
     }

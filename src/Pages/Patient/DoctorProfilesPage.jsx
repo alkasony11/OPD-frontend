@@ -19,10 +19,14 @@ export default function DoctorProfilesPage() {
 
   const fetchDoctors = async () => {
     try {
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/doctors');
-      setDoctors(response.data);
+      console.log('🔍 Fetching doctors from:', `${API_CONFIG.BASE_URL}/api/patient/doctors`);
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/doctors`);
+      console.log('✅ Doctors API response:', response.data);
+      console.log('📊 Number of doctors:', Array.isArray(response.data) ? response.data.length : 'Not an array');
+      setDoctors(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('Error fetching doctors:', error);
+      console.error('❌ Error fetching doctors:', error);
+      setDoctors([]);
     } finally {
       setLoading(false);
     }
@@ -30,14 +34,14 @@ export default function DoctorProfilesPage() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await axios.get('${API_CONFIG.BASE_URL}/api/patient/departments');
+      const response = await axios.get(`${API_CONFIG.BASE_URL}/api/patient/departments`);
       setDepartments(response.data.departments || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
     }
   };
 
-  const filteredDoctors = doctors.filter(doctor => {
+  const filteredDoctors = (doctors || []).filter(doctor => {
     const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doctor.doctor_info?.specialization?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -146,18 +150,21 @@ export default function DoctorProfilesPage() {
                 <div className="p-6">
                   {/* Doctor Photo */}
                   <div className="flex justify-center mb-4">
-                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                      {doctor.profile_photo ? (
+                    <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                      {doctor.profile_photo || doctor.profileImage ? (
                         <img
-                          src={doctor.profile_photo}
+                          src={doctor.profile_photo || doctor.profileImage}
                           alt={doctor.name}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
                         />
-                      ) : (
-                        <div className="w-full h-full bg-gray-600 flex items-center justify-center text-white text-2xl font-bold">
-                          {doctor.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`w-full h-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold ${doctor.profile_photo || doctor.profileImage ? 'hidden' : 'flex'}`}>
+                        {doctor.name.charAt(0).toUpperCase()}
+                      </div>
                     </div>
                   </div>
 

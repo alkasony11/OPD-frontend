@@ -29,6 +29,12 @@ export default function ContactSection() {
         const u = JSON.parse(userStr);
         setIsLoggedIn(true);
         setPatient(u);
+        // Set email for logged-in users
+        if (u?.email) {
+          setEmail(u.email);
+          // Clear any existing email errors for logged-in users
+          setErrors(prev => ({ ...prev, email: '' }));
+        }
       } else {
         setIsLoggedIn(false);
         setPatient(null);
@@ -216,6 +222,14 @@ export default function ContactSection() {
         newErrors.lastName = lastNameError;
         hasErrors = true;
       }
+      if (emailError) {
+        newErrors.email = emailError;
+        hasErrors = true;
+      }
+    } else {
+      // For logged-in users, validate their email from patient data
+      const userEmail = patient?.email || email || '';
+      const emailError = validateEmail(userEmail);
       if (emailError) {
         newErrors.email = emailError;
         hasErrors = true;
@@ -437,7 +451,7 @@ export default function ContactSection() {
                   <input
                     type="email"
                     required={!isLoggedIn}
-                    value={isLoggedIn ? (patient?.email || '') : email}
+                    value={isLoggedIn ? (patient?.email || email || '') : email}
                     onChange={(e) => isLoggedIn ? null : handleFieldChange('email', e.target.value)}
                     onBlur={() => !isLoggedIn && setTouched(prev => ({ ...prev, email: true }))}
                     disabled={isLoggedIn}

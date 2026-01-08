@@ -11,7 +11,6 @@ import {
   HiX,
   HiUser,
   HiClock,
-  HiChartBar,
   HiDocumentText,
   HiSearch,
   HiExclamation,
@@ -34,8 +33,6 @@ export default function DoctorSidebar() {
     { name: 'History', icon: HiArchive, path: '/doctor/history' },
     { name: 'Schedule', icon: HiClock, path: '/doctor/schedule' },
     { name: 'Leave Requests', icon: HiExclamation, path: '/doctor/leave-requests' },
-    { name: 'Medical Records', icon: HiDocumentText, path: '/doctor/records' },
-    { name: 'Reports', icon: HiChartBar, path: '/doctor/reports' },
     { name: 'Settings', icon: HiCog, path: '/doctor/settings' },
   ];
 
