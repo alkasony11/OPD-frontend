@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Photo Test</title>
+</head>
+<body>
+    <h1>Photo Display Test</h1>
+    <div id="test-container">
+        <p>Loading...</p>
+    </div>
+
+    <script>
+        // Test the Cloudinary URL directly
+        const photoUrl = 'https://res.cloudinary.com/djc8wjh3w/image/upload/w_256,h_256,c_fill,q_auto,f_auto/v1760936219/opd-profiles/patient-profile-68f5304c88cf16cc6e876c56-1760936213761.jpg';
+        
+        const container = document.getElementById('test-container');
+        
+        // Test 1: Direct image display
+        container.innerHTML = `
+            <h2>Test 1: Direct Image Display</h2>
+            <img src="${photoUrl}" 
+                 alt="Profile Photo" 
+                 style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;"
+                 onload="console.log('Image loaded successfully')"
+                 onerror="console.error('Image failed to load:', this.src)">
+            <p>URL: ${photoUrl}</p>
+        `;
+        
+        // Test 2: Different sizes
+        const sizes = [
+            { name: 'Small (32x32)', url: photoUrl.replace('w_256,h_256', 'w_32,h_32') },
+            { name: 'Medium (64x64)', url: photoUrl.replace('w_256,h_256', 'w_64,h_64') },
+            { name: 'Large (128x128)', url: photoUrl.replace('w_256,h_256', 'w_128,h_128') },
+            { name: 'XLarge (256x256)', url: photoUrl }
+        ];
+        
+        sizes.forEach((size, index) => {
+            const img = document.createElement('img');
+            img.src = size.url;
+            img.alt = size.name;
+            img.style.cssText = 'width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin: 5px; border: 1px solid #ccc;';
+            img.onload = () => console.log(`${size.name} loaded successfully`);
+            img.onerror = () => console.error(`${size.name} failed to load`);
+            
+            const div = document.createElement('div');
+            div.innerHTML = `<p>${size.name}:</p>`;
+            div.appendChild(img);
+            container.appendChild(div);
+        });
+    </script>
+</body>
+</html>

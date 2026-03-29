@@ -1,0 +1,365 @@
+import { useState, useContext, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FcGoogle } from 'react-icons/fc';
+import { useSignIn, useAuth } from '@clerk/clerk-react';
+import axios from 'axios';
+// Removed SweetAlert2 import - no more alerts on login
+import { AuthContext } from '../App';
+import { HiArrowLeft } from 'react-icons/hi';
+import { useLoginValidation } from '../hooks/useFormValidation';
+import { ValidatedInput, PasswordInput } from '../Components/FormComponents';
+import { API_ENDPOINTS } from '../config/api';
+
+export default function Login() {
+  const navigate = useNavigate();
+  const { setIsLoggedIn, redirectPath, setRedirectPath, setToken } = useContext(AuthContext);
+  const { signIn, isLoaded } = useSignIn();
+  const { signOut } = useAuth();
+  
+  // Use the validation hook
+  const {
+    values: formData,
+    errors,
+    touched,
+    isValid,
+    handleChange,
+    handleBlur,
+    handleFocus,
+    validateAllFields,
+    setFieldError,
+    clearFieldError
+  } = useLoginValidation();
+
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false); 
+  const [serverError, setServerError] = useState('');
+  const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  // Removed auth method checking - users can use either login method
+
+  // Check if user is already logged in and redirect them
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    const rememberMeData = localStorage.getItem('rememberMe');
+
+    console.log('Auto-login check:', {
+      hasToken: !!token,
+      hasUserData: !!userData,
+      rememberMe: rememberMeData
+    });
+
+    if (token && userData) {
+      // Check if JWT token has expired
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < currentTime) {
+          // JWT token expired, clear data
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('rememberMe');
+          console.log('Token expired, clearing auth data');
+          return;
+        }
+      } catch (error) {
+        // Invalid token, clear data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        console.log('Invalid token, clearing auth data');
+        return;
+      }
+
+      try {
+        const user = JSON.parse(userData);
+        setIsLoggedIn(true);
+
+        // Redirect based on user role
+        switch (user.role) {
+          case 'admin':
+            navigate('/admin/dashboard', { replace: true });
+            break;
+          case 'doctor':
+            navigate('/doctor/dashboard', { replace: true });
+            break;
+          case 'receptionist':
+            navigate('/', { replace: true }); // No specific receptionist dashboard yet
+            break;
+          default:
+            navigate('/', { replace: true });
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('tokenExpiration');
+      }
+    }
+
+    // Set remember me state if previously checked
+    if (rememberMeData === 'true') {
+      setRememberMe(true);
+    }
+  }, [navigate, setIsLoggedIn]);
+
+  // Handle email input change - no auth method checking needed
+  const handleEmailChange = (e) => {
+    handleChange(e);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Clear any previous server errors
+    setServerError('');
+    clearFieldError('email');
+    clearFieldError('password');
+    
+    // Validate all fields before submission
+    const validation = validateAllFields();
+    if (!validation.isValid) {
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, {
+        ...formData,
+        rememberMe
+      });
+      if (response.data?.user && (response.data.user.status === 'inactive' || response.data.user.isActive === false)) {
+        setServerError('Your account has been deactivated by the administrator. Please contact support.');
+        return;
+      }
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      setToken(response.data.token);
+      
+      // Handle remember me functionality
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        console.log('Remember me enabled - token expires in 30 days');
+      } else {
+        localStorage.removeItem('rememberMe');
+        console.log('Remember me disabled - using JWT expiration');
+      }
+      
+      setIsLoggedIn(true);
+
+      // Use the redirectTo from backend response
+      const redirectUrl = response.data.redirectTo || '/';
+      
+      // Login successful - redirect without alert
+      navigate(redirectUrl);
+      setRedirectPath('/');
+    } catch (err) {
+      const status = err.response?.status;
+      const errorMessage = err.response?.data?.message || 'Login failed';
+      const authMethod = err.response?.data?.authMethod;
+      
+      // Handle network errors
+      if (!err.response) {
+        setServerError('Network error. Please check your connection and try again.');
+        return;
+      }
+      
+      if (status === 403 || /deactivated/i.test(errorMessage)) {
+        setServerError('Your account has been deactivated by the administrator. Please contact support.');
+      } else if (status === 429) {
+        setServerError('Too many login attempts. Please try again later.');
+      } else if (status >= 500) {
+        setServerError('Server error. Please try again later.');
+      } else {
+        // Handle specific field errors
+        if (errorMessage.toLowerCase().includes('email')) {
+          setFieldError('email', errorMessage);
+        } else if (errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials')) {
+          setFieldError('password', 'Invalid email or password');
+        } else {
+          setServerError(errorMessage);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = () => {
+    proceedWithGoogleSignIn();
+  };
+
+  const proceedWithGoogleSignIn = async () => {
+    if (!isLoaded) return;
+
+    setGoogleLoading(true);
+    setServerError('');
+
+    try {
+      // First, ensure any existing Clerk session is cleared
+      try {
+        await signOut();
+      } catch (signOutError) {
+        console.log('No existing session to clear');
+      }
+
+      // Add a small delay and then initiate Google sign-in
+      setTimeout(async () => {
+        try {
+          // Use the authenticateWithRedirect method
+          await signIn.authenticateWithRedirect({
+            strategy: 'oauth_google',
+            redirectUrl: `${window.location.origin}/sso-callback`,
+            redirectUrlComplete: redirectPath || '/',
+            customOAuthParameters: {
+              prompt: 'select_account'
+            }
+          });
+        } catch (authError) {
+          console.error('Google authentication error:', authError);
+          setServerError('Google sign-in failed. Please try again.');
+          setGoogleLoading(false);
+        }
+      }, 500);
+
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      setServerError('Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
+      <div className="w-full max-w-md">
+        {/* Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+          >
+            <HiArrowLeft className="h-5 w-5 mr-2" />
+            Back
+          </button>
+        </div>
+
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-8">
+          Sign In
+        </h2>
+        <div className="bg-white rounded-xl shadow-md p-8">
+          {serverError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-fadeIn" role="alert" aria-live="polite">
+              {serverError}
+            </div>
+          )}
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <ValidatedInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleEmailChange}
+              onBlur={handleBlur}
+              onFocus={handleFocus}
+              error={errors.email}
+              touched={touched.email}
+              required
+              placeholder="Enter your email"
+              autoComplete="email"
+            />
+            
+            {/* Removed auth method checking UI - users can use either login method */}
+            
+            <PasswordInput
+              label="Password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onFocus={handleFocus}
+              error={errors.password}
+              touched={touched.password}
+              required
+              placeholder="Enter your password"
+              autoComplete="current-password"
+            />
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+                  Remember me
+                </label>
+              </div>
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Forgot password?
+              </Link>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={loading || !isValid}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
+                loading
+                  ? 'bg-gray-500 text-white cursor-not-allowed opacity-50'
+                  : isValid
+                    ? 'bg-black text-white hover:bg-gray-600 hover:shadow-lg'
+                    : 'bg-black text-white hover:bg-gray-600 hover:shadow-lg opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading || !isLoaded}
+              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FcGoogle className="h-5 w-5 mr-3" />
+                {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+            </button>
+
+            {googleLoading && (
+              <div className="mt-3 text-center">
+                <p className="text-sm text-gray-600">
+                  You'll be redirected to Google to select your account
+                </p>
+              </div>
+            )}
+          </form>
+          <p className="text-center text-gray-600 mt-6">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+              Sign up
+            </Link>
+          </p>
+          <p className="text-center text-gray-500 mt-2">
+            <Link to="/landing" className="text-gray-500 hover:text-gray-700 text-sm">
+              View landing page
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

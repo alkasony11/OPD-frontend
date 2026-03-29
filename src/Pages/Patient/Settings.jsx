@@ -1,0 +1,1030 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
+import Swal from 'sweetalert2';
+import {
+  CogIcon,
+  BellIcon,
+  ShieldCheckIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  TrashIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  CalendarDaysIcon,
+  FolderIcon
+} from '@heroicons/react/24/outline';
+import { usePasswordChangeValidation } from '../../hooks/useFormValidation';
+
+const Settings = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [activeQuickAccess, setActiveQuickAccess] = useState(null);
+  const [notifications, setNotifications] = useState({
+    emailNotifications: true,
+    smsNotifications: true,
+    appointmentReminders: true,
+    prescriptionReady: true,
+    paymentReminders: true
+  });
+  const [privacy, setPrivacy] = useState({
+    profileVisibility: 'private',
+    shareMedicalData: false,
+    allowDataCollection: true
+  });
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+
+  // Data for quick access sections
+  const [invoices, setInvoices] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [consultedAppointments, setConsultedAppointments] = useState([]);
+  const [cancelledAppointments, setCancelledAppointments] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Password change validation
+  const passwordValidation = usePasswordChangeValidation({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  useEffect(() => {
+    fetchUserData();
+    fetchSettings();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success && response.data.settings) {
+        setNotifications(response.data.settings.notifications || notifications);
+        setPrivacy(response.data.settings.privacy || privacy);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      // Use default settings if API fails
+    }
+  };
+
+  const fetchInvoices = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/invoices`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setInvoices(response.data.invoices || []);
+      }
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setInvoices([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      setAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchConsultedAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/consulted-appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setConsultedAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching consulted appointments:', error);
+      setConsultedAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const fetchCancelledAppointments = async () => {
+    try {
+      setLoadingData(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/settings/cancelled-appointments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setCancelledAppointments(response.data.appointments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching cancelled appointments:', error);
+      setCancelledAppointments([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleQuickAccessClick = (section) => {
+    setActiveQuickAccess(section);
+
+    // Fetch data based on the selected section
+    switch (section) {
+      case 'invoices':
+        fetchInvoices();
+        break;
+      case 'appointments':
+        fetchAppointments();
+        break;
+      case 'consulted':
+        fetchConsultedAppointments();
+        break;
+      case 'cancelled':
+        fetchCancelledAppointments();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // No default tab - let users click to view sections
+
+  const handleNotificationChange = (key, value) => {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handlePrivacyChange = (key, value) => {
+    setPrivacy(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveSettings = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API_BASE_URL}/api/patient/settings`, {
+        notifications,
+        privacy
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        Swal.fire('Success', 'Settings saved successfully!', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      Swal.fire('Error', 'Failed to save settings', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Change Password',
+      html: `
+        <input id="current-password" type="password" placeholder="Current Password" class="swal2-input">
+        <input id="new-password" type="password" placeholder="New Password" class="swal2-input">
+        <input id="confirm-password" type="password" placeholder="Confirm New Password" class="swal2-input">
+        <div class="text-xs text-gray-600 mt-2">
+          Password must be at least 8 characters with uppercase, lowercase, numbers, and no spaces
+        </div>
+      `,
+      focusConfirm: false,
+      preConfirm: () => {
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+
+        // Validate using our validation function
+        const validation = passwordValidation.validateForm({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        });
+
+        if (!validation.isValid) {
+          const firstError = Object.values(validation.errors)[0];
+          Swal.showValidationMessage(firstError);
+          return false;
+        }
+
+        return { currentPassword, newPassword };
+      }
+    });
+
+    if (formValues) {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+
+        await axios.put(`${API_BASE_URL}/api/patient/change-password`, {
+          currentPassword: formValues.currentPassword,
+          newPassword: formValues.newPassword
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        Swal.fire('Success', 'Password changed successfully!', 'success');
+      } catch (error) {
+        console.error('Error changing password:', error);
+        Swal.fire('Error', error.response?.data?.message || 'Failed to change password', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      Swal.fire('Error', 'Please type DELETE to confirm account deletion', 'error');
+      return;
+    }
+
+    // Ask for password
+    const { value: password } = await Swal.fire({
+      title: 'Confirm Account Deletion',
+      text: 'Enter your password to confirm account deletion',
+      input: 'password',
+      inputPlaceholder: 'Enter your password',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Delete Account',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Password is required!';
+        }
+        return null;
+      }
+    });
+
+    if (password) {
+      const result = await Swal.fire({
+        title: 'Are you absolutely sure?',
+        text: 'This action cannot be undone. All your data will be permanently deleted.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete my account',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (result.isConfirmed) {
+        try {
+          setLoading(true);
+          const token = localStorage.getItem('token');
+
+          const response = await axios.delete(`${API_BASE_URL}/api/patient/account`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { password: password }
+          });
+
+          if (response.data.success) {
+            // Clear local storage and redirect
+            localStorage.clear();
+            Swal.fire('Account Deleted', 'Your account has been permanently deleted.', 'success');
+            navigate('/');
+          }
+        } catch (error) {
+          console.error('Error deleting account:', error);
+          const errorMessage = error.response?.data?.message || 'Failed to delete account';
+          Swal.fire('Error', errorMessage, 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="mt-2 text-gray-600">Manage your account preferences and privacy settings</p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Invoices Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('invoices')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <DocumentTextIcon className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
+                    <p className="text-sm text-gray-500">View your payment history and receipts</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{invoices.length} invoices</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'invoices' ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
+            </div>
+
+            {activeQuickAccess === 'invoices' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                    <span className="ml-3 text-gray-600">Loading invoices...</span>
+                  </div>
+                ) : (
+                  <InvoicesContent invoices={invoices} />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* My Appointments Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('appointments')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CalendarDaysIcon className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">My Appointments</h3>
+                    <p className="text-sm text-gray-500">View your upcoming appointments</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{appointments.length} appointments</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'appointments' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
+            </div>
+
+            {activeQuickAccess === 'appointments' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                    <span className="ml-3 text-gray-600">Loading appointments...</span>
+                  </div>
+                ) : (
+                  <AppointmentsContent appointments={appointments} />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Appointment History Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('consulted')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <ClockIcon className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Consultation History</h3>
+                    <p className="text-sm text-gray-500">View your completed video consultations and medical records</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{consultedAppointments.length} consultations</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'consulted' ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
+            </div>
+
+            {activeQuickAccess === 'consulted' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-3 text-gray-600">Loading history...</span>
+                  </div>
+                ) : (
+                  <ConsultedAppointmentsContent appointments={consultedAppointments} />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Cancelled Appointments Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleQuickAccessClick('cancelled')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <XMarkIcon className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Cancelled Appointments</h3>
+                    <p className="text-sm text-gray-500">View your cancelled or rescheduled appointments</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{cancelledAppointments.length} cancelled</span>
+                  <div className={`w-2 h-2 rounded-full ${activeQuickAccess === 'cancelled' ? 'bg-red-500' : 'bg-gray-300'}`}></div>
+                </div>
+              </div>
+            </div>
+
+            {activeQuickAccess === 'cancelled' && (
+              <div className="border-t border-gray-200 p-6">
+                {loadingData ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <span className="ml-3 text-gray-600">Loading cancelled appointments...</span>
+                  </div>
+                ) : (
+                  <CancelledAppointmentsContent appointments={cancelledAppointments} />
+                )}
+              </div>
+            )}
+          </div>
+
+
+          {/* Medical Records Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div
+              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => navigate('/medical-records')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <FolderIcon className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Medical Records Vault</h3>
+                    <p className="text-sm text-gray-500">Manage your uploaded health documents</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">Go to Vault</span>
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
+            <div className="flex items-center mb-6">
+              <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+              <h2 className="text-xl font-semibold text-red-900">Danger Zone</h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Delete Account</h3>
+                  <p className="text-sm text-gray-500">Permanently delete your account and all data</p>
+                </div>
+                <button
+                  onClick={() => setShowDeleteAccount(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Delete Account Modal */}
+        {showDeleteAccount && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex items-center mb-4">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">
+                This action cannot be undone. All your data will be permanently deleted.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type <span className="font-mono bg-gray-100 px-2 py-1 rounded">DELETE</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Type DELETE here"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteAccount(false);
+                    setDeleteConfirmation('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmation !== 'DELETE' || loading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Deleting...' : 'Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Content Components
+const InvoicesContent = ({ invoices }) => {
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const downloadInvoice = async (invoiceId) => {
+    try {
+      setDownloading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/patient/invoices/${invoiceId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice-${invoiceId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      alert('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const sendInvoiceEmail = async (invoiceId) => {
+    try {
+      setEmailing(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/api/patient/invoices/${invoiceId}/email`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        alert(`Invoice sent successfully to your email address: ${response.data.email}`);
+      } else {
+        alert('Failed to send invoice email. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+      alert('Failed to send invoice email. Please try again.');
+    } finally {
+      setEmailing(false);
+    }
+  };
+
+  if (invoices.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No invoices found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {invoices.map((invoice) => (
+        <div
+          key={invoice.id}
+          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          onClick={() => setSelectedInvoice(selectedInvoice === invoice.id ? null : invoice.id)}
+        >
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900">Invoice #{invoice.invoice_number || invoice.id}</h3>
+              <p className="text-sm text-gray-500">Date: {formatDate(invoice.created_at || invoice.appointment?.appointmentDate)}</p>
+              {invoice.appointment && (
+                <p className="text-sm text-gray-500">Doctor: {invoice.appointment.doctorName}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-gray-900">{formatCurrency(invoice.amount || 0)}</p>
+              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${invoice.payment_status === 'paid'
+                ? 'bg-green-100 text-green-800'
+                : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                {invoice.payment_status?.charAt(0).toUpperCase() + invoice.payment_status?.slice(1)}
+              </span>
+            </div>
+          </div>
+
+          {/* Expanded Details */}
+          {selectedInvoice === invoice.id && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div>
+                  <span className="text-gray-500">Payment Method:</span>
+                  <p className="font-medium">{invoice.payment_method || 'Card'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Transaction ID:</span>
+                  <p className="font-medium">{invoice.transaction_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Service:</span>
+                  <p className="font-medium">{invoice.appointment?.departmentName || 'General Consultation'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Duration:</span>
+                  <p className="font-medium">{invoice.appointment?.duration || '30 minutes'}</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    downloadInvoice(invoice.id);
+                  }}
+                  disabled={downloading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  <span>{downloading ? 'Downloading...' : 'Download PDF'}</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendInvoiceEmail(invoice.id);
+                  }}
+                  disabled={emailing}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emailing ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                  <span>{emailing ? 'Sending...' : 'Email Invoice'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const AppointmentsContent = ({ appointments }) => {
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <CalendarDaysIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No appointments found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div
+          key={appointment.id}
+          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          onClick={() => setSelectedAppointment(selectedAppointment === appointment.id ? null : appointment.id)}
+        >
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
+              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${appointment.status === 'confirmed'
+                ? 'bg-green-100 text-green-800'
+                : appointment.status === 'pending'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-800'
+                }`}>
+                {appointment.status?.charAt(0).toUpperCase() + appointment.status?.slice(1)}
+              </span>
+            </div>
+          </div>
+
+          {/* Expanded Details */}
+          {selectedAppointment === appointment.id && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Token Number:</span>
+                  <p className="font-medium">{appointment.tokenNumber || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Appointment Type:</span>
+                  <p className="font-medium">{appointment.appointmentType || 'In-Person'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Estimated Wait:</span>
+                  <p className="font-medium">{appointment.estimatedWaitTime || '30 minutes'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Fee:</span>
+                  <p className="font-medium">₹{appointment.fee || '500'}</p>
+                </div>
+                {appointment.meetingLink && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500">Meeting Link:</span>
+                    <p className="font-medium text-blue-600">{appointment.meetingLink}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ConsultedAppointmentsContent = ({ appointments }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <ClockIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No consultation history found</p>
+        <p className="text-sm text-gray-400 mt-2">Your completed consultations will appear here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 transition-colors">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <h3 className="font-semibold text-gray-900 text-lg">{appointment.doctorName}</h3>
+                {appointment.isVideoConsultation && (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                    📹 Video Consultation
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mb-1">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">
+                📅 {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}
+              </p>
+              {appointment.consultationCompletedAt && (
+                <p className="text-xs text-gray-400 mt-1">
+                  ✅ Completed: {formatDateTime(appointment.consultationCompletedAt)}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                ✅ Completed
+              </span>
+            </div>
+          </div>
+
+          {/* Video Consultation Details */}
+          {appointment.isVideoConsultation && appointment.meetingLink && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="text-sm font-medium text-purple-900">📹 Video Consultation Details</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Meeting ID:</span>
+                  <span className="ml-2 font-mono text-xs bg-white px-2 py-1 rounded border">
+                    {appointment.meetingLink.meetingId || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="ml-2">
+                    {appointment.meetingLink.meetingEndedAt && appointment.meetingLink.doctorJoinedAt
+                      ? `${Math.round((new Date(appointment.meetingLink.meetingEndedAt) - new Date(appointment.meetingLink.doctorJoinedAt)) / 60000)} minutes`
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Consultation Data */}
+          {appointment.consultationData && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h4 className="text-sm font-medium text-blue-900 mb-3">📋 Consultation Summary</h4>
+              <div className="space-y-2 text-sm">
+                {appointment.consultationData.chiefComplaint && (
+                  <div>
+                    <span className="font-medium text-gray-700">Chief Complaint:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.chiefComplaint}</p>
+                  </div>
+                )}
+                {appointment.consultationData.diagnosis && (
+                  <div>
+                    <span className="font-medium text-gray-700">Diagnosis:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.diagnosis}</p>
+                  </div>
+                )}
+                {appointment.consultationData.treatmentPlan && (
+                  <div>
+                    <span className="font-medium text-gray-700">Treatment Plan:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.treatmentPlan}</p>
+                  </div>
+                )}
+                {appointment.consultationData.medications && (
+                  <div>
+                    <span className="font-medium text-gray-700">Medications:</span>
+                    <p className="text-gray-600 mt-1">{appointment.consultationData.medications}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Legacy Diagnosis */}
+          {appointment.diagnosis && !appointment.consultationData?.diagnosis && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">📋 Diagnosis</h4>
+              <p className="text-sm text-gray-600">{appointment.diagnosis}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const CancelledAppointmentsContent = ({ appointments }) => {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (appointments.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <XMarkIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No cancelled appointments found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {appointments.map((appointment) => (
+        <div key={appointment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium text-gray-900">{appointment.doctorName}</h3>
+              <p className="text-sm text-gray-500">{appointment.departmentName}</p>
+              <p className="text-sm text-gray-500">Date: {formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+              {appointment.cancellationReason && (
+                <p className="text-sm text-gray-600 mt-2">Reason: {appointment.cancellationReason}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                Cancelled
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default Settings;
